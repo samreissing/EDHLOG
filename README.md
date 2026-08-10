@@ -4,15 +4,13 @@ A bare-bones static site for tracking your 30-cent Commander games and stats —
 
 ## Features
 
-- **Dashboard** — overall win rate, color identity stats, bracket breakdown, active/retired decks
-- **Decks** — full deck list with games/wins/losses; add new decks
-- **Rankings** — decks sorted by adjusted win rate (overall + per bracket)
-- **By Year** — games, wins, and win rate per calendar year
-- **100-Game Stats** — rolling and cumulative win rate windows
-- **Game Log** — filterable history with delete
-- **Log Game** — full form + quick W/L buttons for fast entry
+Three pages with sub-tabs and filters:
 
-Data is stored in **localStorage** (no server, no accounts). Export/import JSON for backups. "Reset to seed" reloads your original spreadsheet data.
+- **Stats** — Overview, Colors & Brackets, Rankings (with bracket/retired filters), Trends (100-game windows)
+- **Decks** — Active / Retired / All with bracket filter and sort; add new decks
+- **Games** — History (filter by deck, result, year) and Log Game (form + quick W/L)
+
+MTG mana symbol images for color identity. Data in **localStorage** with JSON export/import.
 
 ## Quick Start
 
