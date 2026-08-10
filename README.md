@@ -1,6 +1,6 @@
 # EDHLOG
 
-A bare-bones static site for tracking your 30-cent Commander games and stats — inspired by your spreadsheet tracker.
+A bare-bones static site for tracking your Commander games and stats.
 
 ## Features
 

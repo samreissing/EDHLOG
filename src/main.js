@@ -52,15 +52,125 @@ let deckSort = "games";
 let deckBracketFilter = "";
 let rankBracketFilter = "";
 let rankShowRetired = true;
+let logFilters = { deck: "", result: "", year: "" };
 
 async function boot() {
   data = await initData();
+  bindEvents();
   renderNav();
   render();
-  bindGlobalActions();
 }
 
-function bindGlobalActions() {
+function bindEvents() {
+  document.getElementById("nav").addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-view]");
+    if (!btn) return;
+    currentView = btn.dataset.view;
+    renderNav();
+    render();
+  });
+
+  document.getElementById("main").addEventListener("click", (e) => {
+    const statsBtn = e.target.closest("[data-stats-tab]");
+    if (statsBtn) {
+      statsTab = statsBtn.getAttribute("data-stats-tab");
+      render();
+      return;
+    }
+
+    const decksBtn = e.target.closest("[data-decks-tab]");
+    if (decksBtn) {
+      decksTab = decksBtn.getAttribute("data-decks-tab");
+      render();
+      return;
+    }
+
+    const gamesBtn = e.target.closest("[data-games-tab]");
+    if (gamesBtn) {
+      gamesTab = gamesBtn.getAttribute("data-games-tab");
+      render();
+      return;
+    }
+
+    if (e.target.id === "add-deck-btn") {
+      document.getElementById("deck-modal")?.classList.remove("hidden");
+      return;
+    }
+    if (e.target.id === "cancel-deck") {
+      document.getElementById("deck-modal")?.classList.add("hidden");
+      return;
+    }
+
+    const deleteBtn = e.target.closest(".delete-game");
+    if (deleteBtn) {
+      if (!confirm("Delete this game?")) return;
+      data.games = data.games.filter((g) => g.id !== deleteBtn.dataset.id);
+      saveData(data);
+      render();
+      toast("Deleted");
+      return;
+    }
+
+    const quickWin = e.target.closest(".quick-win");
+    const quickLoss = e.target.closest(".quick-loss");
+    if (quickWin || quickLoss) {
+      addGame({
+        date: new Date().toISOString().slice(0, 10),
+        deck: (quickWin || quickLoss).dataset.deck,
+        result: quickWin ? "Win" : "Loss",
+      });
+    }
+  });
+
+  document.getElementById("main").addEventListener("change", (e) => {
+    const { id, value, checked } = e.target;
+
+    if (id === "rank-bracket") {
+      rankBracketFilter = value;
+      render();
+    } else if (id === "rank-retired") {
+      rankShowRetired = checked;
+      render();
+    } else if (id === "deck-bracket") {
+      deckBracketFilter = value;
+      render();
+    } else if (id === "deck-sort") {
+      deckSort = value;
+      render();
+    } else if (id === "filter-deck" || id === "filter-result" || id === "filter-year") {
+      logFilters = {
+        deck: document.getElementById("filter-deck")?.value || "",
+        result: document.getElementById("filter-result")?.value || "",
+        year: document.getElementById("filter-year")?.value || "",
+      };
+      applyLogFilters();
+    }
+  });
+
+  document.getElementById("main").addEventListener("submit", (e) => {
+    if (e.target.id === "add-game-form") {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      addGame({ date: fd.get("date"), deck: fd.get("deck"), result: fd.get("result") });
+    } else if (e.target.id === "deck-form") {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const deck = {
+        name: fd.get("name").trim(),
+        bracket: Number(fd.get("bracket")),
+        colors: fd.getAll("color"),
+        retired: fd.get("retired") === "on",
+      };
+      if (data.decks.some((d) => d.name === deck.name)) return toast("Deck exists", true);
+      data.decks.push(deck);
+      saveData(data);
+      document.getElementById("deck-modal")?.classList.add("hidden");
+      e.target.reset();
+      render();
+      toast(`Added ${deck.name}`);
+    }
+  });
+
   document.getElementById("export-btn").addEventListener("click", exportData);
   document.getElementById("import-btn").addEventListener("click", () => {
     document.getElementById("import-file").click();
@@ -91,31 +201,15 @@ function renderNav() {
     (v) =>
       `<button type="button" class="nav-btn ${v.id === currentView ? "active" : ""}" data-view="${v.id}">${v.label}</button>`
   ).join("");
-  nav.querySelectorAll(".nav-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      currentView = btn.dataset.view;
-      renderNav();
-      render();
-    });
-  });
 }
 
 function subTabs(tabs, active, attr) {
-  return `<div class="sub-tabs">${tabs
+  return `<div class="sub-tabs" role="tablist">${tabs
     .map(
       (t) =>
-        `<button type="button" class="sub-tab ${t.id === active ? "active" : ""}" data-${attr}="${t.id}">${t.label}</button>`
+        `<button type="button" role="tab" aria-selected="${t.id === active}" class="sub-tab ${t.id === active ? "active" : ""}" data-${attr}="${t.id}">${t.label}</button>`
     )
     .join("")}</div>`;
-}
-
-function bindSubTabs(attr, setter) {
-  document.querySelectorAll(`[data-${attr}]`).forEach((btn) => {
-    btn.addEventListener("click", () => {
-      setter(btn.dataset[attr]);
-      render();
-    });
-  });
 }
 
 function getStats() {
@@ -138,20 +232,26 @@ function render() {
   else if (currentView === "decks") main.innerHTML = renderDecks();
   else main.innerHTML = renderGames();
 
-  bindSubTabs("stats-tab", (id) => {
-    statsTab = id;
-  });
-  bindSubTabs("decks-tab", (id) => {
-    decksTab = id;
-  });
-  bindSubTabs("games-tab", (id) => {
-    gamesTab = id;
-  });
+  if (currentView === "games" && gamesTab === "history") applyLogFilters();
+}
 
-  if (currentView === "stats" && statsTab === "rankings") bindRankFilters();
-  if (currentView === "decks") bindDeckFilters();
-  if (currentView === "games" && gamesTab === "history") bindLogFilters();
-  if (currentView === "games" && gamesTab === "log") bindAddGame();
+function applyLogFilters() {
+  const deck = logFilters.deck;
+  const result = logFilters.result;
+  const year = logFilters.year;
+  const count = document.getElementById("filter-count");
+  if (!count) return;
+
+  let visible = 0;
+  document.querySelectorAll("#game-log-table tbody tr").forEach((row) => {
+    const show =
+      (!deck || row.dataset.deck === deck) &&
+      (!result || row.dataset.result === result) &&
+      (!year || row.dataset.year === year);
+    row.hidden = !show;
+    if (show) visible++;
+  });
+  count.textContent = `${visible} games`;
 }
 
 function statCard(label, value) {
@@ -231,7 +331,7 @@ function renderStats() {
               (d, i) => `
             <tr>
               <td>${i + 1}</td>
-              <td class="deck-name">${d.name}${d.retired ? '<span class="tag retired">retired</span>' : ""}</td>
+              <td class="deck-name">${escapeHtml(d.name)}${d.retired ? '<span class="tag retired">retired</span>' : ""}</td>
               <td>${colorBadge(d.colors)}</td>
               <td>${d.bracket}</td><td>${d.games}</td>
               <td class="highlight">${pct(d.normalizedWr)}</td><td>${pct(d.winRate)}</td>
@@ -240,7 +340,7 @@ function renderStats() {
             .join("")}
         </tbody>
       </table>`;
-  } else {
+  } else if (statsTab === "trends") {
     if (!s.rolling.windows.length) {
       body = '<p class="empty">Need 100+ games for trend data.</p>';
     } else {
@@ -265,12 +365,20 @@ function renderStats() {
   return `<section class="section">${subTabs(STATS_TABS, statsTab, "stats-tab")}${body}</section>`;
 }
 
+function escapeHtml(str) {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 function miniDeckTable(decks) {
   return `
     <table class="table compact">
       <thead><tr><th>Deck</th><th>CI</th><th>G</th><th>WR</th></tr></thead>
       <tbody>
-        ${decks.map((d) => `<tr><td class="deck-name">${d.name}</td><td>${colorBadge(d.colors)}</td><td>${d.games}</td><td>${pct(d.winRate)}</td></tr>`).join("")}
+        ${decks.map((d) => `<tr><td class="deck-name">${escapeHtml(d.name)}</td><td>${colorBadge(d.colors)}</td><td>${d.games}</td><td>${pct(d.winRate)}</td></tr>`).join("")}
       </tbody>
     </table>`;
 }
@@ -305,7 +413,7 @@ function renderDecks() {
       <table class="table">
         <thead><tr><th>Deck</th><th>CI</th><th>Brkt</th><th>G</th><th>W</th><th>L</th><th>WR</th></tr></thead>
         <tbody>
-          ${list.length ? list.map((d) => `<tr><td class="deck-name">${d.name}</td><td>${colorBadge(d.colors)}</td><td>${d.bracket}</td><td>${d.games}</td><td>${d.wins}</td><td>${d.losses}</td><td>${d.games ? pct(d.winRate) : "—"}</td></tr>`).join("") : '<tr><td colspan="7" class="empty">No decks match.</td></tr>'}
+          ${list.length ? list.map((d) => `<tr><td class="deck-name">${escapeHtml(d.name)}</td><td>${colorBadge(d.colors)}</td><td>${d.bracket}</td><td>${d.games}</td><td>${d.wins}</td><td>${d.losses}</td><td>${d.games ? pct(d.winRate) : "—"}</td></tr>`).join("") : '<tr><td colspan="7" class="empty">No decks match.</td></tr>'}
         </tbody>
       </table>
     </section>
@@ -328,30 +436,10 @@ function renderDecks() {
     </div>`;
 }
 
-function bindRankFilters() {
-  document.getElementById("rank-bracket")?.addEventListener("change", (e) => {
-    rankBracketFilter = e.target.value;
-    render();
-  });
-  document.getElementById("rank-retired")?.addEventListener("change", (e) => {
-    rankShowRetired = e.target.checked;
-    render();
-  });
-}
-
-function bindDeckFilters() {
-  document.getElementById("deck-bracket")?.addEventListener("change", (e) => {
-    deckBracketFilter = e.target.value;
-    render();
-  });
-  document.getElementById("deck-sort")?.addEventListener("change", (e) => {
-    deckSort = e.target.value;
-    render();
-  });
-}
-
 function renderGames() {
-  if (gamesTab === "log") return `<section class="section narrow">${subTabs(GAMES_TABS, gamesTab, "games-tab")}${renderLogForm()}</section>`;
+  if (gamesTab === "log") {
+    return `<section class="section narrow">${subTabs(GAMES_TABS, gamesTab, "games-tab")}${renderLogForm()}</section>`;
+  }
 
   const sorted = [...data.games].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
   const decks = [...new Set(data.decks.map((d) => d.name))].sort();
@@ -361,9 +449,9 @@ function renderGames() {
     <section class="section">
       ${subTabs(GAMES_TABS, gamesTab, "games-tab")}
       <div class="filters">
-        <label>Deck<select id="filter-deck"><option value="">All</option>${decks.map((d) => `<option value="${d}">${d}</option>`).join("")}</select></label>
-        <label>Result<select id="filter-result"><option value="">All</option><option value="Win">Wins</option><option value="Loss">Losses</option></select></label>
-        <label>Year<select id="filter-year"><option value="">All</option>${years.map((y) => `<option value="${y}">${y}</option>`).join("")}</select></label>
+        <label>Deck<select id="filter-deck"><option value="">All</option>${decks.map((d) => `<option value="${escapeHtml(d)}" ${logFilters.deck === d ? "selected" : ""}>${escapeHtml(d)}</option>`).join("")}</select></label>
+        <label>Result<select id="filter-result"><option value="">All</option><option value="Win" ${logFilters.result === "Win" ? "selected" : ""}>Wins</option><option value="Loss" ${logFilters.result === "Loss" ? "selected" : ""}>Losses</option></select></label>
+        <label>Year<select id="filter-year"><option value="">All</option>${years.map((y) => `<option value="${y}" ${logFilters.year === y ? "selected" : ""}>${y}</option>`).join("")}</select></label>
         <span class="filter-count" id="filter-count">${sorted.length} games</span>
       </div>
       <div class="table-wrap">
@@ -381,7 +469,7 @@ function renderLogForm() {
   return `
     <form id="add-game-form" class="game-form">
       <label>Date<input type="date" name="date" value="${today}" required /></label>
-      <label>Deck<select name="deck" required><option value="">Select…</option>${decks.map((d) => `<option value="${d.name}">${d.name}</option>`).join("")}</select></label>
+      <label>Deck<select name="deck" required><option value="">Select…</option>${decks.map((d) => `<option value="${escapeHtml(d.name)}">${escapeHtml(d.name)}</option>`).join("")}</select></label>
       <label>Result
         <div class="result-toggle">
           <label class="radio-card"><input type="radio" name="result" value="Win" checked /><span>Win</span></label>
@@ -397,9 +485,9 @@ function renderLogForm() {
           .map(
             (d) => `
           <div class="quick-deck">
-            <span class="quick-name">${colorBadge(d.colors)} ${d.name}</span>
-            <button type="button" class="btn btn-sm win quick-win" data-deck="${d.name}">W</button>
-            <button type="button" class="btn btn-sm loss quick-loss" data-deck="${d.name}">L</button>
+            <span class="quick-name">${colorBadge(d.colors)} ${escapeHtml(d.name)}</span>
+            <button type="button" class="btn btn-sm win quick-win" data-deck="${escapeHtml(d.name)}">W</button>
+            <button type="button" class="btn btn-sm loss quick-loss" data-deck="${escapeHtml(d.name)}">L</button>
           </div>`
           )
           .join("")}
@@ -409,61 +497,10 @@ function renderLogForm() {
 
 function gameRow(g) {
   const cls = g.result === "Win" ? "win" : "loss";
-  return `<tr data-deck="${g.deck}" data-result="${g.result}" data-year="${gameYear(g.date)}">
-    <td>${formatDate(g.date)}</td><td class="deck-name">${g.deck}</td>
+  return `<tr data-deck="${escapeHtml(g.deck)}" data-result="${g.result}" data-year="${gameYear(g.date)}">
+    <td>${formatDate(g.date)}</td><td class="deck-name">${escapeHtml(g.deck)}</td>
     <td><span class="result-pill ${cls}">${g.result}</span></td>
     <td><button type="button" class="btn-icon delete-game" data-id="${g.id}">×</button></td></tr>`;
-}
-
-function bindLogFilters() {
-  const deck = document.getElementById("filter-deck");
-  const result = document.getElementById("filter-result");
-  const year = document.getElementById("filter-year");
-  const count = document.getElementById("filter-count");
-
-  function apply() {
-    let visible = 0;
-    document.querySelectorAll("#game-log-table tbody tr").forEach((row) => {
-      const show =
-        (!deck.value || row.dataset.deck === deck.value) &&
-        (!result.value || row.dataset.result === result.value) &&
-        (!year.value || row.dataset.year === year.value);
-      row.hidden = !show;
-      if (show) visible++;
-    });
-    count.textContent = `${visible} games`;
-  }
-
-  deck.addEventListener("change", apply);
-  result.addEventListener("change", apply);
-  year.addEventListener("change", apply);
-
-  document.querySelectorAll(".delete-game").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      if (!confirm("Delete this game?")) return;
-      data.games = data.games.filter((g) => g.id !== btn.dataset.id);
-      saveData(data);
-      render();
-      toast("Deleted");
-    });
-  });
-}
-
-function bindAddGame() {
-  document.getElementById("add-game-form")?.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const fd = new FormData(e.target);
-    addGame({ date: fd.get("date"), deck: fd.get("deck"), result: fd.get("result") });
-  });
-  document.querySelectorAll(".quick-win, .quick-loss").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      addGame({
-        date: new Date().toISOString().slice(0, 10),
-        deck: btn.dataset.deck,
-        result: btn.classList.contains("quick-win") ? "Win" : "Loss",
-      });
-    });
-  });
 }
 
 function addGame({ date, deck, result }) {
@@ -474,30 +511,6 @@ function addGame({ date, deck, result }) {
   gamesTab = "history";
   render();
 }
-
-document.addEventListener("click", (e) => {
-  if (e.target.id === "add-deck-btn") document.getElementById("deck-modal")?.classList.remove("hidden");
-  if (e.target.id === "cancel-deck") document.getElementById("deck-modal")?.classList.add("hidden");
-});
-
-document.addEventListener("submit", (e) => {
-  if (e.target.id !== "deck-form") return;
-  e.preventDefault();
-  const fd = new FormData(e.target);
-  const deck = {
-    name: fd.get("name").trim(),
-    bracket: Number(fd.get("bracket")),
-    colors: fd.getAll("color"),
-    retired: fd.get("retired") === "on",
-  };
-  if (data.decks.some((d) => d.name === deck.name)) return toast("Deck exists", true);
-  data.decks.push(deck);
-  saveData(data);
-  document.getElementById("deck-modal").classList.add("hidden");
-  e.target.reset();
-  render();
-  toast(`Added ${deck.name}`);
-});
 
 function toast(msg, isError = false) {
   const el = document.createElement("div");
