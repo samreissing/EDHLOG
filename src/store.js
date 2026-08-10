@@ -1,3 +1,5 @@
+import { normalizeDate } from "./dates.js";
+
 const STORAGE_KEY = "edhlog-data-v1";
 
 /** @typedef {{ name: string, bracket: number, colors: string[], retired: boolean }} Deck */
@@ -12,11 +14,24 @@ export async function loadSeed() {
   return /** @type {AppData} */ (await res.json());
 }
 
+function sanitizeData(data) {
+  let changed = false;
+  for (const game of data.games) {
+    const fixed = normalizeDate(game.date);
+    if (fixed !== game.date) {
+      game.date = fixed;
+      changed = true;
+    }
+  }
+  return changed;
+}
+
 export function loadData() {
   if (cache) return cache;
   const raw = localStorage.getItem(STORAGE_KEY);
   if (raw) {
     cache = JSON.parse(raw);
+    if (sanitizeData(cache)) saveData(cache);
     return cache;
   }
   return null;

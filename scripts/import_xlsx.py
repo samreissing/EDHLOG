@@ -13,6 +13,17 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT_PATHS = [ROOT / "data" / "seed.json", ROOT / "public" / "data" / "seed.json"]
 
 
+def normalize_date(value) -> str:
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d")
+    text = str(value).strip()
+    m = re.match(r"^(\d{1,2})/\?/(\d{2})$", text)
+    if m:
+        month, yy = m.groups()
+        return f"20{yy}-{month.zfill(2)}-15"
+    return text
+
+
 def clean_deck_name(name: str) -> str:
     return re.sub(r"\s*\*!!!\*\(Retired Deck\)\*!!!\*", "", name).strip()
 
@@ -63,9 +74,7 @@ def main(xlsx_path: str) -> None:
         sheet = wb[f"Game Log {year}"]
         for row in sheet.iter_rows(min_row=2, values_only=True):
             if row[0] and row[1] and row[2]:
-                d = row[0]
-                if isinstance(d, datetime):
-                    d = d.strftime("%Y-%m-%d")
+                d = normalize_date(row[0])
                 raw = str(row[1])
                 name = clean_deck_name(raw)
                 if name not in decks:
@@ -75,7 +84,7 @@ def main(xlsx_path: str) -> None:
                         "colors": [],
                         "retired": "Retired" in raw,
                     }
-                games.append({"date": str(d), "deck": name, "result": row[2]})
+                games.append({"date": d, "deck": name, "result": row[2]})
 
     for i, g in enumerate(games):
         g["id"] = f"game-{i + 1}"

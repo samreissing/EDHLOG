@@ -96,10 +96,12 @@ export function computeBracketStats(games, deckStats) {
   return brackets.map((b) => ({ ...b, winRate: winRate(b.wins, b.games) }));
 }
 
+import { gameYear } from "./dates.js";
+
 export function computeYearStats(games) {
   const byYear = new Map();
   for (const game of games) {
-    const year = game.date.slice(0, 4);
+    const year = gameYear(game.date);
     if (!byYear.has(year)) byYear.set(year, { year, games: 0, wins: 0 });
     const y = byYear.get(year);
     y.games += 1;
@@ -145,23 +147,16 @@ export function computeRankings(deckStats, globalWr) {
     .sort((a, b) => b.normalizedWr - a.normalizedWr || b.games - a.games);
 }
 
-export function colorBadge(colors) {
-  const cls = {
-    W: "mana-w",
-    U: "mana-u",
-    B: "mana-b",
-    R: "mana-r",
-    G: "mana-g",
-  };
-  if (!colors.length) return '<span class="mana mana-c">C</span>';
-  return colors.map((c) => `<span class="mana ${cls[c]}">${c}</span>`).join("");
-}
+const MANA_BASE = `${import.meta.env.BASE_URL}mana`;
 
-export function formatDate(dateStr) {
-  const [y, m, d] = dateStr.split("-");
-  return new Date(Number(y), Number(m) - 1, Number(d)).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+export function colorBadge(colors) {
+  if (!colors.length) {
+    return `<img class="mana-img" src="${MANA_BASE}/C.svg" alt="Colorless" title="Colorless" />`;
+  }
+  return colors
+    .map(
+      (c) =>
+        `<img class="mana-img" src="${MANA_BASE}/${c}.svg" alt="${c}" title="${COLOR_NAMES[c] || c}" />`
+    )
+    .join("");
 }

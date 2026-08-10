@@ -15,22 +15,43 @@ import {
   computeRolling100Stats,
   computeRankings,
   colorBadge,
-  formatDate,
   pct,
 } from "./stats.js";
+import { formatDate, gameYear } from "./dates.js";
 
 const VIEWS = [
-  { id: "dashboard", label: "Dashboard" },
+  { id: "stats", label: "Stats" },
   { id: "decks", label: "Decks" },
+  { id: "games", label: "Games" },
+];
+
+const STATS_TABS = [
+  { id: "overview", label: "Overview" },
+  { id: "breakdown", label: "Colors & Brackets" },
   { id: "rankings", label: "Rankings" },
-  { id: "years", label: "By Year" },
-  { id: "rolling", label: "100-Game" },
-  { id: "log", label: "Game Log" },
-  { id: "add", label: "+ Log Game" },
+  { id: "trends", label: "Trends" },
+];
+
+const DECKS_TABS = [
+  { id: "active", label: "Active" },
+  { id: "retired", label: "Retired" },
+  { id: "all", label: "All" },
+];
+
+const GAMES_TABS = [
+  { id: "history", label: "History" },
+  { id: "log", label: "Log Game" },
 ];
 
 let data = null;
-let currentView = "dashboard";
+let currentView = "stats";
+let statsTab = "overview";
+let decksTab = "active";
+let gamesTab = "history";
+let deckSort = "games";
+let deckBracketFilter = "";
+let rankBracketFilter = "";
+let rankShowRetired = true;
 
 async function boot() {
   data = await initData();
@@ -50,18 +71,17 @@ function bindGlobalActions() {
     try {
       data = await importData(file);
       render();
-      toast("Data imported successfully");
+      toast("Data imported");
     } catch {
-      toast("Failed to import — check the JSON file", true);
+      toast("Import failed — check the JSON file", true);
     }
     e.target.value = "";
   });
   document.getElementById("reset-btn").addEventListener("click", async () => {
-    if (confirm("Reset all data to the original spreadsheet seed? This cannot be undone.")) {
-      data = await resetToSeed();
-      render();
-      toast("Reset to seed data");
-    }
+    if (!confirm("Reset to original spreadsheet data?")) return;
+    data = await resetToSeed();
+    render();
+    toast("Reset to seed");
   });
 }
 
@@ -80,359 +100,319 @@ function renderNav() {
   });
 }
 
+function subTabs(tabs, active, attr) {
+  return `<div class="sub-tabs">${tabs
+    .map(
+      (t) =>
+        `<button type="button" class="sub-tab ${t.id === active ? "active" : ""}" data-${attr}="${t.id}">${t.label}</button>`
+    )
+    .join("")}</div>`;
+}
+
+function bindSubTabs(attr, setter) {
+  document.querySelectorAll(`[data-${attr}]`).forEach((btn) => {
+    btn.addEventListener("click", () => {
+      setter(btn.dataset[attr]);
+      render();
+    });
+  });
+}
+
 function getStats() {
   const deckStats = computeDeckStats(data.decks, data.games);
   const overview = computeOverview(data.games);
-  const colorStats = computeColorStats(deckStats);
-  const bracketStats = computeBracketStats(data.games, deckStats);
-  const yearStats = computeYearStats(data.games);
-  const rolling = computeRolling100Stats(data.games);
-  const rankings = computeRankings(deckStats, overview.winRate);
-  return { deckStats, overview, colorStats, bracketStats, yearStats, rolling, rankings };
+  return {
+    deckStats,
+    overview,
+    colorStats: computeColorStats(deckStats),
+    bracketStats: computeBracketStats(data.games, deckStats),
+    yearStats: computeYearStats(data.games),
+    rolling: computeRolling100Stats(data.games),
+    rankings: computeRankings(deckStats, overview.winRate),
+  };
 }
 
 function render() {
   const main = document.getElementById("main");
-  const stats = getStats();
+  if (currentView === "stats") main.innerHTML = renderStats();
+  else if (currentView === "decks") main.innerHTML = renderDecks();
+  else main.innerHTML = renderGames();
 
-  switch (currentView) {
-    case "dashboard":
-      main.innerHTML = renderDashboard(stats);
-      break;
-    case "decks":
-      main.innerHTML = renderDecks(stats);
-      break;
-    case "rankings":
-      main.innerHTML = renderRankings(stats);
-      break;
-    case "years":
-      main.innerHTML = renderYears(stats);
-      break;
-    case "rolling":
-      main.innerHTML = renderRolling(stats);
-      break;
-    case "log":
-      main.innerHTML = renderGameLog();
-      bindLogFilters();
-      break;
-    case "add":
-      main.innerHTML = renderAddGame();
-      bindAddGame();
-      break;
-  }
+  bindSubTabs("stats-tab", (id) => {
+    statsTab = id;
+  });
+  bindSubTabs("decks-tab", (id) => {
+    decksTab = id;
+  });
+  bindSubTabs("games-tab", (id) => {
+    gamesTab = id;
+  });
+
+  if (currentView === "stats" && statsTab === "rankings") bindRankFilters();
+  if (currentView === "decks") bindDeckFilters();
+  if (currentView === "games" && gamesTab === "history") bindLogFilters();
+  if (currentView === "games" && gamesTab === "log") bindAddGame();
 }
 
-function statCard(label, value, sub) {
-  return `<div class="stat-card"><span class="stat-label">${label}</span><span class="stat-value">${value}</span>${sub ? `<span class="stat-sub">${sub}</span>` : ""}</div>`;
+function statCard(label, value) {
+  return `<div class="stat-card"><span class="stat-label">${label}</span><span class="stat-value">${value}</span></div>`;
 }
 
-function renderDashboard({ overview, colorStats, bracketStats, deckStats }) {
-  const active = deckStats.filter((d) => !d.retired && d.games > 0);
-  const retired = deckStats.filter((d) => d.retired && d.games > 0);
+function renderStats() {
+  const s = getStats();
+  let body = "";
 
-  return `
-    <section class="section">
-      <h2>Overview</h2>
-      <div class="stat-grid">
-        ${statCard("Total Games", overview.games)}
-        ${statCard("Wins", overview.wins)}
-        ${statCard("Losses", overview.losses)}
-        ${statCard("Win Rate", pct(overview.winRate))}
-      </div>
-    </section>
-
-    <div class="two-col">
-      <section class="section">
-        <h2>Color Identity Stats</h2>
-        <table class="table">
-          <thead><tr><th>Color</th><th>Decks</th><th>Games</th><th>Wins</th><th>WR</th></tr></thead>
-          <tbody>
-            ${colorStats
-              .map(
-                (c) => `
-              <tr>
-                <td><span class="color-label">${colorBadge([c.color])} ${c.name}</span></td>
-                <td>${c.decks}</td>
-                <td>${c.games}</td>
-                <td>${c.wins}</td>
-                <td class="${c.winRate >= overview.winRate ? "positive" : "negative"}">${pct(c.winRate)}</td>
-              </tr>`
-              )
-              .join("")}
-          </tbody>
-        </table>
-      </section>
-
-      <section class="section">
-        <h2>Bracket Stats</h2>
-        <table class="table">
-          <thead><tr><th>Bracket</th><th>Games</th><th>Wins</th><th>WR</th></tr></thead>
-          <tbody>
-            ${bracketStats
-              .filter((b) => b.games > 0)
-              .map(
-                (b) => `
-              <tr>
-                <td>Bracket ${b.bracket}</td>
-                <td>${b.games}</td>
-                <td>${b.wins}</td>
-                <td>${pct(b.winRate)}</td>
-              </tr>`
-              )
-              .join("")}
-          </tbody>
-        </table>
-      </section>
-    </div>
-
-    <div class="two-col">
-      <section class="section">
-        <h2>Active Decks <span class="badge">${active.length}</span></h2>
-        ${deckTable(active.slice(0, 8), true)}
-        ${active.length > 8 ? `<p class="hint"><button type="button" class="link-btn" data-goto="decks">View all decks →</button></p>` : ""}
-      </section>
-      <section class="section">
-        <h2>Retired Decks <span class="badge muted">${retired.length}</span></h2>
-        ${deckTable(retired.slice(0, 5), false)}
-      </section>
-    </div>
-  `;
-}
-
-function deckTable(decks, showColors) {
-  if (!decks.length) return '<p class="empty">No games logged yet.</p>';
-  return `
-    <table class="table compact">
-      <thead><tr><th>Deck</th>${showColors ? "<th>CI</th>" : ""}<th>Brkt</th><th>G</th><th>W</th><th>WR</th></tr></thead>
-      <tbody>
-        ${decks
-          .sort((a, b) => b.games - a.games)
+  if (statsTab === "overview") {
+    body = `
+      <div class="stat-grid">${statCard("Games", s.overview.games)}${statCard("Wins", s.overview.wins)}${statCard("Losses", s.overview.losses)}${statCard("Win Rate", pct(s.overview.winRate))}</div>
+      <h3 class="section-sub">By Year</h3>
+      <div class="year-row">
+        ${s.yearStats
           .map(
-            (d) => `
-          <tr>
-            <td class="deck-name">${d.name}</td>
-            ${showColors ? `<td>${colorBadge(d.colors)}</td>` : ""}
-            <td>${d.bracket}</td>
-            <td>${d.games}</td>
-            <td>${d.wins}</td>
-            <td>${pct(d.winRate)}</td>
-          </tr>`
+            (y) => `
+          <div class="year-chip">
+            <strong>${y.year}</strong>
+            <span>${y.games}g · ${y.wins}w · ${pct(y.winRate)}</span>
+          </div>`
           )
           .join("")}
-      </tbody>
-    </table>`;
-}
-
-function renderDecks({ deckStats }) {
-  const active = deckStats.filter((d) => !d.retired).sort((a, b) => b.games - a.games);
-  const retired = deckStats.filter((d) => d.retired).sort((a, b) => b.games - a.games);
-
-  return `
-    <section class="section">
-      <div class="section-header">
-        <h2>Active Decks</h2>
-        <button type="button" class="btn btn-primary" id="add-deck-btn">+ Add Deck</button>
       </div>
-      ${fullDeckTable(active)}
-    </section>
-    <section class="section">
-      <h2>Retired Decks</h2>
-      ${fullDeckTable(retired)}
-    </section>
-    <div id="deck-modal" class="modal hidden">
-      <div class="modal-content">
-        <h3>Add Deck</h3>
-        <form id="deck-form">
-          <label>Name<input name="name" required placeholder="Commander name" /></label>
-          <label>Bracket<select name="bracket">${[1, 2, 3, 4, 5].map((b) => `<option value="${b}" ${b === 4 ? "selected" : ""}>${b}</option>`).join("")}</select></label>
-          <fieldset class="color-fieldset">
-            <legend>Color Identity</legend>
-            ${["W", "U", "B", "R", "G"]
-              .map((c) => `<label class="checkbox"><input type="checkbox" name="color" value="${c}" /> ${c}</label>`)
-              .join("")}
-          </fieldset>
-          <label class="checkbox"><input type="checkbox" name="retired" /> Retired</label>
-          <div class="form-actions">
-            <button type="button" class="btn btn-ghost" id="cancel-deck">Cancel</button>
-            <button type="submit" class="btn btn-primary">Save Deck</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  `;
-}
-
-function fullDeckTable(decks) {
-  if (!decks.length) return '<p class="empty">None</p>';
-  return `
-    <table class="table">
-      <thead><tr><th>Deck</th><th>CI</th><th>Brkt</th><th>Games</th><th>Wins</th><th>Losses</th><th>WR</th></tr></thead>
-      <tbody>
-        ${decks
-          .map(
-            (d) => `
-          <tr>
-            <td class="deck-name">${d.name}</td>
-            <td>${colorBadge(d.colors)}</td>
-            <td>${d.bracket}</td>
-            <td>${d.games}</td>
-            <td>${d.wins}</td>
-            <td>${d.losses}</td>
-            <td>${d.games ? pct(d.winRate) : "—"}</td>
-          </tr>`
-          )
-          .join("")}
-      </tbody>
-    </table>`;
-}
-
-function renderRankings({ rankings }) {
-  const byBracket = {};
-  for (const d of rankings) {
-    if (!byBracket[d.bracket]) byBracket[d.bracket] = [];
-    byBracket[d.bracket].push(d);
-  }
-
-  return `
-    <section class="section">
-      <h2>All Decks Ranked</h2>
-      <p class="hint">Sorted by adjusted win rate (shrunk toward your overall average). Real WR shown for comparison.</p>
-      <table class="table">
-        <thead><tr><th>#</th><th>Deck</th><th>Brkt</th><th>G</th><th>Adj WR</th><th>Real WR</th></tr></thead>
-        <tbody>
-          ${rankings
-            .map(
-              (d, i) => `
-            <tr>
-              <td>${i + 1}</td>
-              <td class="deck-name">${d.name}${d.retired ? ' <span class="tag retired">retired</span>' : ""}</td>
-              <td>${d.bracket}</td>
-              <td>${d.games}</td>
-              <td class="highlight">${pct(d.normalizedWr)}</td>
-              <td>${pct(d.winRate)}</td>
-            </tr>`
-            )
-            .join("")}
-        </tbody>
-      </table>
-    </section>
-
-    <div class="bracket-rankings">
-      ${[1, 2, 3, 4, 5]
-        .filter((b) => byBracket[b]?.length)
-        .map(
-          (b) => `
-        <section class="section">
-          <h2>Bracket ${b}</h2>
+      <h3 class="section-sub">Top Decks</h3>
+      ${miniDeckTable(s.deckStats.filter((d) => !d.retired && d.games > 0).sort((a, b) => b.games - a.games).slice(0, 6))}`;
+  } else if (statsTab === "breakdown") {
+    body = `
+      <div class="two-col">
+        <div>
+          <h3 class="section-sub">Color Identity</h3>
           <table class="table compact">
-            <thead><tr><th>#</th><th>Deck</th><th>Adj WR</th><th>Real WR</th></tr></thead>
+            <thead><tr><th></th><th>Decks</th><th>G</th><th>W</th><th>WR</th></tr></thead>
             <tbody>
-              ${byBracket[b]
-                .slice(0, 10)
+              ${s.colorStats
                 .map(
-                  (d, i) => `
+                  (c) => `
                 <tr>
-                  <td>${i + 1}</td>
-                  <td class="deck-name">${d.name}</td>
-                  <td>${pct(d.normalizedWr)}</td>
-                  <td>${pct(d.winRate)}</td>
+                  <td><span class="color-label">${colorBadge([c.color])} ${c.name}</span></td>
+                  <td>${c.decks}</td><td>${c.games}</td><td>${c.wins}</td>
+                  <td class="${c.winRate >= s.overview.winRate ? "positive" : "negative"}">${pct(c.winRate)}</td>
                 </tr>`
                 )
                 .join("")}
             </tbody>
           </table>
-        </section>`
-        )
-        .join("")}
-    </div>
-  `;
-}
+        </div>
+        <div>
+          <h3 class="section-sub">By Bracket</h3>
+          <table class="table compact">
+            <thead><tr><th>Brkt</th><th>G</th><th>W</th><th>WR</th></tr></thead>
+            <tbody>
+              ${s.bracketStats
+                .filter((b) => b.games > 0)
+                .map((b) => `<tr><td>${b.bracket}</td><td>${b.games}</td><td>${b.wins}</td><td>${pct(b.winRate)}</td></tr>`)
+                .join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  } else if (statsTab === "rankings") {
+    let list = s.rankings;
+    if (!rankShowRetired) list = list.filter((d) => !d.retired);
+    if (rankBracketFilter) list = list.filter((d) => String(d.bracket) === rankBracketFilter);
 
-function renderYears({ yearStats }) {
-  return `
-    <section class="section">
-      <h2>Stats by Year</h2>
-      <div class="year-cards">
-        ${yearStats
-          .map(
-            (y) => `
-          <div class="year-card">
-            <h3>${y.year}</h3>
-            <div class="year-stats">
-              <div><span class="mini-label">Games</span><span>${y.games}</span></div>
-              <div><span class="mini-label">Wins</span><span>${y.wins}</span></div>
-              <div><span class="mini-label">Win Rate</span><span class="highlight">${pct(y.winRate)}</span></div>
-            </div>
-          </div>`
-          )
-          .join("")}
+    body = `
+      <div class="filters inline">
+        <label>Bracket <select id="rank-bracket"><option value="">All</option>${[1, 2, 3, 4, 5].map((b) => `<option value="${b}" ${rankBracketFilter === String(b) ? "selected" : ""}>${b}</option>`).join("")}</select></label>
+        <label class="checkbox"><input type="checkbox" id="rank-retired" ${rankShowRetired ? "checked" : ""} /> Show retired</label>
       </div>
-    </section>
-  `;
-}
-
-function renderRolling({ rolling }) {
-  if (!rolling.windows.length) {
-    return '<section class="section"><p class="empty">Need at least 100 games for rolling stats. Keep playing!</p></section>';
+      <table class="table">
+        <thead><tr><th>#</th><th>Deck</th><th>CI</th><th>Brkt</th><th>G</th><th>Adj WR</th><th>Real WR</th></tr></thead>
+        <tbody>
+          ${list
+            .map(
+              (d, i) => `
+            <tr>
+              <td>${i + 1}</td>
+              <td class="deck-name">${d.name}${d.retired ? '<span class="tag retired">retired</span>' : ""}</td>
+              <td>${colorBadge(d.colors)}</td>
+              <td>${d.bracket}</td><td>${d.games}</td>
+              <td class="highlight">${pct(d.normalizedWr)}</td><td>${pct(d.winRate)}</td>
+            </tr>`
+            )
+            .join("")}
+        </tbody>
+      </table>`;
+  } else {
+    if (!s.rolling.windows.length) {
+      body = '<p class="empty">Need 100+ games for trend data.</p>';
+    } else {
+      body = `
+        <div class="two-col">
+          <div>
+            <h3 class="section-sub">Per 100 Games</h3>
+            <table class="table compact"><thead><tr><th>Games</th><th>WR</th></tr></thead><tbody>
+              ${s.rolling.windows.map((w) => `<tr><td>${w.label}</td><td>${pct(w.winRate)}</td></tr>`).join("")}
+            </tbody></table>
+          </div>
+          <div>
+            <h3 class="section-sub">Cumulative</h3>
+            <table class="table compact"><thead><tr><th>Games</th><th>WR</th></tr></thead><tbody>
+              ${s.rolling.cumulative.map((w) => `<tr><td>${w.label}</td><td>${pct(w.winRate)}</td></tr>`).join("")}
+            </tbody></table>
+          </div>
+        </div>`;
+    }
   }
 
-  return `
-    <div class="two-col">
-      <section class="section">
-        <h2>Per 100 Games</h2>
-        <table class="table">
-          <thead><tr><th>Games</th><th>Win Rate</th></tr></thead>
-          <tbody>
-            ${rolling.windows.map((w) => `<tr><td>${w.label}</td><td>${pct(w.winRate)}</td></tr>`).join("")}
-          </tbody>
-        </table>
-      </section>
-      <section class="section">
-        <h2>Cumulative</h2>
-        <table class="table">
-          <thead><tr><th>Games</th><th>Win Rate</th></tr></thead>
-          <tbody>
-            ${rolling.cumulative.map((w) => `<tr><td>${w.label}</td><td>${pct(w.winRate)}</td></tr>`).join("")}
-          </tbody>
-        </table>
-      </section>
-    </div>
-  `;
+  return `<section class="section">${subTabs(STATS_TABS, statsTab, "stats-tab")}${body}</section>`;
 }
 
-function renderGameLog() {
-  const sorted = [...data.games].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
-  const decks = [...new Set(data.decks.map((d) => d.name))].sort();
+function miniDeckTable(decks) {
+  return `
+    <table class="table compact">
+      <thead><tr><th>Deck</th><th>CI</th><th>G</th><th>WR</th></tr></thead>
+      <tbody>
+        ${decks.map((d) => `<tr><td class="deck-name">${d.name}</td><td>${colorBadge(d.colors)}</td><td>${d.games}</td><td>${pct(d.winRate)}</td></tr>`).join("")}
+      </tbody>
+    </table>`;
+}
+
+function renderDecks() {
+  const { deckStats } = getStats();
+  let list = deckStats;
+  if (decksTab === "active") list = list.filter((d) => !d.retired);
+  else if (decksTab === "retired") list = list.filter((d) => d.retired);
+  if (deckBracketFilter) list = list.filter((d) => String(d.bracket) === deckBracketFilter);
+
+  list = [...list].sort((a, b) => {
+    if (deckSort === "name") return a.name.localeCompare(b.name);
+    if (deckSort === "wr") return b.winRate - a.winRate || b.games - a.games;
+    return b.games - a.games;
+  });
 
   return `
     <section class="section">
+      ${subTabs(DECKS_TABS, decksTab, "decks-tab")}
+      <div class="section-header">
+        <div class="filters inline">
+          <label>Bracket <select id="deck-bracket"><option value="">All</option>${[1, 2, 3, 4, 5].map((b) => `<option value="${b}" ${deckBracketFilter === String(b) ? "selected" : ""}>${b}</option>`).join("")}</select></label>
+          <label>Sort <select id="deck-sort">
+            <option value="games" ${deckSort === "games" ? "selected" : ""}>Most games</option>
+            <option value="wr" ${deckSort === "wr" ? "selected" : ""}>Win rate</option>
+            <option value="name" ${deckSort === "name" ? "selected" : ""}>Name</option>
+          </select></label>
+        </div>
+        <button type="button" class="btn btn-primary" id="add-deck-btn">+ Deck</button>
+      </div>
+      <table class="table">
+        <thead><tr><th>Deck</th><th>CI</th><th>Brkt</th><th>G</th><th>W</th><th>L</th><th>WR</th></tr></thead>
+        <tbody>
+          ${list.length ? list.map((d) => `<tr><td class="deck-name">${d.name}</td><td>${colorBadge(d.colors)}</td><td>${d.bracket}</td><td>${d.games}</td><td>${d.wins}</td><td>${d.losses}</td><td>${d.games ? pct(d.winRate) : "—"}</td></tr>`).join("") : '<tr><td colspan="7" class="empty">No decks match.</td></tr>'}
+        </tbody>
+      </table>
+    </section>
+    <div id="deck-modal" class="modal hidden">
+      <div class="modal-content">
+        <h3>Add Deck</h3>
+        <form id="deck-form">
+          <label>Name<input name="name" required /></label>
+          <label>Bracket<select name="bracket">${[1, 2, 3, 4, 5].map((b) => `<option value="${b}" ${b === 4 ? "selected" : ""}>${b}</option>`).join("")}</select></label>
+          <fieldset class="color-fieldset"><legend>Colors</legend>
+            ${["W", "U", "B", "R", "G"].map((c) => `<label class="checkbox mana-check"><input type="checkbox" name="color" value="${c}" />${colorBadge([c])}</label>`).join("")}
+          </fieldset>
+          <label class="checkbox"><input type="checkbox" name="retired" /> Retired</label>
+          <div class="form-actions">
+            <button type="button" class="btn btn-ghost" id="cancel-deck">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>`;
+}
+
+function bindRankFilters() {
+  document.getElementById("rank-bracket")?.addEventListener("change", (e) => {
+    rankBracketFilter = e.target.value;
+    render();
+  });
+  document.getElementById("rank-retired")?.addEventListener("change", (e) => {
+    rankShowRetired = e.target.checked;
+    render();
+  });
+}
+
+function bindDeckFilters() {
+  document.getElementById("deck-bracket")?.addEventListener("change", (e) => {
+    deckBracketFilter = e.target.value;
+    render();
+  });
+  document.getElementById("deck-sort")?.addEventListener("change", (e) => {
+    deckSort = e.target.value;
+    render();
+  });
+}
+
+function renderGames() {
+  if (gamesTab === "log") return `<section class="section narrow">${subTabs(GAMES_TABS, gamesTab, "games-tab")}${renderLogForm()}</section>`;
+
+  const sorted = [...data.games].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+  const decks = [...new Set(data.decks.map((d) => d.name))].sort();
+  const years = [...new Set(sorted.map((g) => gameYear(g.date)))].sort();
+
+  return `
+    <section class="section">
+      ${subTabs(GAMES_TABS, gamesTab, "games-tab")}
       <div class="filters">
-        <label>Deck<select id="filter-deck"><option value="">All decks</option>${decks.map((d) => `<option value="${d}">${d}</option>`).join("")}</select></label>
+        <label>Deck<select id="filter-deck"><option value="">All</option>${decks.map((d) => `<option value="${d}">${d}</option>`).join("")}</select></label>
         <label>Result<select id="filter-result"><option value="">All</option><option value="Win">Wins</option><option value="Loss">Losses</option></select></label>
-        <label>Year<select id="filter-year"><option value="">All years</option>${[...new Set(sorted.map((g) => g.date.slice(0, 4)))].map((y) => `<option value="${y}">${y}</option>`).join("")}</select></label>
+        <label>Year<select id="filter-year"><option value="">All</option>${years.map((y) => `<option value="${y}">${y}</option>`).join("")}</select></label>
         <span class="filter-count" id="filter-count">${sorted.length} games</span>
       </div>
       <div class="table-wrap">
         <table class="table" id="game-log-table">
           <thead><tr><th>Date</th><th>Deck</th><th>Result</th><th></th></tr></thead>
-          <tbody>
-            ${sorted.map((g) => gameRow(g)).join("")}
-          </tbody>
+          <tbody>${sorted.map((g) => gameRow(g)).join("")}</tbody>
         </table>
       </div>
-    </section>
-  `;
+    </section>`;
+}
+
+function renderLogForm() {
+  const decks = data.decks.filter((d) => !d.retired).sort((a, b) => a.name.localeCompare(b.name));
+  const today = new Date().toISOString().slice(0, 10);
+  return `
+    <form id="add-game-form" class="game-form">
+      <label>Date<input type="date" name="date" value="${today}" required /></label>
+      <label>Deck<select name="deck" required><option value="">Select…</option>${decks.map((d) => `<option value="${d.name}">${d.name}</option>`).join("")}</select></label>
+      <label>Result
+        <div class="result-toggle">
+          <label class="radio-card"><input type="radio" name="result" value="Win" checked /><span>Win</span></label>
+          <label class="radio-card loss"><input type="radio" name="result" value="Loss" /><span>Loss</span></label>
+        </div>
+      </label>
+      <button type="submit" class="btn btn-primary btn-lg">Save Game</button>
+    </form>
+    <div class="quick-log">
+      <h3>Quick log (today)</h3>
+      <div class="quick-grid">
+        ${decks
+          .map(
+            (d) => `
+          <div class="quick-deck">
+            <span class="quick-name">${colorBadge(d.colors)} ${d.name}</span>
+            <button type="button" class="btn btn-sm win quick-win" data-deck="${d.name}">W</button>
+            <button type="button" class="btn btn-sm loss quick-loss" data-deck="${d.name}">L</button>
+          </div>`
+          )
+          .join("")}
+      </div>
+    </div>`;
 }
 
 function gameRow(g) {
-  const resultClass = g.result === "Win" ? "win" : "loss";
-  return `
-    <tr data-deck="${g.deck}" data-result="${g.result}" data-year="${g.date.slice(0, 4)}">
-      <td>${formatDate(g.date)}</td>
-      <td class="deck-name">${g.deck}</td>
-      <td><span class="result-pill ${resultClass}">${g.result}</span></td>
-      <td><button type="button" class="btn-icon delete-game" data-id="${g.id}" title="Delete">×</button></td>
-    </tr>`;
+  const cls = g.result === "Win" ? "win" : "loss";
+  return `<tr data-deck="${g.deck}" data-result="${g.result}" data-year="${gameYear(g.date)}">
+    <td>${formatDate(g.date)}</td><td class="deck-name">${g.deck}</td>
+    <td><span class="result-pill ${cls}">${g.result}</span></td>
+    <td><button type="button" class="btn-icon delete-game" data-id="${g.id}">×</button></td></tr>`;
 }
 
 function bindLogFilters() {
@@ -442,9 +422,8 @@ function bindLogFilters() {
   const count = document.getElementById("filter-count");
 
   function apply() {
-    const rows = document.querySelectorAll("#game-log-table tbody tr");
     let visible = 0;
-    rows.forEach((row) => {
+    document.querySelectorAll("#game-log-table tbody tr").forEach((row) => {
       const show =
         (!deck.value || row.dataset.deck === deck.value) &&
         (!result.value || row.dataset.result === result.value) &&
@@ -465,72 +444,17 @@ function bindLogFilters() {
       data.games = data.games.filter((g) => g.id !== btn.dataset.id);
       saveData(data);
       render();
-      toast("Game deleted");
+      toast("Deleted");
     });
   });
-}
-
-function renderAddGame() {
-  const decks = data.decks.filter((d) => !d.retired).sort((a, b) => a.name.localeCompare(b.name));
-  const today = new Date().toISOString().slice(0, 10);
-
-  return `
-    <section class="section narrow">
-      <h2>Log a Game</h2>
-      <form id="add-game-form" class="game-form">
-        <label>
-          Date
-          <input type="date" name="date" value="${today}" required />
-        </label>
-        <label>
-          Deck
-          <select name="deck" required>
-            <option value="">Select deck…</option>
-            ${decks.map((d) => `<option value="${d.name}">${d.name}</option>`).join("")}
-          </select>
-        </label>
-        <label>
-          Result
-          <div class="result-toggle">
-            <label class="radio-card"><input type="radio" name="result" value="Win" checked /><span>Win</span></label>
-            <label class="radio-card loss"><input type="radio" name="result" value="Loss" /><span>Loss</span></label>
-          </div>
-        </label>
-        <button type="submit" class="btn btn-primary btn-lg">Save Game</button>
-      </form>
-
-      <div class="quick-log">
-        <h3>Quick log (same deck, today)</h3>
-        <div class="quick-grid">
-          ${decks
-            .slice(0, 6)
-            .map(
-              (d) => `
-            <div class="quick-deck">
-              <span class="quick-name">${d.name}</span>
-              <button type="button" class="btn btn-sm win quick-win" data-deck="${d.name}">W</button>
-              <button type="button" class="btn btn-sm loss quick-loss" data-deck="${d.name}">L</button>
-            </div>`
-            )
-            .join("")}
-        </div>
-      </div>
-    </section>
-  `;
 }
 
 function bindAddGame() {
-  const form = document.getElementById("add-game-form");
-  form.addEventListener("submit", (e) => {
+  document.getElementById("add-game-form")?.addEventListener("submit", (e) => {
     e.preventDefault();
-    const fd = new FormData(form);
-    addGame({
-      date: fd.get("date"),
-      deck: fd.get("deck"),
-      result: fd.get("result"),
-    });
+    const fd = new FormData(e.target);
+    addGame({ date: fd.get("date"), deck: fd.get("deck"), result: fd.get("result") });
   });
-
   document.querySelectorAll(".quick-win, .quick-loss").forEach((btn) => {
     btn.addEventListener("click", () => {
       addGame({
@@ -543,61 +467,36 @@ function bindAddGame() {
 }
 
 function addGame({ date, deck, result }) {
-  if (!deck) {
-    toast("Pick a deck", true);
-    return;
-  }
-  const game = {
-    id: nextGameId(data.games),
-    date,
-    deck,
-    result,
-  };
-  data.games.push(game);
+  if (!deck) return toast("Pick a deck", true);
+  data.games.push({ id: nextGameId(data.games), date, deck, result });
   saveData(data);
-  toast(`${result} logged for ${deck}`);
-  currentView = "log";
-  renderNav();
+  toast(`${result} logged`);
+  gamesTab = "history";
   render();
 }
 
-// Deck modal handlers (delegated after decks view render)
 document.addEventListener("click", (e) => {
-  if (e.target.id === "add-deck-btn") {
-    document.getElementById("deck-modal").classList.remove("hidden");
-  }
-  if (e.target.id === "cancel-deck") {
-    document.getElementById("deck-modal").classList.add("hidden");
-  }
-  if (e.target.dataset?.goto) {
-    currentView = e.target.dataset.goto;
-    renderNav();
-    render();
-  }
+  if (e.target.id === "add-deck-btn") document.getElementById("deck-modal")?.classList.remove("hidden");
+  if (e.target.id === "cancel-deck") document.getElementById("deck-modal")?.classList.add("hidden");
 });
 
 document.addEventListener("submit", (e) => {
-  if (e.target.id === "deck-form") {
-    e.preventDefault();
-    const fd = new FormData(e.target);
-    const colors = fd.getAll("color");
-    const deck = {
-      name: fd.get("name").trim(),
-      bracket: Number(fd.get("bracket")),
-      colors,
-      retired: fd.get("retired") === "on",
-    };
-    if (data.decks.some((d) => d.name === deck.name)) {
-      toast("Deck already exists", true);
-      return;
-    }
-    data.decks.push(deck);
-    saveData(data);
-    document.getElementById("deck-modal").classList.add("hidden");
-    e.target.reset();
-    render();
-    toast(`Added ${deck.name}`);
-  }
+  if (e.target.id !== "deck-form") return;
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const deck = {
+    name: fd.get("name").trim(),
+    bracket: Number(fd.get("bracket")),
+    colors: fd.getAll("color"),
+    retired: fd.get("retired") === "on",
+  };
+  if (data.decks.some((d) => d.name === deck.name)) return toast("Deck exists", true);
+  data.decks.push(deck);
+  saveData(data);
+  document.getElementById("deck-modal").classList.add("hidden");
+  e.target.reset();
+  render();
+  toast(`Added ${deck.name}`);
 });
 
 function toast(msg, isError = false) {
@@ -609,7 +508,7 @@ function toast(msg, isError = false) {
   setTimeout(() => {
     el.classList.remove("show");
     setTimeout(() => el.remove(), 300);
-  }, 2500);
+  }, 2200);
 }
 
 boot();
