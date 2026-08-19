@@ -149,7 +149,7 @@ export function valueCell(value, average, formatted = String(value)) {
   return `<span class="wr-cell" style="background:${bg};color:${fg}">${formatted}</span>`;
 }
 
-/** Average games/wins for color rows excluding C. */
+/** Average games/wins/decks for color rows excluding C. */
 export function colorStatAverage(rows, field) {
   const peers = rows.filter((r) => r.key !== "C");
   if (!peers.length) return 0;

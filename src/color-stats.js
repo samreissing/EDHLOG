@@ -46,18 +46,20 @@ function rowMatchesDeck(rowColors, deckColors, mode) {
 
 function rowSortIndex(key, sortOrder) {
   const order = sortOrder === "cgrbuw" ? ORDER_REVERSE : ORDER_FORWARD;
-  if (key === "C") return sortOrder === "cgrbuw" ? 0 : order.length * 10;
+  if (key === "C") return order.indexOf("C");
+
   const chars = [...key].sort((a, b) => order.indexOf(a) - order.indexOf(b));
   let idx = 0;
   for (const c of chars) {
     idx = idx * 10 + (order.indexOf(c) + 1);
   }
-  return sortOrder === "cgrbuw" ? -idx : idx;
+  return idx;
 }
 
-function buildRowKeys(deckStats, view, agg) {
+function buildRowKeys(deckStats, view, agg, sortOrder) {
   if (view === "wubrgc") {
-    return ORDER_FORWARD.map((c) => (c === "C" ? "C" : c));
+    const order = sortOrder === "cgrbuw" ? ORDER_REVERSE : ORDER_FORWARD;
+    return [...order];
   }
 
   const keys = new Set();
@@ -93,7 +95,7 @@ function rowLabel(key) {
  * @param {{ view: 'wubrgc'|'all', agg: 'inclusive'|'exclusive', sortOrder: 'wubrgc'|'cgrbuw' }} opts
  */
 export function computeColorStatsAdvanced(deckStats, { view, agg, sortOrder }) {
-  const rowKeys = buildRowKeys(deckStats, view, agg);
+  const rowKeys = buildRowKeys(deckStats, view, agg, sortOrder);
 
   const rows = rowKeys.map((key) => {
     const rowColors = rowColorsFromKey(key);

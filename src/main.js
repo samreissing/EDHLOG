@@ -62,6 +62,7 @@ let currentView = "stats";
 let statsTab = "overview";
 let decksTab = "active";
 let gamesTab = "history";
+let editingGameId = null;
 let deckSort = "normWr";
 let deckSortDir = "desc";
 let deckBracketFilter = "";
@@ -169,7 +170,9 @@ function bindEvents() {
 
     const gamesBtn = e.target.closest("[data-games-tab]");
     if (gamesBtn) {
-      gamesTab = gamesBtn.getAttribute("data-games-tab");
+      const nextTab = gamesBtn.getAttribute("data-games-tab");
+      if (nextTab !== "log") editingGameId = null;
+      gamesTab = nextTab;
       render();
       return;
     }
@@ -183,13 +186,28 @@ function bindEvents() {
       return;
     }
 
+    const editBtn = e.target.closest(".edit-game");
+    if (editBtn) {
+      editingGameId = editBtn.dataset.id;
+      gamesTab = "log";
+      render();
+      return;
+    }
+
     const deleteBtn = e.target.closest(".delete-game");
     if (deleteBtn) {
       if (!confirm("Delete this game?")) return;
       data.games = data.games.filter((g) => g.id !== deleteBtn.dataset.id);
+      if (editingGameId === deleteBtn.dataset.id) editingGameId = null;
       saveData(data);
       render();
       toast("Deleted");
+      return;
+    }
+
+    if (e.target.id === "cancel-edit-game") {
+      editingGameId = null;
+      render();
       return;
     }
 
@@ -232,8 +250,7 @@ function bindEvents() {
   document.getElementById("main").addEventListener("submit", (e) => {
     if (e.target.id === "add-game-form") {
       e.preventDefault();
-      const fd = new FormData(e.target);
-      addGame({ date: fd.get("date"), deck: fd.get("deck"), result: fd.get("result") });
+      saveGameFromForm(new FormData(e.target));
     } else if (e.target.id === "deck-form") {
       e.preventDefault();
       const fd = new FormData(e.target);
@@ -400,6 +417,7 @@ function renderStats() {
 
     const avgGames = colorStatAverage(colors, "games");
     const avgWins = colorStatAverage(colors, "wins");
+    const avgDecks = colorStatAverage(colors, "decks");
 
     body = `
       <div class="filters inline color-mode-filters">
@@ -422,7 +440,7 @@ function renderStats() {
                   (c) => `
                 <tr>
                   <td><span class="color-label">${colorBadge(c.displayColors)}</span></td>
-                  <td>${c.decks}</td>
+                  <td>${c.key === "C" ? c.decks : valueCell(c.decks, avgDecks)}</td>
                   <td>${c.key === "C" ? c.games : valueCell(c.games, avgGames)}</td>
                   <td>${c.key === "C" ? c.wins : valueCell(c.wins, avgWins)}</td>
                   <td>${c.games ? pctCell(c.winRate) : "—"}</td>
@@ -707,6 +725,21 @@ function renderGames() {
     </section>`;
 }
 
+function seatOptions(selected = "") {
+  return [1, 2, 3, 4]
+    .map(
+      (n) =>
+        `<option value="${n}" ${String(selected) === String(n) ? "selected" : ""}>${n}</option>`
+    )
+    .join("");
+}
+
+function opponentName(game, seat) {
+  if (!game?.opponents) return "";
+  const row = game.opponents.find((o) => o.seat === seat);
+  return row?.name || "";
+}
+
 function renderLogForm() {
   const { deckStats } = getStats();
   const decks = sortDeckList(
@@ -714,18 +747,45 @@ function renderLogForm() {
     "recent",
     "desc"
   );
+  const editing = editingGameId ? data.games.find((g) => g.id === editingGameId) : null;
   const today = new Date().toISOString().slice(0, 10);
+  const dateVal = editing?.date || today;
+  const resultWin = !editing || editing.result === "Win";
+  const resultLoss = editing?.result === "Loss";
+
   return `
+    ${editing ? `<p class="edit-banner">Editing game</p>` : ""}
     <form id="add-game-form" class="game-form">
-      <label>Date<input type="date" name="date" value="${today}" required /></label>
-      <label>Deck<select name="deck" required><option value="">Select…</option>${decks.map((d) => `<option value="${escapeHtml(d.name)}">${escapeHtml(d.name)}</option>`).join("")}</select></label>
+      ${editing ? `<input type="hidden" name="gameId" value="${escapeHtml(editing.id)}" />` : ""}
+      <label>Date<input type="date" name="date" value="${dateVal}" required /></label>
+      <label>My deck<select name="deck" required><option value="">Select…</option>${decks
+        .map(
+          (d) =>
+            `<option value="${escapeHtml(d.name)}" ${editing?.deck === d.name ? "selected" : ""}>${escapeHtml(d.name)}</option>`
+        )
+        .join("")}</select></label>
+      <label>My seat<select name="mySeat"><option value="">—</option>${seatOptions(editing?.mySeat)}</select></label>
+      <label>Turn ended<input type="number" name="turn" min="1" placeholder="Optional" value="${editing?.turn ?? ""}" /></label>
+      <label>Winner seat<select name="winnerSeat"><option value="">—</option>${seatOptions(editing?.winnerSeat)}</select></label>
+      <fieldset class="pod-fieldset">
+        <legend>Other commanders</legend>
+        ${[1, 2, 3, 4]
+          .map(
+            (seat) => `
+          <label>Seat ${seat}<input type="text" name="opponent-${seat}" value="${escapeHtml(opponentName(editing, seat))}" placeholder="Commander name" autocomplete="off" /></label>`
+          )
+          .join("")}
+      </fieldset>
       <label>Result
         <div class="result-toggle">
-          <label class="radio-card"><input type="radio" name="result" value="Win" checked /><span>Win</span></label>
-          <label class="radio-card loss"><input type="radio" name="result" value="Loss" /><span>Loss</span></label>
+          <label class="radio-card"><input type="radio" name="result" value="Win" ${resultWin ? "checked" : ""} /><span>Win</span></label>
+          <label class="radio-card loss"><input type="radio" name="result" value="Loss" ${resultLoss ? "checked" : ""} /><span>Loss</span></label>
         </div>
       </label>
-      <button type="submit" class="btn btn-primary btn-lg">Save Game</button>
+      <div class="form-actions">
+        ${editing ? `<button type="button" class="btn btn-ghost" id="cancel-edit-game">Cancel</button>` : ""}
+        <button type="submit" class="btn btn-primary btn-lg">${editing ? "Save" : "Save Game"}</button>
+      </div>
     </form>
     <div class="quick-log">
       <h3>Quick fill</h3>
@@ -749,10 +809,73 @@ function gameRow(g) {
   return `<tr data-deck="${escapeHtml(g.deck)}" data-result="${g.result}" data-year="${gameYear(g.date)}">
     <td>${formatDate(g.date)}</td><td class="deck-name">${escapeHtml(g.deck)}</td>
     <td><span class="result-pill ${cls}">${g.result}</span></td>
-    <td><button type="button" class="btn-icon delete-game" data-id="${g.id}">×</button></td></tr>`;
+    <td class="row-actions">
+      <button type="button" class="btn-icon edit-game" data-id="${g.id}" title="Edit game">✎</button>
+      <button type="button" class="btn-icon delete-game" data-id="${g.id}" title="Delete game">×</button>
+    </td></tr>`;
+}
+
+function parseGameForm(fd) {
+  const opponents = [1, 2, 3, 4].flatMap((seat) => {
+    const name = String(fd.get(`opponent-${seat}`) || "").trim();
+    return name ? [{ seat, name }] : [];
+  });
+  const mySeatRaw = fd.get("mySeat");
+  const winnerSeatRaw = fd.get("winnerSeat");
+  const turnRaw = fd.get("turn");
+
+  const game = {
+    date: fd.get("date"),
+    deck: fd.get("deck"),
+    result: fd.get("result"),
+    source: "local",
+  };
+
+  if (mySeatRaw) game.mySeat = Number(mySeatRaw);
+  if (winnerSeatRaw) game.winnerSeat = Number(winnerSeatRaw);
+  if (turnRaw) {
+    const turn = Number(turnRaw);
+    if (!Number.isNaN(turn) && turn > 0) game.turn = turn;
+  }
+  if (opponents.length) game.opponents = opponents;
+  return game;
+}
+
+function saveGameFromForm(fd) {
+  const payload = parseGameForm(fd);
+  if (!payload.deck) return toast("Pick a deck", true);
+
+  if (editingGameId) {
+    const idx = data.games.findIndex((g) => g.id === editingGameId);
+    if (idx >= 0) {
+      const updated = {
+        id: editingGameId,
+        date: payload.date,
+        deck: payload.deck,
+        result: payload.result,
+        source: "local",
+      };
+      if (payload.mySeat) updated.mySeat = payload.mySeat;
+      if (payload.winnerSeat) updated.winnerSeat = payload.winnerSeat;
+      if (payload.turn) updated.turn = payload.turn;
+      if (payload.opponents?.length) updated.opponents = payload.opponents;
+      data.games[idx] = updated;
+    }
+    editingGameId = null;
+    saveData(data);
+    toast("Game saved");
+    render();
+    return;
+  }
+
+  data.games.push({ id: nextGameId(data.games), ...payload });
+  saveData(data);
+  toast(`${payload.result} logged`);
+  render();
 }
 
 function fillLogForm({ deck, result }) {
+  editingGameId = null;
   const form = document.getElementById("add-game-form");
   if (!form) return;
   const deckSelect = form.querySelector('[name="deck"]');
@@ -760,14 +883,6 @@ function fillLogForm({ deck, result }) {
   if (deckSelect) deckSelect.value = deck;
   if (resultInput) resultInput.checked = true;
   form.querySelector('[name="date"]')?.focus();
-}
-
-function addGame({ date, deck, result }) {
-  if (!deck) return toast("Pick a deck", true);
-  data.games.push({ id: nextGameId(data.games), date, deck, result, source: "local" });
-  saveData(data);
-  toast(`${result} logged`);
-  render();
 }
 
 function toast(msg, isError = false) {

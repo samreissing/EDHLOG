@@ -3,7 +3,7 @@ import { normalizeDate } from "./dates.js";
 const STORAGE_KEY = "edhlog-data-v1";
 
 /** @typedef {{ name: string, bracket: number, colors: string[], retired: boolean, createdAt?: string }} Deck */
-/** @typedef {{ id: string, date: string, deck: string, result: 'Win' | 'Loss', source?: 'local' }} Game */
+/** @typedef {{ id: string, date: string, deck: string, result: 'Win' | 'Loss', source?: 'local', mySeat?: number, winnerSeat?: number, turn?: number, opponents?: { seat: number, name: string }[] }} Game */
 /** @typedef {{ seedHash?: string, seedGames?: number }} DataMeta */
 /** @typedef {{ meta?: DataMeta, decks: Deck[], games: Game[] }} AppData */
 
