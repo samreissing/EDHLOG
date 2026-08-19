@@ -1,14 +1,21 @@
 const COLORS = ["W", "U", "B", "R", "G"];
+export const COLOR_ORDER = ["W", "U", "B", "R", "G", "C"];
 const COLOR_NAMES = {
   W: "White",
   U: "Blue",
   B: "Black",
   R: "Red",
   G: "Green",
+  C: "Colorless",
 };
 
-export const NORM_PRIOR_WINS = 10;
-export const NORM_PRIOR_GAMES = 40;
+export const NORM_PRIOR_WINS = 5;
+export const NORM_PRIOR_GAMES = 20;
+
+export function colorOrderIndex(color) {
+  const idx = COLOR_ORDER.indexOf(color);
+  return idx === -1 ? 99 : idx;
+}
 
 export function winRate(wins, games) {
   if (!games) return 0;
@@ -19,7 +26,7 @@ export function pct(n, digits = 1) {
   return `${(n * 100).toFixed(digits)}%`;
 }
 
-/** Add 40 games (10W / 30L) to every deck before calculating win rate. */
+/** Add 20 games (5W / 15L) to every deck before calculating win rate. */
 export function normalizedWinRate(wins, games) {
   return (wins + NORM_PRIOR_WINS) / (games + NORM_PRIOR_GAMES);
 }
@@ -75,8 +82,11 @@ export function computeOverview(games) {
 }
 
 export function computeColorStats(deckStats) {
-  return COLORS.map((color) => {
-    const withColor = deckStats.filter((d) => d.colors.includes(color));
+  return COLOR_ORDER.map((color) => {
+    const withColor =
+      color === "C"
+        ? deckStats.filter((d) => !d.colors.length)
+        : deckStats.filter((d) => d.colors.includes(color));
     const games = withColor.reduce((s, d) => s + d.games, 0);
     const wins = withColor.reduce((s, d) => s + d.wins, 0);
     const deckCount = withColor.length;
@@ -88,6 +98,7 @@ export function computeColorStats(deckStats) {
       wins,
       winRate: winRate(wins, games),
       normalizedWr: normalizedWinRate(wins, games),
+      colorOrder: colorOrderIndex(color),
     };
   });
 }

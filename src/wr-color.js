@@ -23,32 +23,53 @@ function lerpHsl(a, b, t) {
   );
 }
 
-/** Background color: light green @ 25%, deeper green toward 100%, yellow then red below 25%. */
+function lerpMulti(stops, rate) {
+  for (let i = 0; i < stops.length - 1; i++) {
+    const a = stops[i];
+    const b = stops[i + 1];
+    if (rate <= b.at) {
+      const span = b.at - a.at || 1;
+      const t = (rate - a.at) / span;
+      return lerpHsl(a.hsl, b.hsl, clamp(t, 0, 1));
+    }
+  }
+  return hsl(...stops[stops.length - 1].hsl);
+}
+
+/** Strong contrast: 25% light green, 40% clearly greener, 100% very dark green. */
 export function wrBackgroundColor(wr) {
   const rate = clamp(wr, 0, 1);
-  const lightGreen = [140, 52, 78];
-  const deepGreen = [145, 58, 32];
-  const yellow = [48, 88, 68];
-  const red = [0, 68, 52];
 
   if (rate >= BASE_WR) {
-    const t = (rate - BASE_WR) / (1 - BASE_WR);
-    return lerpHsl(lightGreen, deepGreen, t);
+    return lerpMulti(
+      [
+        { at: BASE_WR, hsl: [128, 48, 84] },
+        { at: 0.35, hsl: [132, 52, 68] },
+        { at: 0.45, hsl: [136, 58, 48] },
+        { at: 0.6, hsl: [140, 62, 34] },
+        { at: 0.8, hsl: [144, 68, 22] },
+        { at: 1, hsl: [148, 72, 12] },
+      ],
+      rate
+    );
   }
 
-  const t = rate / BASE_WR;
-  if (t <= 0.5) {
-    return lerpHsl(red, yellow, t / 0.5);
-  }
-  return lerpHsl(yellow, lightGreen, (t - 0.5) / 0.5);
+  return lerpMulti(
+    [
+      { at: 0, hsl: [0, 72, 48] },
+      { at: 0.1, hsl: [18, 78, 52] },
+      { at: 0.18, hsl: [42, 90, 58] },
+      { at: BASE_WR, hsl: [128, 48, 84] },
+    ],
+    rate
+  );
 }
 
 export function wrTextColor(wr) {
   const rate = clamp(wr, 0, 1);
-  if (rate >= BASE_WR) {
-    return rate > 0.55 ? "#f0faf4" : "#12341f";
-  }
-  return rate < 0.12 ? "#fff5f5" : "#3d3010";
+  if (rate >= 0.5) return "#f4fff8";
+  if (rate >= BASE_WR) return rate >= 0.38 ? "#f0fff4" : "#153520";
+  return rate < 0.12 ? "#fff8f8" : "#3d2e08";
 }
 
 export function pctCell(wr, digits = 1) {

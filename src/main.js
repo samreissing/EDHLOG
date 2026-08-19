@@ -20,6 +20,7 @@ import {
 import { formatDate, gameYear } from "./dates.js";
 import { pctCell } from "./wr-color.js";
 import { sortHeader, applySort, toggleSort } from "./table.js";
+import { renderPieChart, metricLabelForSort, pieValue, pieLabel } from "./pie-chart.js";
 
 const VIEWS = [
   { id: "stats", label: "Stats" },
@@ -29,7 +30,8 @@ const VIEWS = [
 
 const STATS_TABS = [
   { id: "overview", label: "Overview" },
-  { id: "breakdown", label: "Colors & Brackets" },
+  { id: "colors", label: "Colors" },
+  { id: "brackets", label: "Brackets" },
   { id: "rankings", label: "Rankings" },
   { id: "trends", label: "Trends" },
 ];
@@ -58,8 +60,8 @@ let rankShowRetired = true;
 let logFilters = { deck: "", result: "", year: "" };
 let tableSort = {
   "top-decks": { col: "normWr", dir: "desc" },
-  "color-stats": { col: "winRate", dir: "desc" },
-  "bracket-stats": { col: "winRate", dir: "desc" },
+  "color-stats": { col: "colorOrder", dir: "asc" },
+  "bracket-stats": { col: "bracket", dir: "asc" },
   "rankings": { col: "normWr", dir: "desc" },
   "trends-windows": { col: "winRate", dir: "desc" },
   "trends-cumulative": { col: "winRate", dir: "desc" },
@@ -93,6 +95,12 @@ function bindEvents() {
         deckSort = col;
         deckSortDir = tableSort[tableId].dir;
       }
+      render();
+      return;
+    }
+
+    if (e.target.id === "color-sort-wubrg") {
+      tableSort["color-stats"] = { col: "colorOrder", dir: "asc" };
       render();
       return;
     }
@@ -194,7 +202,7 @@ function bindEvents() {
         bracket: Number(fd.get("bracket")),
         colors: fd.getAll("color"),
         retired: fd.get("retired") === "on",
-        createdAt: new Date().toISOString().slice(0, 10),
+        createdAt: fd.get("createdAt") || new Date().toISOString().slice(0, 10),
       };
       if (data.decks.some((d) => d.name === deck.name)) return toast("Deck exists", true);
       data.decks.push(deck);
@@ -327,31 +335,33 @@ function renderStats() {
           )
           .join("")}
       </div>
-      <h3 class="section-sub">Top Decks <span class="hint-inline">sorted by normalized WR</span></h3>
+      <h3 class="section-sub">Top Decks <span class="hint-inline">sorted by normalized WR (+20 games, 5 wins)</span></h3>
       ${miniDeckTable(topDecks)}`;
-  } else if (statsTab === "breakdown") {
+  } else if (statsTab === "colors") {
+    const sortCol = tableSort["color-stats"]?.col || "colorOrder";
     const colors = applySort(s.colorStats, tableSort["color-stats"], {
+      colorOrder: (c) => c.colorOrder,
       name: (c) => c.name,
       decks: (c) => c.decks,
       games: (c) => c.games,
       wins: (c) => c.wins,
       winRate: (c) => c.winRate,
     });
-    const brackets = applySort(
-      s.bracketStats.filter((b) => b.games > 0),
-      tableSort["bracket-stats"],
-      {
-        bracket: (b) => b.bracket,
-        games: (b) => b.games,
-        wins: (b) => b.wins,
-        winRate: (b) => b.winRate,
-      }
-    );
+    const pieSlices = colors.map((c) => ({
+      label: c.name,
+      value: pieValue(c, sortCol),
+      color: c.color,
+    }));
+    const wubrgActive = sortCol === "colorOrder";
 
     body = `
-      <div class="two-col">
-        <div>
-          <h3 class="section-sub">Color Identity</h3>
+      <div class="filters inline">
+        <button type="button" class="btn btn-ghost btn-sm ${wubrgActive ? "active-sort" : ""}" id="color-sort-wubrg">WUBRGC</button>
+        <span class="hint-inline">Click column headers to sort · pie reflects active sort metric</span>
+      </div>
+      <div class="chart-table-row">
+        ${renderPieChart(pieSlices, metricLabelForSort(sortCol))}
+        <div class="chart-table-grow">
           <table class="table compact sortable-table">
             <thead><tr>
               <th></th>
@@ -365,17 +375,39 @@ function renderStats() {
                 .map(
                   (c) => `
                 <tr>
-                  <td><span class="color-label">${colorBadge([c.color])} ${c.name}</span></td>
+                  <td><span class="color-label">${colorBadge(c.color === "C" ? [] : [c.color])} ${c.name}</span></td>
                   <td>${c.decks}</td><td>${c.games}</td><td>${c.wins}</td>
-                  <td>${pctCell(c.winRate)}</td>
+                  <td>${c.games ? pctCell(c.winRate) : "—"}</td>
                 </tr>`
                 )
                 .join("")}
             </tbody>
           </table>
         </div>
-        <div>
-          <h3 class="section-sub">By Bracket</h3>
+      </div>`;
+  } else if (statsTab === "brackets") {
+    const sortCol = tableSort["bracket-stats"]?.col || "bracket";
+    const brackets = applySort(
+      s.bracketStats.filter((b) => b.games > 0),
+      tableSort["bracket-stats"],
+      {
+        bracket: (b) => b.bracket,
+        games: (b) => b.games,
+        wins: (b) => b.wins,
+        winRate: (b) => b.winRate,
+      }
+    );
+    const pieSlices = brackets.map((b) => ({
+      label: pieLabel(b, "bracket"),
+      value: pieValue(b, sortCol),
+      bracket: b.bracket,
+    }));
+
+    body = `
+      <p class="hint">Pie chart reflects the column you're sorting by.</p>
+      <div class="chart-table-row">
+        ${renderPieChart(pieSlices, metricLabelForSort(sortCol))}
+        <div class="chart-table-grow">
           <table class="table compact sortable-table">
             <thead><tr>
               ${sortHeader("bracket-stats", "bracket", "Brkt", tableSort["bracket-stats"])}
@@ -574,6 +606,7 @@ function renderDecks() {
         <h3>Add Deck</h3>
         <form id="deck-form">
           <label>Name<input name="name" required /></label>
+          <label>Created<input type="date" name="createdAt" value="${new Date().toISOString().slice(0, 10)}" required /></label>
           <label>Bracket<select name="bracket">${[1, 2, 3, 4, 5].map((b) => `<option value="${b}" ${b === 4 ? "selected" : ""}>${b}</option>`).join("")}</select></label>
           <fieldset class="color-fieldset"><legend>Colors</legend>
             ${["W", "U", "B", "R", "G"].map((c) => `<label class="checkbox mana-check"><input type="checkbox" name="color" value="${c}" />${colorBadge([c])}</label>`).join("")}
