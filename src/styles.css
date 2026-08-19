@@ -243,6 +243,60 @@ main {
   font-weight: 600;
 }
 
+/* Win rate color pills — 25% baseline = light green */
+.wr-cell {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 5px;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  line-height: 1.3;
+}
+
+.wr-cell.wr-na {
+  color: var(--muted);
+  background: transparent;
+}
+
+.stat-card .wr-cell {
+  font-size: 1.75rem;
+  padding: 0.2rem 0.65rem;
+  margin-top: 0.15rem;
+}
+
+.year-chip .wr-cell {
+  font-size: 0.8rem;
+}
+
+.hint-inline {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+/* Sortable table headers */
+th.sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+th.sortable:hover {
+  color: var(--text);
+}
+
+th.sortable.sorted {
+  color: var(--accent);
+}
+
+.btn-sm.btn-ghost {
+  padding: 0.35rem 0.65rem;
+  font-size: 0.8rem;
+  min-width: 4.5rem;
+}
+
 /* Sub-tabs */
 .sub-tabs {
   display: flex;

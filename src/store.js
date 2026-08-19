@@ -14,6 +14,22 @@ export async function loadSeed() {
   return /** @type {AppData} */ (await res.json());
 }
 
+function migrateDecks(data) {
+  let changed = false;
+  const firstGameByDeck = new Map();
+  for (const game of data.games) {
+    const existing = firstGameByDeck.get(game.deck);
+    if (!existing || game.date < existing) firstGameByDeck.set(game.deck, game.date);
+  }
+  for (const deck of data.decks) {
+    if (!deck.createdAt) {
+      deck.createdAt = firstGameByDeck.get(deck.name) || "2024-01-01";
+      changed = true;
+    }
+  }
+  return changed;
+}
+
 function sanitizeData(data) {
   let changed = false;
   for (const game of data.games) {
@@ -23,6 +39,7 @@ function sanitizeData(data) {
       changed = true;
     }
   }
+  if (migrateDecks(data)) changed = true;
   return changed;
 }
 

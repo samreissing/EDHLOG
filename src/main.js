@@ -15,9 +15,11 @@ import {
   computeRolling100Stats,
   computeRankings,
   colorBadge,
-  pct,
+  sortDeckList,
 } from "./stats.js";
 import { formatDate, gameYear } from "./dates.js";
+import { pctCell } from "./wr-color.js";
+import { sortHeader, applySort, toggleSort } from "./table.js";
 
 const VIEWS = [
   { id: "stats", label: "Stats" },
@@ -48,11 +50,22 @@ let currentView = "stats";
 let statsTab = "overview";
 let decksTab = "active";
 let gamesTab = "history";
-let deckSort = "games";
+let deckSort = "normWr";
+let deckSortDir = "desc";
 let deckBracketFilter = "";
 let rankBracketFilter = "";
 let rankShowRetired = true;
 let logFilters = { deck: "", result: "", year: "" };
+let tableSort = {
+  "top-decks": { col: "normWr", dir: "desc" },
+  "color-stats": { col: "winRate", dir: "desc" },
+  "bracket-stats": { col: "winRate", dir: "desc" },
+  "rankings": { col: "normWr", dir: "desc" },
+  "trends-windows": { col: "winRate", dir: "desc" },
+  "trends-cumulative": { col: "winRate", dir: "desc" },
+  "decks-main": { col: "normWr", dir: "desc" },
+  "game-log": { col: "date", dir: "desc" },
+};
 
 async function boot() {
   data = await initData();
@@ -71,6 +84,26 @@ function bindEvents() {
   });
 
   document.getElementById("main").addEventListener("click", (e) => {
+    const sortTh = e.target.closest("[data-sort-table]");
+    if (sortTh) {
+      const tableId = sortTh.getAttribute("data-sort-table");
+      const col = sortTh.getAttribute("data-sort-col");
+      tableSort[tableId] = toggleSort(tableSort[tableId], col);
+      if (tableId === "decks-main") {
+        deckSort = col;
+        deckSortDir = tableSort[tableId].dir;
+      }
+      render();
+      return;
+    }
+
+    if (e.target.id === "deck-sort-dir") {
+      deckSortDir = deckSortDir === "asc" ? "desc" : "asc";
+      tableSort["decks-main"] = { col: deckSort, dir: deckSortDir };
+      render();
+      return;
+    }
+
     const statsBtn = e.target.closest("[data-stats-tab]");
     if (statsBtn) {
       statsTab = statsBtn.getAttribute("data-stats-tab");
@@ -136,6 +169,7 @@ function bindEvents() {
       render();
     } else if (id === "deck-sort") {
       deckSort = value;
+      tableSort["decks-main"] = { col: value, dir: deckSortDir };
       render();
     } else if (id === "filter-deck" || id === "filter-result" || id === "filter-year") {
       logFilters = {
@@ -160,6 +194,7 @@ function bindEvents() {
         bracket: Number(fd.get("bracket")),
         colors: fd.getAll("color"),
         retired: fd.get("retired") === "on",
+        createdAt: new Date().toISOString().slice(0, 10),
       };
       if (data.decks.some((d) => d.name === deck.name)) return toast("Deck exists", true);
       data.decks.push(deck);
@@ -222,7 +257,7 @@ function getStats() {
     bracketStats: computeBracketStats(data.games, deckStats),
     yearStats: computeYearStats(data.games),
     rolling: computeRolling100Stats(data.games),
-    rankings: computeRankings(deckStats, overview.winRate),
+    rankings: computeRankings(deckStats),
   };
 }
 
@@ -236,9 +271,7 @@ function render() {
 }
 
 function applyLogFilters() {
-  const deck = logFilters.deck;
-  const result = logFilters.result;
-  const year = logFilters.year;
+  const { deck, result, year } = logFilters;
   const count = document.getElementById("filter-count");
   if (!count) return;
 
@@ -254,8 +287,9 @@ function applyLogFilters() {
   count.textContent = `${visible} games`;
 }
 
-function statCard(label, value) {
-  return `<div class="stat-card"><span class="stat-label">${label}</span><span class="stat-value">${value}</span></div>`;
+function statCard(label, value, isWr = false) {
+  const rendered = isWr ? pctCell(value) : `<span class="stat-value">${value}</span>`;
+  return `<div class="stat-card"><span class="stat-label">${label}</span>${rendered}</div>`;
 }
 
 function renderStats() {
@@ -263,8 +297,24 @@ function renderStats() {
   let body = "";
 
   if (statsTab === "overview") {
+    const topDecks = applySort(
+      s.deckStats.filter((d) => !d.retired && d.games > 0),
+      tableSort["top-decks"],
+      {
+        name: (d) => d.name,
+        games: (d) => d.games,
+        normWr: (d) => d.normalizedWr,
+        winRate: (d) => d.winRate,
+      }
+    ).slice(0, 6);
+
     body = `
-      <div class="stat-grid">${statCard("Games", s.overview.games)}${statCard("Wins", s.overview.wins)}${statCard("Losses", s.overview.losses)}${statCard("Win Rate", pct(s.overview.winRate))}</div>
+      <div class="stat-grid">
+        ${statCard("Games", s.overview.games)}
+        ${statCard("Wins", s.overview.wins)}
+        ${statCard("Losses", s.overview.losses)}
+        ${statCard("Win Rate", s.overview.winRate, true)}
+      </div>
       <h3 class="section-sub">By Year</h3>
       <div class="year-row">
         ${s.yearStats
@@ -272,28 +322,52 @@ function renderStats() {
             (y) => `
           <div class="year-chip">
             <strong>${y.year}</strong>
-            <span>${y.games}g · ${y.wins}w · ${pct(y.winRate)}</span>
+            <span>${y.games}g · ${y.wins}w · ${pctCell(y.winRate)}</span>
           </div>`
           )
           .join("")}
       </div>
-      <h3 class="section-sub">Top Decks</h3>
-      ${miniDeckTable(s.deckStats.filter((d) => !d.retired && d.games > 0).sort((a, b) => b.games - a.games).slice(0, 6))}`;
+      <h3 class="section-sub">Top Decks <span class="hint-inline">sorted by normalized WR</span></h3>
+      ${miniDeckTable(topDecks)}`;
   } else if (statsTab === "breakdown") {
+    const colors = applySort(s.colorStats, tableSort["color-stats"], {
+      name: (c) => c.name,
+      decks: (c) => c.decks,
+      games: (c) => c.games,
+      wins: (c) => c.wins,
+      winRate: (c) => c.winRate,
+    });
+    const brackets = applySort(
+      s.bracketStats.filter((b) => b.games > 0),
+      tableSort["bracket-stats"],
+      {
+        bracket: (b) => b.bracket,
+        games: (b) => b.games,
+        wins: (b) => b.wins,
+        winRate: (b) => b.winRate,
+      }
+    );
+
     body = `
       <div class="two-col">
         <div>
           <h3 class="section-sub">Color Identity</h3>
-          <table class="table compact">
-            <thead><tr><th></th><th>Decks</th><th>G</th><th>W</th><th>WR</th></tr></thead>
+          <table class="table compact sortable-table">
+            <thead><tr>
+              <th></th>
+              ${sortHeader("color-stats", "decks", "Decks", tableSort["color-stats"])}
+              ${sortHeader("color-stats", "games", "G", tableSort["color-stats"])}
+              ${sortHeader("color-stats", "wins", "W", tableSort["color-stats"])}
+              ${sortHeader("color-stats", "winRate", "WR", tableSort["color-stats"])}
+            </tr></thead>
             <tbody>
-              ${s.colorStats
+              ${colors
                 .map(
                   (c) => `
                 <tr>
                   <td><span class="color-label">${colorBadge([c.color])} ${c.name}</span></td>
                   <td>${c.decks}</td><td>${c.games}</td><td>${c.wins}</td>
-                  <td class="${c.winRate >= s.overview.winRate ? "positive" : "negative"}">${pct(c.winRate)}</td>
+                  <td>${pctCell(c.winRate)}</td>
                 </tr>`
                 )
                 .join("")}
@@ -302,12 +376,22 @@ function renderStats() {
         </div>
         <div>
           <h3 class="section-sub">By Bracket</h3>
-          <table class="table compact">
-            <thead><tr><th>Brkt</th><th>G</th><th>W</th><th>WR</th></tr></thead>
+          <table class="table compact sortable-table">
+            <thead><tr>
+              ${sortHeader("bracket-stats", "bracket", "Brkt", tableSort["bracket-stats"])}
+              ${sortHeader("bracket-stats", "games", "G", tableSort["bracket-stats"])}
+              ${sortHeader("bracket-stats", "wins", "W", tableSort["bracket-stats"])}
+              ${sortHeader("bracket-stats", "winRate", "WR", tableSort["bracket-stats"])}
+            </tr></thead>
             <tbody>
-              ${s.bracketStats
-                .filter((b) => b.games > 0)
-                .map((b) => `<tr><td>${b.bracket}</td><td>${b.games}</td><td>${b.wins}</td><td>${pct(b.winRate)}</td></tr>`)
+              ${brackets
+                .map(
+                  (b) => `
+                <tr>
+                  <td>${b.bracket}</td><td>${b.games}</td><td>${b.wins}</td>
+                  <td>${pctCell(b.winRate)}</td>
+                </tr>`
+                )
                 .join("")}
             </tbody>
           </table>
@@ -317,14 +401,29 @@ function renderStats() {
     let list = s.rankings;
     if (!rankShowRetired) list = list.filter((d) => !d.retired);
     if (rankBracketFilter) list = list.filter((d) => String(d.bracket) === rankBracketFilter);
+    list = applySort(list, tableSort["rankings"], {
+      name: (d) => d.name,
+      bracket: (d) => d.bracket,
+      games: (d) => d.games,
+      normWr: (d) => d.normalizedWr,
+      winRate: (d) => d.winRate,
+    });
 
     body = `
       <div class="filters inline">
         <label>Bracket <select id="rank-bracket"><option value="">All</option>${[1, 2, 3, 4, 5].map((b) => `<option value="${b}" ${rankBracketFilter === String(b) ? "selected" : ""}>${b}</option>`).join("")}</select></label>
         <label class="checkbox"><input type="checkbox" id="rank-retired" ${rankShowRetired ? "checked" : ""} /> Show retired</label>
       </div>
-      <table class="table">
-        <thead><tr><th>#</th><th>Deck</th><th>CI</th><th>Brkt</th><th>G</th><th>Adj WR</th><th>Real WR</th></tr></thead>
+      <table class="table sortable-table">
+        <thead><tr>
+          <th>#</th>
+          ${sortHeader("rankings", "name", "Deck", tableSort["rankings"])}
+          <th>CI</th>
+          ${sortHeader("rankings", "bracket", "Brkt", tableSort["rankings"])}
+          ${sortHeader("rankings", "games", "G", tableSort["rankings"])}
+          ${sortHeader("rankings", "normWr", "Norm WR", tableSort["rankings"])}
+          ${sortHeader("rankings", "winRate", "Real WR", tableSort["rankings"])}
+        </tr></thead>
         <tbody>
           ${list
             .map(
@@ -334,7 +433,7 @@ function renderStats() {
               <td class="deck-name">${escapeHtml(d.name)}${d.retired ? '<span class="tag retired">retired</span>' : ""}</td>
               <td>${colorBadge(d.colors)}</td>
               <td>${d.bracket}</td><td>${d.games}</td>
-              <td class="highlight">${pct(d.normalizedWr)}</td><td>${pct(d.winRate)}</td>
+              <td>${pctCell(d.normalizedWr)}</td><td>${pctCell(d.winRate)}</td>
             </tr>`
             )
             .join("")}
@@ -344,19 +443,40 @@ function renderStats() {
     if (!s.rolling.windows.length) {
       body = '<p class="empty">Need 100+ games for trend data.</p>';
     } else {
+      const windows = applySort(s.rolling.windows, tableSort["trends-windows"], {
+        label: (w) => w.label,
+        winRate: (w) => w.winRate,
+      });
+      const cumulative = applySort(s.rolling.cumulative, tableSort["trends-cumulative"], {
+        label: (w) => w.label,
+        winRate: (w) => w.winRate,
+      });
+
       body = `
         <div class="two-col">
           <div>
             <h3 class="section-sub">Per 100 Games</h3>
-            <table class="table compact"><thead><tr><th>Games</th><th>WR</th></tr></thead><tbody>
-              ${s.rolling.windows.map((w) => `<tr><td>${w.label}</td><td>${pct(w.winRate)}</td></tr>`).join("")}
-            </tbody></table>
+            <table class="table compact sortable-table">
+              <thead><tr>
+                ${sortHeader("trends-windows", "label", "Games", tableSort["trends-windows"])}
+                ${sortHeader("trends-windows", "winRate", "WR", tableSort["trends-windows"])}
+              </tr></thead>
+              <tbody>
+                ${windows.map((w) => `<tr><td>${w.label}</td><td>${pctCell(w.winRate)}</td></tr>`).join("")}
+              </tbody>
+            </table>
           </div>
           <div>
             <h3 class="section-sub">Cumulative</h3>
-            <table class="table compact"><thead><tr><th>Games</th><th>WR</th></tr></thead><tbody>
-              ${s.rolling.cumulative.map((w) => `<tr><td>${w.label}</td><td>${pct(w.winRate)}</td></tr>`).join("")}
-            </tbody></table>
+            <table class="table compact sortable-table">
+              <thead><tr>
+                ${sortHeader("trends-cumulative", "label", "Games", tableSort["trends-cumulative"])}
+                ${sortHeader("trends-cumulative", "winRate", "WR", tableSort["trends-cumulative"])}
+              </tr></thead>
+              <tbody>
+                ${cumulative.map((w) => `<tr><td>${w.label}</td><td>${pctCell(w.winRate)}</td></tr>`).join("")}
+              </tbody>
+            </table>
           </div>
         </div>`;
     }
@@ -374,11 +494,29 @@ function escapeHtml(str) {
 }
 
 function miniDeckTable(decks) {
+  const sort = tableSort["top-decks"];
   return `
-    <table class="table compact">
-      <thead><tr><th>Deck</th><th>CI</th><th>G</th><th>WR</th></tr></thead>
+    <table class="table compact sortable-table">
+      <thead><tr>
+        ${sortHeader("top-decks", "name", "Deck", sort)}
+        <th>CI</th>
+        ${sortHeader("top-decks", "games", "G", sort)}
+        ${sortHeader("top-decks", "normWr", "Norm WR", sort)}
+        ${sortHeader("top-decks", "winRate", "Real WR", sort)}
+      </tr></thead>
       <tbody>
-        ${decks.map((d) => `<tr><td class="deck-name">${escapeHtml(d.name)}</td><td>${colorBadge(d.colors)}</td><td>${d.games}</td><td>${pct(d.winRate)}</td></tr>`).join("")}
+        ${decks
+          .map(
+            (d) => `
+          <tr>
+            <td class="deck-name">${escapeHtml(d.name)}</td>
+            <td>${colorBadge(d.colors)}</td>
+            <td>${d.games}</td>
+            <td>${pctCell(d.normalizedWr)}</td>
+            <td>${pctCell(d.winRate)}</td>
+          </tr>`
+          )
+          .join("")}
       </tbody>
     </table>`;
 }
@@ -390,11 +528,12 @@ function renderDecks() {
   else if (decksTab === "retired") list = list.filter((d) => d.retired);
   if (deckBracketFilter) list = list.filter((d) => String(d.bracket) === deckBracketFilter);
 
-  list = [...list].sort((a, b) => {
-    if (deckSort === "name") return a.name.localeCompare(b.name);
-    if (deckSort === "wr") return b.winRate - a.winRate || b.games - a.games;
-    return b.games - a.games;
-  });
+  const sortState = tableSort["decks-main"] || { col: deckSort, dir: deckSortDir };
+  deckSort = sortState.col;
+  deckSortDir = sortState.dir;
+  list = sortDeckList(list, deckSort, deckSortDir);
+
+  const dirLabel = deckSortDir === "asc" ? "↑ Asc" : "↓ Desc";
 
   return `
     <section class="section">
@@ -403,17 +542,30 @@ function renderDecks() {
         <div class="filters inline">
           <label>Bracket <select id="deck-bracket"><option value="">All</option>${[1, 2, 3, 4, 5].map((b) => `<option value="${b}" ${deckBracketFilter === String(b) ? "selected" : ""}>${b}</option>`).join("")}</select></label>
           <label>Sort <select id="deck-sort">
+            <option value="normWr" ${deckSort === "normWr" ? "selected" : ""}>Norm WR</option>
             <option value="games" ${deckSort === "games" ? "selected" : ""}>Most games</option>
             <option value="wr" ${deckSort === "wr" ? "selected" : ""}>Win rate</option>
+            <option value="newest" ${deckSort === "newest" ? "selected" : ""}>Newest</option>
+            <option value="recent" ${deckSort === "recent" ? "selected" : ""}>Most recent</option>
             <option value="name" ${deckSort === "name" ? "selected" : ""}>Name</option>
           </select></label>
+          <button type="button" class="btn btn-ghost btn-sm" id="deck-sort-dir" title="Toggle sort direction">${dirLabel}</button>
         </div>
         <button type="button" class="btn btn-primary" id="add-deck-btn">+ Deck</button>
       </div>
-      <table class="table">
-        <thead><tr><th>Deck</th><th>CI</th><th>Brkt</th><th>G</th><th>W</th><th>L</th><th>WR</th></tr></thead>
+      <table class="table sortable-table">
+        <thead><tr>
+          ${sortHeader("decks-main", "name", "Deck", sortState)}
+          <th>CI</th>
+          ${sortHeader("decks-main", "bracket", "Brkt", sortState)}
+          ${sortHeader("decks-main", "games", "G", sortState)}
+          ${sortHeader("decks-main", "wins", "W", sortState)}
+          ${sortHeader("decks-main", "losses", "L", sortState)}
+          ${sortHeader("decks-main", "normWr", "Norm WR", sortState)}
+          ${sortHeader("decks-main", "winRate", "WR", sortState)}
+        </tr></thead>
         <tbody>
-          ${list.length ? list.map((d) => `<tr><td class="deck-name">${escapeHtml(d.name)}</td><td>${colorBadge(d.colors)}</td><td>${d.bracket}</td><td>${d.games}</td><td>${d.wins}</td><td>${d.losses}</td><td>${d.games ? pct(d.winRate) : "—"}</td></tr>`).join("") : '<tr><td colspan="7" class="empty">No decks match.</td></tr>'}
+          ${list.length ? list.map((d) => `<tr><td class="deck-name">${escapeHtml(d.name)}</td><td>${colorBadge(d.colors)}</td><td>${d.bracket}</td><td>${d.games}</td><td>${d.wins}</td><td>${d.losses}</td><td>${d.games ? pctCell(d.normalizedWr) : "—"}</td><td>${d.games ? pctCell(d.winRate) : "—"}</td></tr>`).join("") : '<tr><td colspan="8" class="empty">No decks match.</td></tr>'}
         </tbody>
       </table>
     </section>
@@ -441,9 +593,16 @@ function renderGames() {
     return `<section class="section narrow">${subTabs(GAMES_TABS, gamesTab, "games-tab")}${renderLogForm()}</section>`;
   }
 
-  const sorted = [...data.games].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+  let games = [...data.games];
+  games = applySort(games, tableSort["game-log"], {
+    date: (g) => g.date,
+    deck: (g) => g.deck,
+    result: (g) => (g.result === "Win" ? 1 : 0),
+  });
+
   const decks = [...new Set(data.decks.map((d) => d.name))].sort();
-  const years = [...new Set(sorted.map((g) => gameYear(g.date)))].sort();
+  const years = [...new Set(data.games.map((g) => gameYear(g.date)))].sort();
+  const sort = tableSort["game-log"];
 
   return `
     <section class="section">
@@ -452,12 +611,17 @@ function renderGames() {
         <label>Deck<select id="filter-deck"><option value="">All</option>${decks.map((d) => `<option value="${escapeHtml(d)}" ${logFilters.deck === d ? "selected" : ""}>${escapeHtml(d)}</option>`).join("")}</select></label>
         <label>Result<select id="filter-result"><option value="">All</option><option value="Win" ${logFilters.result === "Win" ? "selected" : ""}>Wins</option><option value="Loss" ${logFilters.result === "Loss" ? "selected" : ""}>Losses</option></select></label>
         <label>Year<select id="filter-year"><option value="">All</option>${years.map((y) => `<option value="${y}" ${logFilters.year === y ? "selected" : ""}>${y}</option>`).join("")}</select></label>
-        <span class="filter-count" id="filter-count">${sorted.length} games</span>
+        <span class="filter-count" id="filter-count">${games.length} games</span>
       </div>
       <div class="table-wrap">
-        <table class="table" id="game-log-table">
-          <thead><tr><th>Date</th><th>Deck</th><th>Result</th><th></th></tr></thead>
-          <tbody>${sorted.map((g) => gameRow(g)).join("")}</tbody>
+        <table class="table sortable-table" id="game-log-table">
+          <thead><tr>
+            ${sortHeader("game-log", "date", "Date", sort)}
+            ${sortHeader("game-log", "deck", "Deck", sort)}
+            ${sortHeader("game-log", "result", "Result", sort)}
+            <th></th>
+          </tr></thead>
+          <tbody>${games.map((g) => gameRow(g)).join("")}</tbody>
         </table>
       </div>
     </section>`;

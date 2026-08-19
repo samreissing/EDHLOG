@@ -7,6 +7,9 @@ const COLOR_NAMES = {
   G: "Green",
 };
 
+export const NORM_PRIOR_WINS = 10;
+export const NORM_PRIOR_GAMES = 40;
+
 export function winRate(wins, games) {
   if (!games) return 0;
   return wins / games;
@@ -16,10 +19,9 @@ export function pct(n, digits = 1) {
   return `${(n * 100).toFixed(digits)}%`;
 }
 
-/** Shrink toward global mean — rough stand-in for spreadsheet "Normalized WR". */
-export function normalizedWinRate(wins, games, globalWr, priorGames = 30) {
-  if (!games) return globalWr;
-  return (wins + priorGames * globalWr) / (games + priorGames);
+/** Add 40 games (10W / 30L) to every deck before calculating win rate. */
+export function normalizedWinRate(wins, games) {
+  return (wins + NORM_PRIOR_WINS) / (games + NORM_PRIOR_GAMES);
 }
 
 export function computeDeckStats(decks, games) {
@@ -30,6 +32,7 @@ export function computeDeckStats(decks, games) {
       games: 0,
       wins: 0,
       losses: 0,
+      lastPlayed: null,
     });
   }
   for (const game of games) {
@@ -39,19 +42,24 @@ export function computeDeckStats(decks, games) {
         bracket: 4,
         colors: [],
         retired: false,
+        createdAt: game.date,
         games: 0,
         wins: 0,
         losses: 0,
+        lastPlayed: null,
       });
     }
     const d = map.get(game.deck);
     d.games += 1;
     if (game.result === "Win") d.wins += 1;
     else d.losses += 1;
+    if (!d.lastPlayed || game.date > d.lastPlayed) d.lastPlayed = game.date;
+    if (!d.createdAt || game.date < d.createdAt) d.createdAt = game.date;
   }
   return [...map.values()].map((d) => ({
     ...d,
     winRate: winRate(d.wins, d.games),
+    normalizedWr: normalizedWinRate(d.wins, d.games),
   }));
 }
 
@@ -79,6 +87,7 @@ export function computeColorStats(deckStats) {
       games,
       wins,
       winRate: winRate(wins, games),
+      normalizedWr: normalizedWinRate(wins, games),
     };
   });
 }
@@ -93,7 +102,11 @@ export function computeBracketStats(games, deckStats) {
     slot.games += 1;
     if (game.result === "Win") slot.wins += 1;
   }
-  return brackets.map((b) => ({ ...b, winRate: winRate(b.wins, b.games) }));
+  return brackets.map((b) => ({
+    ...b,
+    winRate: winRate(b.wins, b.games),
+    normalizedWr: normalizedWinRate(b.wins, b.games),
+  }));
 }
 
 import { gameYear } from "./dates.js";
@@ -109,7 +122,11 @@ export function computeYearStats(games) {
   }
   return [...byYear.values()]
     .sort((a, b) => a.year.localeCompare(b.year))
-    .map((y) => ({ ...y, winRate: winRate(y.wins, y.games) }));
+    .map((y) => ({
+      ...y,
+      winRate: winRate(y.wins, y.games),
+      normalizedWr: normalizedWinRate(y.wins, y.games),
+    }));
 }
 
 export function computeRolling100Stats(games) {
@@ -122,6 +139,7 @@ export function computeRolling100Stats(games) {
       label: `${end - 99}-${end}`,
       cumulativeLabel: `1-${end}`,
       games: 100,
+      wins,
       winRate: winRate(wins, 100),
     });
   }
@@ -131,20 +149,19 @@ export function computeRolling100Stats(games) {
     const wins = slice.filter((g) => g.result === "Win").length;
     cumulative.push({
       label: `1-${end}`,
+      games: end,
+      wins,
       winRate: winRate(wins, end),
     });
   }
   return { windows, cumulative };
 }
 
-export function computeRankings(deckStats, globalWr) {
+export function computeRankings(deckStats) {
   const played = deckStats.filter((d) => d.games > 0);
-  return played
-    .map((d) => ({
-      ...d,
-      normalizedWr: normalizedWinRate(d.wins, d.games, globalWr),
-    }))
-    .sort((a, b) => b.normalizedWr - a.normalizedWr || b.games - a.games);
+  return [...played].sort(
+    (a, b) => b.normalizedWr - a.normalizedWr || b.games - a.games
+  );
 }
 
 const MANA_BASE = `${import.meta.env.BASE_URL}mana`;
@@ -159,4 +176,28 @@ export function colorBadge(colors) {
         `<img class="mana-img" src="${MANA_BASE}/${c}.svg" alt="${c}" title="${COLOR_NAMES[c] || c}" />`
     )
     .join("");
+}
+
+export function sortDeckList(list, sortKey, dir) {
+  const mul = dir === "asc" ? 1 : -1;
+  return [...list].sort((a, b) => {
+    if (sortKey === "name") return mul * a.name.localeCompare(b.name);
+    if (sortKey === "games") return mul * (a.games - b.games) || a.name.localeCompare(b.name);
+    if (sortKey === "wr") return mul * (a.winRate - b.winRate) || b.games - a.games;
+    if (sortKey === "normWr") return mul * (a.normalizedWr - b.normalizedWr) || b.games - a.games;
+    if (sortKey === "bracket") return mul * (a.bracket - b.bracket) || a.name.localeCompare(b.name);
+    if (sortKey === "wins") return mul * (a.wins - b.wins) || a.name.localeCompare(b.name);
+    if (sortKey === "losses") return mul * (a.losses - b.losses) || a.name.localeCompare(b.name);
+    if (sortKey === "newest") {
+      const ad = a.createdAt || "";
+      const bd = b.createdAt || "";
+      return mul * ad.localeCompare(bd) || a.name.localeCompare(b.name);
+    }
+    if (sortKey === "recent") {
+      const ad = a.lastPlayed || "";
+      const bd = b.lastPlayed || "";
+      return mul * ad.localeCompare(bd) || a.name.localeCompare(b.name);
+    }
+    return 0;
+  });
 }
