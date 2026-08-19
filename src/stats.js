@@ -191,12 +191,12 @@ export function sortDeckList(list, sortKey, dir) {
   return [...list].sort((a, b) => {
     if (sortKey === "name") return mul * a.name.localeCompare(b.name);
     if (sortKey === "games") return mul * (a.games - b.games) || a.name.localeCompare(b.name);
-    if (sortKey === "wr") return mul * (a.winRate - b.winRate) || b.games - a.games;
+    if (sortKey === "wr" || sortKey === "winRate") return mul * (a.winRate - b.winRate) || b.games - a.games;
     if (sortKey === "normWr") return mul * (a.normalizedWr - b.normalizedWr) || b.games - a.games;
     if (sortKey === "bracket") return mul * (a.bracket - b.bracket) || a.name.localeCompare(b.name);
     if (sortKey === "wins") return mul * (a.wins - b.wins) || a.name.localeCompare(b.name);
     if (sortKey === "losses") return mul * (a.losses - b.losses) || a.name.localeCompare(b.name);
-    if (sortKey === "newest") {
+    if (sortKey === "newest" || sortKey === "createdAt") {
       const ad = a.createdAt || "";
       const bd = b.createdAt || "";
       return mul * ad.localeCompare(bd) || a.name.localeCompare(b.name);

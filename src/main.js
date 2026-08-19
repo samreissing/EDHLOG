@@ -19,7 +19,12 @@ import {
 import { formatDate, gameYear } from "./dates.js";
 import { pctCell } from "./wr-color.js";
 import { sortHeader, applySort, toggleSort } from "./table.js";
-import { renderPieChart, pieSlicesFromRows } from "./pie-chart.js";
+import {
+  getBracketColor,
+  renderPieChart,
+  pieSlicesFromRows,
+  bindPieCharts,
+} from "./pie-chart.js";
 import {
   computeColorStatsAdvanced,
   colorColumnSortLabel,
@@ -305,6 +310,7 @@ function render() {
   else main.innerHTML = renderGames();
 
   if (currentView === "games" && gamesTab === "history") applyLogFilters();
+  bindPieCharts();
 }
 
 function applyLogFilters() {
@@ -445,7 +451,7 @@ function renderStats() {
                 .map(
                   (b) => `
                 <tr>
-                  <td>${b.bracket}</td><td>${b.games}</td><td>${b.wins}</td>
+                  <td><span class="bracket-pill" style="background:${getBracketColor(b.bracket)}">${b.bracket}</span></td><td>${b.games}</td><td>${b.wins}</td>
                   <td>${pctCell(b.winRate)}</td>
                 </tr>`
                 )
@@ -621,9 +627,10 @@ function renderDecks() {
           ${sortHeader("decks-main", "losses", "L", sortState)}
           ${sortHeader("decks-main", "normWr", "Norm WR", sortState)}
           ${sortHeader("decks-main", "winRate", "WR", sortState)}
+          ${sortHeader("decks-main", "createdAt", "Added", sortState)}
         </tr></thead>
         <tbody>
-          ${list.length ? list.map((d) => `<tr><td class="deck-name">${escapeHtml(d.name)}</td><td>${colorBadge(d.colors)}</td><td>${d.bracket}</td><td>${d.games}</td><td>${d.wins}</td><td>${d.losses}</td><td>${d.games ? pctCell(d.normalizedWr) : "—"}</td><td>${d.games ? pctCell(d.winRate) : "—"}</td></tr>`).join("") : '<tr><td colspan="8"></td></tr>'}
+          ${list.length ? list.map((d) => `<tr><td class="deck-name">${escapeHtml(d.name)}</td><td>${colorBadge(d.colors)}</td><td>${d.bracket}</td><td>${d.games}</td><td>${d.wins}</td><td>${d.losses}</td><td>${d.games ? pctCell(d.normalizedWr) : "—"}</td><td>${d.games ? pctCell(d.winRate) : "—"}</td><td>${formatDate(d.createdAt)}</td></tr>`).join("") : '<tr><td colspan="9"></td></tr>'}
         </tbody>
       </table>
     </section>
@@ -687,7 +694,12 @@ function renderGames() {
 }
 
 function renderLogForm() {
-  const decks = data.decks.filter((d) => !d.retired).sort((a, b) => a.name.localeCompare(b.name));
+  const { deckStats } = getStats();
+  const decks = sortDeckList(
+    deckStats.filter((d) => !d.retired),
+    "recent",
+    "desc"
+  );
   const today = new Date().toISOString().slice(0, 10);
   return `
     <form id="add-game-form" class="game-form">
