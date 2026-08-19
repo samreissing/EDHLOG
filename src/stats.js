@@ -61,7 +61,6 @@ export function computeDeckStats(decks, games) {
     if (game.result === "Win") d.wins += 1;
     else d.losses += 1;
     if (!d.lastPlayed || game.date > d.lastPlayed) d.lastPlayed = game.date;
-    if (!d.createdAt || game.date < d.createdAt) d.createdAt = game.date;
   }
   return [...map.values()].map((d) => ({
     ...d,
