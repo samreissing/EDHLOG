@@ -3,14 +3,14 @@ import { normalizeDate } from "./dates.js";
 const STORAGE_KEY = "edhlog-data-v1";
 
 /** @typedef {{ name: string, bracket: number, colors: string[], retired: boolean, createdAt?: string }} Deck */
-/** @typedef {{ id: string, date: string, deck: string, result: 'Win' | 'Loss' }} Game */
+/** @typedef {{ id: string, date: string, deck: string, result: 'Win' | 'Loss', source?: 'local' }} Game */
 /** @typedef {{ seedHash?: string, seedGames?: number }} DataMeta */
 /** @typedef {{ meta?: DataMeta, decks: Deck[], games: Game[] }} AppData */
 
 /** @type {AppData | null} */
 let cache = null;
 
-/** @type {{ games: number, keptLocal: number } | null} */
+/** @type {{ games: number, keptLocal: number, removed: number } | null} */
 let lastSeedSync = null;
 
 export function getLastSeedSync() {
@@ -58,12 +58,17 @@ function sanitizeData(data) {
 /** @param {AppData} local @param {AppData} seed */
 export function syncFromSeed(local, seed) {
   const seedFingerprints = new Set(seed.games.map(gameFingerprint));
-  const localOnlyGames = local.games.filter((game) => !seedFingerprints.has(gameFingerprint(game)));
+  const beforeCount = local.games.length;
+
+  // Only keep games the user logged in the app — not stale copies with wrong dates.
+  const localOnlyGames = local.games.filter(
+    (game) => game.source === "local" && !seedFingerprints.has(gameFingerprint(game))
+  );
 
   local.games = seed.games.map((game) => ({ ...game }));
   let nextNum = local.games.length + 1;
   for (const game of localOnlyGames) {
-    local.games.push({ ...game, id: `game-${nextNum++}` });
+    local.games.push({ ...game, id: `game-${nextNum++}`, source: "local" });
   }
 
   const seedDeckNames = new Set(seed.decks.map((deck) => deck.name));
@@ -81,6 +86,7 @@ export function syncFromSeed(local, seed) {
   return {
     games: seed.games.length,
     keptLocal: localOnlyGames.length,
+    removed: Math.max(0, beforeCount - local.games.length),
   };
 }
 
@@ -106,10 +112,16 @@ export async function initData() {
   }
 
   const seedHash = seed.meta?.seedHash;
-  const localHash = data.meta?.seedHash;
-  if (seedHash && seedHash !== localHash) {
-    lastSeedSync = syncFromSeed(data, seed);
-    saveData(data);
+  if (seedHash) {
+    const beforeCount = data.games.length;
+    const beforeMetaHash = data.meta?.seedHash;
+    const result = syncFromSeed(data, seed);
+    if (beforeCount !== data.games.length || beforeMetaHash !== seedHash) {
+      saveData(data);
+      if (result.removed > 0 || beforeMetaHash !== seedHash) {
+        lastSeedSync = result;
+      }
+    }
   }
 
   return data;
