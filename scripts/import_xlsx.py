@@ -75,6 +75,8 @@ def main(xlsx_path: str) -> None:
         for row in sheet.iter_rows(min_row=2, values_only=True):
             if row[0] and row[1] and row[2]:
                 d = normalize_date(row[0])
+                if len(d) >= 4 and d[:4] != year:
+                    d = f"{year}{d[4:]}"
                 raw = str(row[1])
                 name = clean_deck_name(raw)
                 if name not in decks:
@@ -86,10 +88,20 @@ def main(xlsx_path: str) -> None:
                     }
                 games.append({"date": d, "deck": name, "result": row[2]})
 
+    first_game_by_deck: dict[str, str] = {}
+    for game in games:
+        existing = first_game_by_deck.get(game["deck"])
+        if not existing or game["date"] < existing:
+            first_game_by_deck[game["deck"]] = game["date"]
+
+    deck_list = list(decks.values())
+    for deck in deck_list:
+        deck["createdAt"] = first_game_by_deck.get(deck["name"], "2024-04-15")
+
     for i, g in enumerate(games):
         g["id"] = f"game-{i + 1}"
 
-    payload = json.dumps({"decks": list(decks.values()), "games": games}, indent=2)
+    payload = json.dumps({"decks": deck_list, "games": games}, indent=2)
     for out in OUT_PATHS:
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(payload)

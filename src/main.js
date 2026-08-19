@@ -185,8 +185,7 @@ function bindEvents() {
     const quickWin = e.target.closest(".quick-win");
     const quickLoss = e.target.closest(".quick-loss");
     if (quickWin || quickLoss) {
-      addGame({
-        date: new Date().toISOString().slice(0, 10),
+      fillLogForm({
         deck: (quickWin || quickLoss).dataset.deck,
         result: quickWin ? "Win" : "Loss",
       });
@@ -619,6 +618,7 @@ function renderDecks() {
       </div>
       <table class="table sortable-table">
         <thead><tr>
+          ${sortHeader("decks-main", "createdAt", "Added", sortState)}
           ${sortHeader("decks-main", "name", "Deck", sortState)}
           <th>CI</th>
           ${sortHeader("decks-main", "bracket", "Brkt", sortState)}
@@ -627,10 +627,9 @@ function renderDecks() {
           ${sortHeader("decks-main", "losses", "L", sortState)}
           ${sortHeader("decks-main", "normWr", "Norm WR", sortState)}
           ${sortHeader("decks-main", "winRate", "WR", sortState)}
-          ${sortHeader("decks-main", "createdAt", "Added", sortState)}
         </tr></thead>
         <tbody>
-          ${list.length ? list.map((d) => `<tr><td class="deck-name">${escapeHtml(d.name)}</td><td>${colorBadge(d.colors)}</td><td>${d.bracket}</td><td>${d.games}</td><td>${d.wins}</td><td>${d.losses}</td><td>${d.games ? pctCell(d.normalizedWr) : "—"}</td><td>${d.games ? pctCell(d.winRate) : "—"}</td><td>${formatDate(d.createdAt)}</td></tr>`).join("") : '<tr><td colspan="9"></td></tr>'}
+          ${list.length ? list.map((d) => `<tr><td>${formatDate(d.createdAt)}</td><td class="deck-name">${escapeHtml(d.name)}</td><td>${colorBadge(d.colors)}</td><td>${d.bracket}</td><td>${d.games}</td><td>${d.wins}</td><td>${d.losses}</td><td>${d.games ? pctCell(d.normalizedWr) : "—"}</td><td>${d.games ? pctCell(d.winRate) : "—"}</td></tr>`).join("") : '<tr><td colspan="9"></td></tr>'}
         </tbody>
       </table>
     </section>
@@ -714,7 +713,7 @@ function renderLogForm() {
       <button type="submit" class="btn btn-primary btn-lg">Save Game</button>
     </form>
     <div class="quick-log">
-      <h3>Quick log (today)</h3>
+      <h3>Quick fill</h3>
       <div class="quick-grid">
         ${decks
           .map(
@@ -738,12 +737,21 @@ function gameRow(g) {
     <td><button type="button" class="btn-icon delete-game" data-id="${g.id}">×</button></td></tr>`;
 }
 
+function fillLogForm({ deck, result }) {
+  const form = document.getElementById("add-game-form");
+  if (!form) return;
+  const deckSelect = form.querySelector('[name="deck"]');
+  const resultInput = form.querySelector(`[name="result"][value="${result}"]`);
+  if (deckSelect) deckSelect.value = deck;
+  if (resultInput) resultInput.checked = true;
+  form.querySelector('[name="date"]')?.focus();
+}
+
 function addGame({ date, deck, result }) {
   if (!deck) return toast("Pick a deck", true);
   data.games.push({ id: nextGameId(data.games), date, deck, result });
   saveData(data);
   toast(`${result} logged`);
-  gamesTab = "history";
   render();
 }
 
