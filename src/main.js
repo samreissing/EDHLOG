@@ -90,9 +90,13 @@ async function boot() {
   renderNav();
   render();
   if (sync) {
-    const extra =
-      sync.keptLocal > 0 ? ` (${sync.keptLocal} local-only game${sync.keptLocal === 1 ? "" : "s"} kept)` : "";
-    toast(`Synced ${sync.games} games from spreadsheet${extra}`);
+    if (sync.removed > 0) {
+      toast(`Removed ${sync.removed} duplicate games — now at ${sync.games + sync.keptLocal} total`);
+    } else if (sync.keptLocal > 0) {
+      toast(`Synced ${sync.games} games from spreadsheet (${sync.keptLocal} local-only kept)`);
+    } else {
+      toast(`Synced ${sync.games} games from spreadsheet`);
+    }
   }
 }
 
@@ -756,7 +760,7 @@ function fillLogForm({ deck, result }) {
 
 function addGame({ date, deck, result }) {
   if (!deck) return toast("Pick a deck", true);
-  data.games.push({ id: nextGameId(data.games), date, deck, result });
+  data.games.push({ id: nextGameId(data.games), date, deck, result, source: "local" });
   saveData(data);
   toast(`${result} logged`);
   render();
