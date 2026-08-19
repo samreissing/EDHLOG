@@ -1,6 +1,6 @@
 /** SVG donut pie chart with slice hover values. */
 
-import { MANA_HEX } from "./mana-colors.js";
+import { MANA_HEX, mixManaColors } from "./mana-colors.js";
 
 const SLICE_PALETTE = [
   "#5b9fd4",
@@ -54,12 +54,11 @@ function escAttr(str) {
 
 function sliceLabel(row) {
   if (row.bracket != null) return `Bracket ${row.bracket}`;
-  if (row.name) return row.name;
   if (row.key) return row.key;
   return "Slice";
 }
 
-function sliceFill(slice, index, startDeg, sweep, animKey) {
+function sliceFill(slice, index) {
   if (slice.bracket != null) {
     return { fill: getBracketColor(slice.bracket), def: null };
   }
@@ -72,20 +71,7 @@ function sliceFill(slice, index, startDeg, sweep, animKey) {
     };
   }
 
-  const id = `pg-${animKey}-${index}`;
-  const mid = ((startDeg + sweep / 2 - 90) * Math.PI) / 180;
-  const x1 = 50 + 40 * Math.cos(mid + Math.PI);
-  const y1 = 50 + 40 * Math.sin(mid + Math.PI);
-  const x2 = 50 + 40 * Math.cos(mid);
-  const y2 = 50 + 40 * Math.sin(mid);
-  const stops = manaColors
-    .map((color, idx) => {
-      const offset = manaColors.length === 1 ? 0 : (idx / (manaColors.length - 1)) * 100;
-      return `<stop offset="${offset}%" stop-color="${MANA_HEX[color]}" />`;
-    })
-    .join("");
-  const def = `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}">${stops}</linearGradient>`;
-  return { fill: `url(#${id})`, def };
+  return { fill: mixManaColors(manaColors), def: null };
 }
 
 /**
@@ -103,7 +89,7 @@ export function renderPieChart(slices, animKey = 0) {
   const paths = filtered.map((slice, i) => {
     const sweep = (slice.value / total) * 360;
     const d = donutArc(50, 50, 44, 28, angle, angle + sweep);
-    const { fill, def } = sliceFill(slice, i, angle, sweep, animKey);
+    const { fill, def } = sliceFill(slice, i, angle, sweep);
     if (def) defs.push(def);
     const hover = slice.hover || String(slice.value);
     angle += sweep;
@@ -127,10 +113,10 @@ export function pieValue(row, sortCol) {
 
 export function pieHoverText(row, sortCol) {
   const label = sliceLabel(row);
-  if (sortCol === "wins") return `${label}: ${row.wins || 0} wins`;
-  if (sortCol === "decks") return `${label}: ${row.decks || 0} decks`;
-  if (sortCol === "winRate" || sortCol === "bracket") return `${label}: ${row.games || 0} games`;
-  return `${label}: ${row.games || 0} games`;
+  if (sortCol === "wins") return `${label}: ${row.wins || 0} Wins`;
+  if (sortCol === "decks") return `${label}: ${row.decks || 0} Decks`;
+  if (sortCol === "winRate" || sortCol === "bracket") return `${label}: ${row.games || 0} Games`;
+  return `${label}: ${row.games || 0} Games`;
 }
 
 export function pieSlicesFromRows(rows, sortCol, mapSlice) {

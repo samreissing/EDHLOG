@@ -18,7 +18,7 @@ import {
   sortDeckList,
 } from "./stats.js";
 import { formatDate, gameYear } from "./dates.js";
-import { pctCell } from "./wr-color.js";
+import { pctCell, valueCell, colorStatAverage } from "./wr-color.js";
 import { sortHeader, applySort, toggleSort } from "./table.js";
 import {
   getBracketColor,
@@ -395,7 +395,11 @@ function renderStats() {
     const pieSlices = pieSlicesFromRows(colors, sortCol, (c) => ({
       colors: c.displayColors,
       color: c.key !== "C" && c.displayColors.length === 1 ? c.displayColors[0] : undefined,
+      key: c.key,
     }));
+
+    const avgGames = colorStatAverage(colors, "games");
+    const avgWins = colorStatAverage(colors, "wins");
 
     body = `
       <div class="filters inline color-mode-filters">
@@ -418,7 +422,9 @@ function renderStats() {
                   (c) => `
                 <tr>
                   <td><span class="color-label">${colorBadge(c.displayColors)}</span></td>
-                  <td>${c.decks}</td><td>${c.games}</td><td>${c.wins}</td>
+                  <td>${c.decks}</td>
+                  <td>${c.key === "C" ? c.games : valueCell(c.games, avgGames)}</td>
+                  <td>${c.key === "C" ? c.wins : valueCell(c.wins, avgWins)}</td>
                   <td>${c.games ? pctCell(c.winRate) : "—"}</td>
                 </tr>`
                 )
