@@ -59,6 +59,42 @@ function escAttr(str) {
   return String(str).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }
 
+function sliceLabel(row) {
+  if (row.bracket != null) return `Bracket ${row.bracket}`;
+  if (row.name) return row.name;
+  if (row.key) return row.key;
+  return "Slice";
+}
+
+function sliceFill(slice, index, startDeg, sweep, animKey) {
+  if (slice.bracket != null) {
+    return { fill: getBracketColor(slice.bracket), def: null };
+  }
+
+  const manaColors = (slice.colors || (slice.color ? [slice.color] : [])).filter((c) => MANA_HEX[c]);
+  if (manaColors.length <= 1) {
+    return {
+      fill: manaColors[0] ? MANA_HEX[manaColors[0]] : pickSliceColor(slice, index),
+      def: null,
+    };
+  }
+
+  const id = `pg-${animKey}-${index}`;
+  const mid = ((startDeg + sweep / 2 - 90) * Math.PI) / 180;
+  const x1 = 50 + 40 * Math.cos(mid + Math.PI);
+  const y1 = 50 + 40 * Math.sin(mid + Math.PI);
+  const x2 = 50 + 40 * Math.cos(mid);
+  const y2 = 50 + 40 * Math.sin(mid);
+  const stops = manaColors
+    .map((color, idx) => {
+      const offset = manaColors.length === 1 ? 0 : (idx / (manaColors.length - 1)) * 100;
+      return `<stop offset="${offset}%" stop-color="${MANA_HEX[color]}" />`;
+    })
+    .join("");
+  const def = `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}">${stops}</linearGradient>`;
+  return { fill: `url(#${id})`, def };
+}
+
 /**
  * @param {Array<{ value: number, hover?: string, color?: string, colors?: string[], bracket?: number }>} slices
  */
@@ -70,10 +106,12 @@ export function renderPieChart(slices, animKey = 0) {
   }
 
   let angle = 0;
+  const defs = [];
   const paths = filtered.map((slice, i) => {
     const sweep = (slice.value / total) * 360;
     const d = donutArc(50, 50, 44, 28, angle, angle + sweep);
-    const fill = pickSliceColor(slice, i);
+    const { fill, def } = sliceFill(slice, i, angle, sweep, animKey);
+    if (def) defs.push(def);
     const hover = slice.hover || String(slice.value);
     angle += sweep;
     return `<path class="pie-slice" d="${d}" fill="${fill}" data-hover="${escAttr(hover)}" style="animation-delay:${i * 0.045}s" />`;
@@ -81,7 +119,7 @@ export function renderPieChart(slices, animKey = 0) {
 
   return `
     <div class="pie-panel" data-pie-key="${animKey}">
-      <svg class="pie-svg" viewBox="0 0 100 100" aria-hidden="true">${paths.join("")}</svg>
+      <svg class="pie-svg" viewBox="0 0 100 100" aria-hidden="true">${defs.length ? `<defs>${defs.join("")}</defs>` : ""}${paths.join("")}</svg>
       <div class="pie-tooltip" hidden></div>
     </div>`;
 }
@@ -95,18 +133,22 @@ export function pieValue(row, sortCol) {
 }
 
 export function pieHoverText(row, sortCol) {
-  if (sortCol === "wins") return `${row.wins || 0} wins`;
-  if (sortCol === "decks") return `${row.decks || 0} decks`;
-  if (sortCol === "winRate" || sortCol === "bracket") return `Bracket ${row.bracket}: ${row.games || 0} games`;
-  return `${row.games || 0} games`;
+  const label = sliceLabel(row);
+  if (sortCol === "wins") return `${label}: ${row.wins || 0} wins`;
+  if (sortCol === "decks") return `${label}: ${row.decks || 0} decks`;
+  if (sortCol === "winRate" || sortCol === "bracket") return `${label}: ${row.games || 0} games`;
+  return `${label}: ${row.games || 0} games`;
 }
 
 export function pieSlicesFromRows(rows, sortCol, mapSlice) {
-  return rows.map((row) => ({
-    ...mapSlice(row),
-    value: pieValue(row, sortCol),
-    hover: pieHoverText(row, sortCol),
-  }));
+  return rows.map((row) => {
+    const slice = mapSlice(row);
+    return {
+      ...slice,
+      value: pieValue(row, sortCol),
+      hover: slice.hover ?? pieHoverText(row, sortCol),
+    };
+  });
 }
 
 export function bindPieCharts(root = document.getElementById("main")) {
