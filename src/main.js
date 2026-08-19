@@ -406,9 +406,7 @@ function renderStats() {
         <div class="chart-table-grow">
           <table class="table compact sortable-table">
             <thead><tr>
-              <th class="col-filter-head">
-                <button type="button" class="btn btn-ghost btn-sm col-sort-btn" id="color-order-toggle">${colorColumnSortLabel(colorSortOrder)}</button>
-              </th>
+              <th class="sortable col-color-order" id="color-order-toggle">${colorColumnSortLabel(colorSortOrder)}</th>
               ${sortHeader("color-stats", "decks", "Decks", tableSort["color-stats"])}
               ${sortHeader("color-stats", "games", "G", tableSort["color-stats"])}
               ${sortHeader("color-stats", "wins", "W", tableSort["color-stats"])}

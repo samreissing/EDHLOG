@@ -67,9 +67,9 @@ export function wrBackgroundColor(wr) {
 
 export function wrTextColor(wr) {
   const rate = clamp(wr, 0, 1);
+  // Black text on lighter pills (<50%); white on dark green (>=50%).
   if (rate >= 0.5) return "#f4fff8";
-  if (rate >= BASE_WR) return rate >= 0.38 ? "#f0fff4" : "#153520";
-  return rate < 0.12 ? "#fff8f8" : "#3d2e08";
+  return "#0D0F0F";
 }
 
 export function pctCell(wr, digits = 2) {
