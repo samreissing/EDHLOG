@@ -293,9 +293,9 @@ th.sortable.sorted {
 
 .chart-table-row {
   display: grid;
-  grid-template-columns: minmax(200px, 260px) 1fr;
-  gap: 1.5rem;
-  align-items: start;
+  grid-template-columns: 1fr minmax(200px, 240px);
+  gap: 1.75rem;
+  align-items: center;
 }
 
 @media (max-width: 720px) {
@@ -308,66 +308,116 @@ th.sortable.sorted {
   min-width: 0;
 }
 
-.pie-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.75rem;
-  background: var(--surface-2);
-  border-radius: 8px;
-  padding: 1rem;
+.col-filter-head {
+  padding: 0.35rem 0.5rem !important;
+  vertical-align: middle;
 }
 
-.pie-chart {
-  width: 140px;
-  height: 140px;
-}
-
-.pie-meta {
-  width: 100%;
-}
-
-.pie-metric {
-  display: block;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--muted);
-  margin-bottom: 0.5rem;
-}
-
-.pie-legend {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  font-size: 0.78rem;
-}
-
-.pie-legend li {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin-bottom: 0.25rem;
-}
-
-.pie-swatch {
-  width: 0.65rem;
-  height: 0.65rem;
-  border-radius: 2px;
-  flex-shrink: 0;
-}
-
-.pie-val {
-  margin-left: auto;
+.col-sort-btn {
   font-family: var(--mono);
-  color: var(--muted);
   font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  padding: 0.25rem 0.45rem;
+  min-width: auto;
 }
 
+.color-mode-filters {
+  margin-bottom: 1rem;
+}
+
+.pie-panel {
+  position: relative;
+  width: 220px;
+  height: 220px;
+  justify-self: center;
+  animation: pieEnter 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.pie-panel--empty {
+  width: 220px;
+  height: 220px;
+}
+
+.pie-glow {
+  position: absolute;
+  inset: -8%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(91, 159, 212, 0.18), transparent 68%);
+  animation: pieGlow 0.9s ease-out both;
+}
+
+.pie-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 12px 40px rgba(0, 0, 0, 0.45);
+  animation: pieRingSpin 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.pie-hole {
+  position: absolute;
+  inset: 26%;
+  border-radius: 50%;
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--border);
+  animation: pieHolePop 0.55s 0.15s cubic-bezier(0.34, 1.4, 0.64, 1) both;
+}
+
+@keyframes pieEnter {
+  from {
+    opacity: 0;
+    transform: scale(0.55);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pieRingSpin {
+  from {
+    transform: rotate(-140deg) scale(0.6);
+    opacity: 0;
+  }
+  to {
+    transform: rotate(0deg) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes pieHolePop {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes pieGlow {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.pie-wrap,
+.pie-chart,
+.pie-meta,
+.pie-metric,
+.pie-legend,
+.pie-swatch,
+.pie-val,
 .pie-empty {
-  color: var(--muted);
-  font-style: italic;
-  padding: 2rem;
+  display: none;
 }
 
 .btn.active-sort {

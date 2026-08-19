@@ -1,6 +1,6 @@
 const COLORS = ["W", "U", "B", "R", "G"];
 export const COLOR_ORDER = ["W", "U", "B", "R", "G", "C"];
-const COLOR_NAMES = {
+export const COLOR_NAMES = {
   W: "White",
   U: "Blue",
   B: "Black",
@@ -179,13 +179,10 @@ const MANA_BASE = `${import.meta.env.BASE_URL}mana`;
 
 export function colorBadge(colors) {
   if (!colors.length) {
-    return `<img class="mana-img" src="${MANA_BASE}/C.svg" alt="Colorless" title="Colorless" />`;
+    return `<img class="mana-img" src="${MANA_BASE}/C.svg" alt="C" />`;
   }
   return colors
-    .map(
-      (c) =>
-        `<img class="mana-img" src="${MANA_BASE}/${c}.svg" alt="${c}" title="${COLOR_NAMES[c] || c}" />`
-    )
+    .map((c) => `<img class="mana-img" src="${MANA_BASE}/${c}.svg" alt="${c}" />`)
     .join("");
 }
 

@@ -9,7 +9,6 @@ import {
 import {
   computeDeckStats,
   computeOverview,
-  computeColorStats,
   computeBracketStats,
   computeYearStats,
   computeRolling100Stats,
@@ -20,7 +19,12 @@ import {
 import { formatDate, gameYear } from "./dates.js";
 import { pctCell } from "./wr-color.js";
 import { sortHeader, applySort, toggleSort } from "./table.js";
-import { renderPieChart, metricLabelForSort, pieValue, pieLabel } from "./pie-chart.js";
+import { renderPieChart, pieSlicesFromRows } from "./pie-chart.js";
+import {
+  computeColorStatsAdvanced,
+  colorColumnSortLabel,
+  colorViewLabel,
+} from "./color-stats.js";
 
 const VIEWS = [
   { id: "stats", label: "Stats" },
@@ -58,6 +62,10 @@ let deckBracketFilter = "";
 let rankBracketFilter = "";
 let rankShowRetired = true;
 let logFilters = { deck: "", result: "", year: "" };
+let colorView = "wubrgc";
+let colorAgg = "inclusive";
+let colorSortOrder = "wubrgc";
+let pieAnimKey = 0;
 let tableSort = {
   "top-decks": { col: "normWr", dir: "desc" },
   "color-stats": { col: "colorOrder", dir: "asc" },
@@ -95,12 +103,29 @@ function bindEvents() {
         deckSort = col;
         deckSortDir = tableSort[tableId].dir;
       }
+      if (tableId === "color-stats" || tableId === "bracket-stats") pieAnimKey++;
       render();
       return;
     }
 
-    if (e.target.id === "color-sort-wubrg") {
+    if (e.target.id === "color-order-toggle") {
+      colorSortOrder = colorSortOrder === "wubrgc" ? "cgrbuw" : "wubrgc";
       tableSort["color-stats"] = { col: "colorOrder", dir: "asc" };
+      pieAnimKey++;
+      render();
+      return;
+    }
+
+    if (e.target.id === "color-view-toggle") {
+      colorView = colorView === "wubrgc" ? "all" : "wubrgc";
+      pieAnimKey++;
+      render();
+      return;
+    }
+
+    if (e.target.id === "color-agg-toggle") {
+      colorAgg = colorAgg === "inclusive" ? "exclusive" : "inclusive";
+      pieAnimKey++;
       render();
       return;
     }
@@ -261,7 +286,11 @@ function getStats() {
   return {
     deckStats,
     overview,
-    colorStats: computeColorStats(deckStats),
+    colorStats: computeColorStatsAdvanced(deckStats, {
+      view: colorView,
+      agg: colorAgg,
+      sortOrder: colorSortOrder,
+    }),
     bracketStats: computeBracketStats(data.games, deckStats),
     yearStats: computeYearStats(data.games),
     rolling: computeRolling100Stats(data.games),
@@ -335,7 +364,7 @@ function renderStats() {
           )
           .join("")}
       </div>
-      <h3 class="section-sub">Top Decks <span class="hint-inline">sorted by normalized WR (+20 games, 5 wins)</span></h3>
+      <h3 class="section-sub">Top Decks</h3>
       ${miniDeckTable(topDecks)}`;
   } else if (statsTab === "colors") {
     const sortCol = tableSort["color-stats"]?.col || "colorOrder";
@@ -347,24 +376,23 @@ function renderStats() {
       wins: (c) => c.wins,
       winRate: (c) => c.winRate,
     });
-    const pieSlices = colors.map((c) => ({
-      label: c.name,
-      value: pieValue(c, sortCol),
-      color: c.color,
+    const pieSlices = pieSlicesFromRows(colors, sortCol, (c) => ({
+      colors: c.displayColors,
+      color: c.key !== "C" && c.displayColors.length === 1 ? c.displayColors[0] : undefined,
     }));
-    const wubrgActive = sortCol === "colorOrder";
 
     body = `
-      <div class="filters inline">
-        <button type="button" class="btn btn-ghost btn-sm ${wubrgActive ? "active-sort" : ""}" id="color-sort-wubrg">WUBRGC</button>
-        <span class="hint-inline">Click column headers to sort · pie reflects active sort metric</span>
+      <div class="filters inline color-mode-filters">
+        <button type="button" class="btn btn-ghost btn-sm" id="color-view-toggle">${colorViewLabel(colorView)}</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="color-agg-toggle">${colorAgg === "inclusive" ? "Inclusive" : "Exclusive"}</button>
       </div>
       <div class="chart-table-row">
-        ${renderPieChart(pieSlices, metricLabelForSort(sortCol))}
         <div class="chart-table-grow">
           <table class="table compact sortable-table">
             <thead><tr>
-              <th></th>
+              <th class="col-filter-head">
+                <button type="button" class="btn btn-ghost btn-sm col-sort-btn" id="color-order-toggle">${colorColumnSortLabel(colorSortOrder)}</button>
+              </th>
               ${sortHeader("color-stats", "decks", "Decks", tableSort["color-stats"])}
               ${sortHeader("color-stats", "games", "G", tableSort["color-stats"])}
               ${sortHeader("color-stats", "wins", "W", tableSort["color-stats"])}
@@ -375,7 +403,7 @@ function renderStats() {
                 .map(
                   (c) => `
                 <tr>
-                  <td><span class="color-label">${colorBadge(c.color === "C" ? [] : [c.color])} ${c.name}</span></td>
+                  <td><span class="color-label">${colorBadge(c.displayColors)}</span></td>
                   <td>${c.decks}</td><td>${c.games}</td><td>${c.wins}</td>
                   <td>${c.games ? pctCell(c.winRate) : "—"}</td>
                 </tr>`
@@ -384,6 +412,7 @@ function renderStats() {
             </tbody>
           </table>
         </div>
+        ${renderPieChart(pieSlices, pieAnimKey)}
       </div>`;
   } else if (statsTab === "brackets") {
     const sortCol = tableSort["bracket-stats"]?.col || "bracket";
@@ -397,16 +426,12 @@ function renderStats() {
         winRate: (b) => b.winRate,
       }
     );
-    const pieSlices = brackets.map((b) => ({
-      label: pieLabel(b, "bracket"),
-      value: pieValue(b, sortCol),
+    const pieSlices = pieSlicesFromRows(brackets, sortCol, (b) => ({
       bracket: b.bracket,
     }));
 
     body = `
-      <p class="hint">Pie chart reflects the column you're sorting by.</p>
       <div class="chart-table-row">
-        ${renderPieChart(pieSlices, metricLabelForSort(sortCol))}
         <div class="chart-table-grow">
           <table class="table compact sortable-table">
             <thead><tr>
@@ -428,6 +453,7 @@ function renderStats() {
             </tbody>
           </table>
         </div>
+        ${renderPieChart(pieSlices, pieAnimKey)}
       </div>`;
   } else if (statsTab === "rankings") {
     let list = s.rankings;
@@ -473,7 +499,7 @@ function renderStats() {
       </table>`;
   } else if (statsTab === "trends") {
     if (!s.rolling.windows.length) {
-      body = '<p class="empty">Need 100+ games for trend data.</p>';
+      body = "";
     } else {
       const windows = applySort(s.rolling.windows, tableSort["trends-windows"], {
         label: (w) => w.label,
@@ -597,7 +623,7 @@ function renderDecks() {
           ${sortHeader("decks-main", "winRate", "WR", sortState)}
         </tr></thead>
         <tbody>
-          ${list.length ? list.map((d) => `<tr><td class="deck-name">${escapeHtml(d.name)}</td><td>${colorBadge(d.colors)}</td><td>${d.bracket}</td><td>${d.games}</td><td>${d.wins}</td><td>${d.losses}</td><td>${d.games ? pctCell(d.normalizedWr) : "—"}</td><td>${d.games ? pctCell(d.winRate) : "—"}</td></tr>`).join("") : '<tr><td colspan="8" class="empty">No decks match.</td></tr>'}
+          ${list.length ? list.map((d) => `<tr><td class="deck-name">${escapeHtml(d.name)}</td><td>${colorBadge(d.colors)}</td><td>${d.bracket}</td><td>${d.games}</td><td>${d.wins}</td><td>${d.losses}</td><td>${d.games ? pctCell(d.normalizedWr) : "—"}</td><td>${d.games ? pctCell(d.winRate) : "—"}</td></tr>`).join("") : '<tr><td colspan="8"></td></tr>'}
         </tbody>
       </table>
     </section>

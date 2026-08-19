@@ -1,6 +1,6 @@
-/** SVG pie chart sized by a numeric metric per row. */
+/** Animated conic-gradient pie chart — no legend, no tooltips. */
 
-const SLICE_COLORS = [
+const SLICE_PALETTE = [
   "#5b9fd4",
   "#3dba7a",
   "#c9a227",
@@ -9,91 +9,63 @@ const SLICE_COLORS = [
   "#e08a4a",
   "#6ec6ca",
   "#d46a9b",
+  "#7a8cff",
+  "#b8e986",
 ];
 
-const MANA_SLICE = {
-  W: "#f8f6d8",
+const MANA_HEX = {
+  W: "#f0ead6",
   U: "#0e68ab",
-  B: "#2a2a35",
-  R: "#d3202a",
-  G: "#00733e",
-  C: "#888888",
-  Bracket: null,
+  B: "#3d3d3d",
+  R: "#c62828",
+  G: "#2e7d32",
+  C: "#9e9e9e",
 };
 
-function sliceColor(item, index, colorKey) {
-  if (colorKey && MANA_SLICE[colorKey]) return MANA_SLICE[colorKey];
-  if (item.color && MANA_SLICE[item.color]) return MANA_SLICE[item.color];
-  if (item.bracket != null) return SLICE_COLORS[(item.bracket - 1) % SLICE_COLORS.length];
-  return SLICE_COLORS[index % SLICE_COLORS.length];
-}
-
-function polar(cx, cy, r, angle) {
-  const rad = ((angle - 90) * Math.PI) / 180;
-  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
-}
-
-function arcPath(cx, cy, r, startAngle, endAngle) {
-  if (endAngle - startAngle >= 360) {
-    return `M ${cx} ${cy - r} A ${r} ${r} 0 1 1 ${cx - 0.01} ${cy - r} Z`;
+function pickColor(slice, index) {
+  if (slice.colors?.length === 1) return MANA_HEX[slice.colors[0]] || SLICE_PALETTE[index % SLICE_PALETTE.length];
+  if (slice.color && MANA_HEX[slice.color]) return MANA_HEX[slice.color];
+  if (slice.bracket != null) return SLICE_PALETTE[(slice.bracket - 1) % SLICE_PALETTE.length];
+  if (slice.colors?.length > 1) {
+    const first = slice.colors[0];
+    return MANA_HEX[first] || SLICE_PALETTE[index % SLICE_PALETTE.length];
   }
-  const start = polar(cx, cy, r, startAngle);
-  const end = polar(cx, cy, r, endAngle);
-  const large = endAngle - startAngle > 180 ? 1 : 0;
-  return `M ${cx} ${cy} L ${start.x} ${start.y} A ${r} ${r} 0 ${large} 1 ${end.x} ${end.y} Z`;
+  return SLICE_PALETTE[index % SLICE_PALETTE.length];
+}
+
+function buildConicGradient(slices) {
+  const filtered = slices.filter((s) => s.value > 0);
+  const total = filtered.reduce((sum, s) => sum + s.value, 0);
+  if (!total) return null;
+
+  let cursor = 0;
+  const stops = filtered.map((slice, i) => {
+    const pct = (slice.value / total) * 100;
+    const start = cursor;
+    cursor += pct;
+    const color = pickColor(slice, i);
+    return `${color} ${start.toFixed(2)}% ${cursor.toFixed(2)}%`;
+  });
+
+  return { gradient: `conic-gradient(from -90deg, ${stops.join(", ")})`, total };
 }
 
 /**
- * @param {Array<{ label: string, value: number, color?: string, bracket?: number }>} slices
- * @param {string} metricLabel
+ * @param {Array<{ value: number, color?: string, colors?: string[], bracket?: number }>} slices
+ * @param {string|number} animKey — change to replay animation
  */
-export function renderPieChart(slices, metricLabel = "Total") {
-  const filtered = slices.filter((s) => s.value > 0);
-  const total = filtered.reduce((sum, s) => sum + s.value, 0);
-  if (!total) {
-    return `<div class="pie-wrap"><div class="pie-empty">No data</div></div>`;
+export function renderPieChart(slices, animKey = 0) {
+  const built = buildConicGradient(slices);
+  if (!built) {
+    return `<div class="pie-panel pie-panel--empty" data-pie-key="${animKey}"></div>`;
   }
 
-  const cx = 50;
-  const cy = 50;
-  const r = 42;
-  let angle = 0;
-  const paths = filtered.map((slice, i) => {
-    const sweep = (slice.value / total) * 360;
-    const path = arcPath(cx, cy, r, angle, angle + sweep);
-    const fill = sliceColor(slice, i, slice.color);
-    angle += sweep;
-    return `<path d="${path}" fill="${fill}" stroke="#0d0f14" stroke-width="1"><title>${slice.label}: ${slice.value}</title></path>`;
-  });
-
-  const legend = filtered
-    .map((slice, i) => {
-      const pctVal = ((slice.value / total) * 100).toFixed(1);
-      const fill = sliceColor(slice, i, slice.color);
-      return `<li><span class="pie-swatch" style="background:${fill}"></span><span>${slice.label}</span><span class="pie-val">${slice.value} (${pctVal}%)</span></li>`;
-    })
-    .join("");
-
   return `
-    <div class="pie-wrap">
-      <svg class="pie-chart" viewBox="0 0 100 100" aria-hidden="true">${paths.join("")}</svg>
-      <div class="pie-meta">
-        <span class="pie-metric">${metricLabel}</span>
-        <ul class="pie-legend">${legend}</ul>
-      </div>
+    <div class="pie-panel" data-pie-key="${animKey}">
+      <div class="pie-glow"></div>
+      <div class="pie-ring" style="background:${built.gradient}"></div>
+      <div class="pie-hole"></div>
     </div>`;
-}
-
-export function metricLabelForSort(col) {
-  const labels = {
-    colorOrder: "Games",
-    decks: "Decks",
-    games: "Games",
-    wins: "Wins",
-    winRate: "Games",
-    bracket: "Bracket",
-  };
-  return labels[col] || "Total";
 }
 
 export function pieValue(row, sortCol) {
@@ -104,8 +76,9 @@ export function pieValue(row, sortCol) {
   return row.games || 0;
 }
 
-export function pieLabel(row, kind) {
-  if (kind === "color") return row.name || row.color;
-  if (kind === "bracket") return `Bracket ${row.bracket}`;
-  return String(row.label ?? row.name ?? "");
+export function pieSlicesFromRows(rows, sortCol, mapSlice) {
+  return rows.map((row) => ({
+    ...mapSlice(row),
+    value: pieValue(row, sortCol),
+  }));
 }
