@@ -584,7 +584,7 @@ th.sortable.sorted {
 
 /* Forms */
 .narrow {
-  max-width: 480px;
+  max-width: 640px;
 }
 
 .game-form label {
@@ -596,6 +596,8 @@ th.sortable.sorted {
 
 .game-form input[type="date"],
 .game-form select,
+.game-form input[type="number"],
+.game-form input[type="text"],
 .deck-form input,
 .deck-form select {
   display: block;
@@ -614,6 +616,44 @@ th.sortable.sorted {
   grid-template-columns: 1fr 1fr;
   gap: 0.75rem;
   margin-top: 0.35rem;
+}
+
+.edit-banner {
+  margin: 0 0 1rem;
+  color: var(--accent);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.pod-fieldset {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem 1rem 0.25rem;
+  margin: 0 0 1rem;
+}
+
+.pod-fieldset legend {
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0 0.35rem;
+}
+
+.game-form .form-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin-top: 0.5rem;
+}
+
+.row-actions {
+  white-space: nowrap;
+  text-align: right;
+}
+
+.row-actions .btn-icon + .btn-icon {
+  margin-left: 0.25rem;
 }
 
 .radio-card {
