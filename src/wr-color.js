@@ -72,7 +72,7 @@ export function wrTextColor(wr) {
   return rate < 0.12 ? "#fff8f8" : "#3d2e08";
 }
 
-export function pctCell(wr, digits = 1) {
+export function pctCell(wr, digits = 2) {
   if (wr == null || Number.isNaN(wr)) {
     return '<span class="wr-cell wr-na">—</span>';
   }

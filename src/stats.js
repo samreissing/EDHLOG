@@ -22,7 +22,7 @@ export function winRate(wins, games) {
   return wins / games;
 }
 
-export function pct(n, digits = 1) {
+export function pct(n, digits = 2) {
   return `${(n * 100).toFixed(digits)}%`;
 }
 
