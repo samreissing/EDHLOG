@@ -1,5 +1,7 @@
 /** SVG donut pie chart with slice hover values. */
 
+import { MANA_HEX } from "./mana-colors.js";
+
 const SLICE_PALETTE = [
   "#5b9fd4",
   "#3dba7a",
@@ -12,15 +14,6 @@ const SLICE_PALETTE = [
   "#7a8cff",
   "#b8e986",
 ];
-
-const MANA_HEX = {
-  W: "#f0ead6",
-  U: "#0e68ab",
-  B: "#3d3d3d",
-  R: "#c62828",
-  G: "#2e7d32",
-  C: "#9e9e9e",
-};
 
 export function getBracketColor(bracket) {
   return SLICE_PALETTE[(bracket - 1) % SLICE_PALETTE.length];

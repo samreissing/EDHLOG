@@ -311,17 +311,17 @@ th.sortable.sorted {
   min-width: 0;
 }
 
-.col-filter-head {
-  padding: 0.35rem 0.5rem !important;
-  vertical-align: middle;
-}
-
-.col-sort-btn {
+.col-color-order {
   font-family: var(--mono);
   font-size: 0.72rem;
   letter-spacing: 0.04em;
-  padding: 0.25rem 0.45rem;
-  min-width: auto;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.col-color-order:hover {
+  color: var(--text);
 }
 
 .color-mode-filters {
