@@ -1,3 +1,7 @@
+/**
+ * Colorless (C) is treated differently from WUBRG: only WR vs the 25% Commander
+ * baseline matters for C. Usage/volume stats for C are not compared to peers.
+ */
 import {
   colorOrderIndex,
   winRate,
