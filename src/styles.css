@@ -625,6 +625,10 @@ th.sortable.sorted {
   font-weight: 600;
 }
 
+.opponent-seat[hidden] {
+  display: none;
+}
+
 .pod-fieldset {
   border: 1px solid var(--border);
   border-radius: 8px;

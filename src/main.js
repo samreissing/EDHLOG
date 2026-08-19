@@ -237,6 +237,8 @@ function bindEvents() {
       deckSort = value;
       tableSort["decks-main"] = { col: value, dir: deckSortDir };
       render();
+    } else if (e.target.name === "mySeat") {
+      syncPodFormSeats();
     } else if (id === "filter-deck" || id === "filter-result" || id === "filter-year") {
       logFilters = {
         deck: document.getElementById("filter-deck")?.value || "",
@@ -338,6 +340,7 @@ function render() {
 
   if (currentView === "games" && gamesTab === "history") applyLogFilters();
   bindPieCharts();
+  syncPodFormSeats();
 }
 
 function applyLogFilters() {
@@ -772,7 +775,7 @@ function renderLogForm() {
         ${[1, 2, 3, 4]
           .map(
             (seat) => `
-          <label>Seat ${seat}<input type="text" name="opponent-${seat}" value="${escapeHtml(opponentName(editing, seat))}" placeholder="Commander name" autocomplete="off" /></label>`
+          <label class="opponent-seat" data-opponent-seat="${seat}">Seat ${seat}<input type="text" name="opponent-${seat}" value="${escapeHtml(opponentName(editing, seat))}" placeholder="Commander name" autocomplete="off" /></label>`
           )
           .join("")}
       </fieldset>
@@ -816,11 +819,13 @@ function gameRow(g) {
 }
 
 function parseGameForm(fd) {
+  const mySeatRaw = fd.get("mySeat");
+  const mySeat = mySeatRaw ? Number(mySeatRaw) : 0;
   const opponents = [1, 2, 3, 4].flatMap((seat) => {
+    if (mySeat && seat === mySeat) return [];
     const name = String(fd.get(`opponent-${seat}`) || "").trim();
     return name ? [{ seat, name }] : [];
   });
-  const mySeatRaw = fd.get("mySeat");
   const winnerSeatRaw = fd.get("winnerSeat");
   const turnRaw = fd.get("turn");
 
@@ -883,6 +888,22 @@ function fillLogForm({ deck, result }) {
   if (deckSelect) deckSelect.value = deck;
   if (resultInput) resultInput.checked = true;
   form.querySelector('[name="date"]')?.focus();
+  syncPodFormSeats();
+}
+
+function syncPodFormSeats() {
+  const form = document.getElementById("add-game-form");
+  if (!form) return;
+  const mySeat = Number(form.querySelector('[name="mySeat"]')?.value) || 0;
+  form.querySelectorAll("[data-opponent-seat]").forEach((label) => {
+    const seat = Number(label.dataset.opponentSeat);
+    const hidden = mySeat > 0 && seat === mySeat;
+    label.hidden = hidden;
+    if (hidden) {
+      const input = label.querySelector("input");
+      if (input) input.value = "";
+    }
+  });
 }
 
 function toast(msg, isError = false) {
