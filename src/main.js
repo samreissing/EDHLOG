@@ -5,6 +5,7 @@ import {
   importData,
   resetToSeed,
   nextGameId,
+  getLastSeedSync,
 } from "./store.js";
 import {
   computeDeckStats,
@@ -84,9 +85,15 @@ let tableSort = {
 
 async function boot() {
   data = await initData();
+  const sync = getLastSeedSync();
   bindEvents();
   renderNav();
   render();
+  if (sync) {
+    const extra =
+      sync.keptLocal > 0 ? ` (${sync.keptLocal} local-only game${sync.keptLocal === 1 ? "" : "s"} kept)` : "";
+    toast(`Synced ${sync.games} games from spreadsheet${extra}`);
+  }
 }
 
 function bindEvents() {

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Import game log data from the Google Sheets xlsx export into data/seed.json."""
 
+import hashlib
 import json
 import re
 import sys
@@ -101,11 +102,21 @@ def main(xlsx_path: str) -> None:
     for i, g in enumerate(games):
         g["id"] = f"game-{i + 1}"
 
-    payload = json.dumps({"decks": deck_list, "games": games}, indent=2)
+    game_lines = [f"{g['date']}|{g['deck']}|{g['result']}" for g in games]
+    seed_hash = hashlib.sha256("\n".join(game_lines).encode()).hexdigest()[:16]
+
+    payload = json.dumps(
+        {
+            "meta": {"seedHash": seed_hash, "seedGames": len(games)},
+            "decks": deck_list,
+            "games": games,
+        },
+        indent=2,
+    )
     for out in OUT_PATHS:
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(payload)
-    print(f"Wrote {len(games)} games and {len(decks)} decks to {OUT_PATHS[0]}")
+    print(f"Wrote {len(games)} games and {len(decks)} decks to {OUT_PATHS[0]} (hash {seed_hash})")
 
 
 if __name__ == "__main__":
