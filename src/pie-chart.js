@@ -1,4 +1,4 @@
-/** Animated conic-gradient pie chart — no legend, no tooltips. */
+/** SVG donut pie chart with slice hover values. */
 
 const SLICE_PALETTE = [
   "#5b9fd4",
@@ -22,49 +22,67 @@ const MANA_HEX = {
   C: "#9e9e9e",
 };
 
-function pickColor(slice, index) {
+export function getBracketColor(bracket) {
+  return SLICE_PALETTE[(bracket - 1) % SLICE_PALETTE.length];
+}
+
+export function pickSliceColor(slice, index) {
   if (slice.colors?.length === 1) return MANA_HEX[slice.colors[0]] || SLICE_PALETTE[index % SLICE_PALETTE.length];
   if (slice.color && MANA_HEX[slice.color]) return MANA_HEX[slice.color];
-  if (slice.bracket != null) return SLICE_PALETTE[(slice.bracket - 1) % SLICE_PALETTE.length];
+  if (slice.bracket != null) return getBracketColor(slice.bracket);
   if (slice.colors?.length > 1) {
-    const first = slice.colors[0];
-    return MANA_HEX[first] || SLICE_PALETTE[index % SLICE_PALETTE.length];
+    return MANA_HEX[slice.colors[0]] || SLICE_PALETTE[index % SLICE_PALETTE.length];
   }
   return SLICE_PALETTE[index % SLICE_PALETTE.length];
 }
 
-function buildConicGradient(slices) {
-  const filtered = slices.filter((s) => s.value > 0);
-  const total = filtered.reduce((sum, s) => sum + s.value, 0);
-  if (!total) return null;
+function polar(cx, cy, r, deg) {
+  const rad = ((deg - 90) * Math.PI) / 180;
+  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+}
 
-  let cursor = 0;
-  const stops = filtered.map((slice, i) => {
-    const pct = (slice.value / total) * 100;
-    const start = cursor;
-    cursor += pct;
-    const color = pickColor(slice, i);
-    return `${color} ${start.toFixed(2)}% ${cursor.toFixed(2)}%`;
-  });
+function donutArc(cx, cy, rOut, rIn, startDeg, endDeg) {
+  const sweep = endDeg - startDeg;
+  if (sweep <= 0) return "";
+  if (sweep >= 360) endDeg = startDeg + 359.999;
 
-  return { gradient: `conic-gradient(from -90deg, ${stops.join(", ")})`, total };
+  const so = polar(cx, cy, rOut, startDeg);
+  const eo = polar(cx, cy, rOut, endDeg);
+  const si = polar(cx, cy, rIn, endDeg);
+  const ei = polar(cx, cy, rIn, startDeg);
+  const large = endDeg - startDeg > 180 ? 1 : 0;
+
+  return `M ${so.x} ${so.y} A ${rOut} ${rOut} 0 ${large} 1 ${eo.x} ${eo.y} L ${si.x} ${si.y} A ${rIn} ${rIn} 0 ${large} 0 ${ei.x} ${ei.y} Z`;
+}
+
+function escAttr(str) {
+  return String(str).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }
 
 /**
- * @param {Array<{ value: number, color?: string, colors?: string[], bracket?: number }>} slices
- * @param {string|number} animKey — change to replay animation
+ * @param {Array<{ value: number, hover?: string, color?: string, colors?: string[], bracket?: number }>} slices
  */
 export function renderPieChart(slices, animKey = 0) {
-  const built = buildConicGradient(slices);
-  if (!built) {
+  const filtered = slices.filter((s) => s.value > 0);
+  const total = filtered.reduce((sum, s) => sum + s.value, 0);
+  if (!total) {
     return `<div class="pie-panel pie-panel--empty" data-pie-key="${animKey}"></div>`;
   }
 
+  let angle = 0;
+  const paths = filtered.map((slice, i) => {
+    const sweep = (slice.value / total) * 360;
+    const d = donutArc(50, 50, 44, 28, angle, angle + sweep);
+    const fill = pickSliceColor(slice, i);
+    const hover = slice.hover || String(slice.value);
+    angle += sweep;
+    return `<path class="pie-slice" d="${d}" fill="${fill}" data-hover="${escAttr(hover)}" style="animation-delay:${i * 0.045}s" />`;
+  });
+
   return `
     <div class="pie-panel" data-pie-key="${animKey}">
-      <div class="pie-glow"></div>
-      <div class="pie-ring" style="background:${built.gradient}"></div>
-      <div class="pie-hole"></div>
+      <svg class="pie-svg" viewBox="0 0 100 100" aria-hidden="true">${paths.join("")}</svg>
+      <div class="pie-tooltip" hidden></div>
     </div>`;
 }
 
@@ -72,13 +90,45 @@ export function pieValue(row, sortCol) {
   if (sortCol === "wins") return row.wins || 0;
   if (sortCol === "decks") return row.decks || 0;
   if (sortCol === "winRate") return row.games || 0;
-  if (sortCol === "bracket") return row.bracket;
+  if (sortCol === "bracket") return row.games || 0;
   return row.games || 0;
+}
+
+export function pieHoverText(row, sortCol) {
+  if (sortCol === "wins") return `${row.wins || 0} wins`;
+  if (sortCol === "decks") return `${row.decks || 0} decks`;
+  if (sortCol === "winRate" || sortCol === "bracket") return `Bracket ${row.bracket}: ${row.games || 0} games`;
+  return `${row.games || 0} games`;
 }
 
 export function pieSlicesFromRows(rows, sortCol, mapSlice) {
   return rows.map((row) => ({
     ...mapSlice(row),
     value: pieValue(row, sortCol),
+    hover: pieHoverText(row, sortCol),
   }));
+}
+
+export function bindPieCharts(root = document.getElementById("main")) {
+  if (!root) return;
+  root.querySelectorAll(".pie-panel:not(.pie-panel--empty)").forEach((panel) => {
+    const tip = panel.querySelector(".pie-tooltip");
+    const svg = panel.querySelector(".pie-svg");
+    if (!tip || !svg) return;
+
+    panel.querySelectorAll(".pie-slice").forEach((slice) => {
+      slice.addEventListener("mouseenter", () => {
+        tip.textContent = slice.getAttribute("data-hover") || "";
+        tip.hidden = false;
+      });
+      slice.addEventListener("mousemove", (e) => {
+        const rect = panel.getBoundingClientRect();
+        tip.style.left = `${e.clientX - rect.left}px`;
+        tip.style.top = `${e.clientY - rect.top}px`;
+      });
+      slice.addEventListener("mouseleave", () => {
+        tip.hidden = true;
+      });
+    });
+  });
 }
