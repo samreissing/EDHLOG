@@ -13,7 +13,6 @@ import {
   computeBracketStats,
   computeYearStats,
   computeRolling100Stats,
-  computeRankings,
   colorBadge,
   sortDeckList,
 } from "./stats.js";
@@ -47,11 +46,10 @@ const STATS_TABS = [
   { id: "overview", label: "Overview" },
   { id: "colors", label: "Colors" },
   { id: "brackets", label: "Brackets" },
-  { id: "rankings", label: "Rankings" },
   { id: "trends", label: "Trends" },
 ];
 
-const DECKS_TABS = [
+const DECK_STATUS_OPTIONS = [
   { id: "active", label: "Active" },
   { id: "retired", label: "Retired" },
   { id: "all", label: "All" },
@@ -68,8 +66,6 @@ let selectedDeckName = null;
 let deckSort = "normWr";
 let deckSortDir = "desc";
 let deckBracketFilter = "";
-let rankBracketFilter = "";
-let rankShowRetired = true;
 let logFilters = { deck: "", result: "", year: "" };
 let colorView = "wubrgc";
 let colorAgg = "inclusive";
@@ -78,7 +74,6 @@ let pieAnimKey = 0;
 let tableSort = {
   "color-stats": { col: "colorOrder", dir: "asc" },
   "bracket-stats": { col: "bracket", dir: "asc" },
-  "rankings": { col: "normWr", dir: "desc" },
   "trends-windows": { col: "rangeStart", dir: "asc" },
   "trends-cumulative": { col: "games", dir: "asc" },
   "decks-main": { col: "normWr", dir: "desc" },
@@ -176,13 +171,6 @@ function bindEvents() {
       return;
     }
 
-    const decksBtn = e.target.closest("[data-decks-tab]");
-    if (decksBtn) {
-      decksTab = decksBtn.getAttribute("data-decks-tab");
-      render();
-      return;
-    }
-
     if (e.target.id === "add-game-btn") {
       editingGameId = null;
       gameModalOpen = true;
@@ -200,6 +188,8 @@ function bindEvents() {
     const deckDetailBtn = e.target.closest("[data-deck-detail]");
     if (deckDetailBtn) {
       selectedDeckName = deckDetailBtn.dataset.deckDetail;
+      currentView = "decks";
+      renderNav();
       render();
       return;
     }
@@ -284,11 +274,8 @@ function bindEvents() {
   document.getElementById("main").addEventListener("change", (e) => {
     const { id, value, checked } = e.target;
 
-    if (id === "rank-bracket") {
-      rankBracketFilter = value;
-      render();
-    } else if (id === "rank-retired") {
-      rankShowRetired = checked;
+    if (id === "deck-status") {
+      decksTab = value;
       render();
     } else if (id === "deck-bracket") {
       deckBracketFilter = value;
@@ -436,7 +423,6 @@ function getStats() {
     bracketStats: computeBracketStats(data.games, deckStats),
     yearStats: computeYearStats(data.games),
     rolling: computeRolling100Stats(data.games),
-    rankings: computeRankings(deckStats),
   };
 }
 
@@ -596,48 +582,6 @@ function renderStats() {
         </div>
         ${renderPieChart(pieSlices, pieAnimKey)}
       </div>`;
-  } else if (statsTab === "rankings") {
-    let list = s.rankings;
-    if (!rankShowRetired) list = list.filter((d) => !d.retired);
-    if (rankBracketFilter) list = list.filter((d) => String(d.bracket) === rankBracketFilter);
-    list = applySort(list, tableSort["rankings"], {
-      name: (d) => d.name,
-      bracket: (d) => d.bracket,
-      games: (d) => d.games,
-      normWr: (d) => d.normalizedWr,
-      winRate: (d) => d.winRate,
-    });
-
-    body = `
-      <div class="filters inline">
-        <label>Bracket <select id="rank-bracket"><option value="">All</option>${[1, 2, 3, 4, 5].map((b) => `<option value="${b}" ${rankBracketFilter === String(b) ? "selected" : ""}>${b}</option>`).join("")}</select></label>
-        <label class="checkbox"><input type="checkbox" id="rank-retired" ${rankShowRetired ? "checked" : ""} /> Show retired</label>
-      </div>
-      <table class="table sortable-table">
-        <thead><tr>
-          <th>#</th>
-          ${sortHeader("rankings", "name", "Deck", tableSort["rankings"])}
-          <th>CI</th>
-          ${sortHeader("rankings", "bracket", "Brkt", tableSort["rankings"])}
-          ${sortHeader("rankings", "games", "G", tableSort["rankings"])}
-          ${sortHeader("rankings", "normWr", "Norm WR", tableSort["rankings"])}
-          ${sortHeader("rankings", "winRate", "Real WR", tableSort["rankings"])}
-        </tr></thead>
-        <tbody>
-          ${list
-            .map(
-              (d, i) => `
-            <tr>
-              <td>${i + 1}</td>
-              <td class="deck-name">${escapeHtml(d.name)}${d.retired ? '<span class="tag retired">retired</span>' : ""}</td>
-              <td>${colorBadge(d.colors)}</td>
-              <td>${d.bracket}</td><td>${d.games}</td>
-              <td>${pctCell(d.normalizedWr)}</td><td>${pctCell(d.winRate)}</td>
-            </tr>`
-            )
-            .join("")}
-        </tbody>
-      </table>`;
   } else if (statsTab === "trends") {
     if (!s.rolling.windows.length) {
       body = "";
@@ -733,9 +677,9 @@ function renderDecks() {
 
   return `
     <section class="section">
-      ${subTabs(DECKS_TABS, decksTab, "decks-tab")}
       <div class="section-header">
         <div class="filters inline">
+          <label>Status <select id="deck-status">${DECK_STATUS_OPTIONS.map((opt) => `<option value="${opt.id}" ${decksTab === opt.id ? "selected" : ""}>${opt.label}</option>`).join("")}</select></label>
           <label>Bracket <select id="deck-bracket"><option value="">All</option>${[1, 2, 3, 4, 5].map((b) => `<option value="${b}" ${deckBracketFilter === String(b) ? "selected" : ""}>${b}</option>`).join("")}</select></label>
           <label>Sort <select id="deck-sort">
             <option value="normWr" ${deckSort === "normWr" ? "selected" : ""}>Norm WR</option>
@@ -937,7 +881,7 @@ function renderLogForm() {
 function gameRow(g) {
   const cls = g.result === "Win" ? "win" : "loss";
   return `<tr data-deck="${escapeHtml(g.deck)}" data-result="${g.result}" data-year="${gameYear(g.date)}">
-    <td>${formatDate(g.date)}</td><td class="deck-name">${escapeHtml(g.deck)}</td>
+    <td>${formatDate(g.date)}</td><td class="deck-name"><button type="button" class="link-btn deck-link" data-deck-detail="${escapeHtml(g.deck)}">${escapeHtml(g.deck)}</button></td>
     <td>${g.mySeat || "—"}</td><td>${g.turn || "—"}</td>
     <td><span class="result-pill ${cls}">${g.result}</span></td>
     <td class="row-actions">

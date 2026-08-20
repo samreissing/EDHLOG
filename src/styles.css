@@ -142,16 +142,9 @@ main {
 }
 
 @media (max-width: 800px) {
-  .two-col,
-  .bracket-rankings {
+  .two-col {
     grid-template-columns: 1fr;
   }
-}
-
-.bracket-rankings {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1.25rem;
 }
 
 /* Stats */
