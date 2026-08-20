@@ -1126,12 +1126,13 @@ function syncPodFormSeats() {
   form.querySelectorAll("[data-opponent-seat]").forEach((row) => {
     const seat = Number(row.dataset.opponentSeat);
     const isMySeat = mySeat > 0 && seat === mySeat;
-    const commander = row.querySelector(".pod-commander");
-    if (commander) commander.hidden = isMySeat;
+    row.hidden = isMySeat;
     if (isMySeat) {
-      const input = row.querySelector(".opponent-input");
-      if (input) {
-        input.value = "";
+      const playerInput = row.querySelector(`[name="player-${seat}"]`);
+      const commanderInput = row.querySelector(".opponent-input");
+      if (playerInput) playerInput.value = "";
+      if (commanderInput) {
+        commanderInput.value = "";
         row.querySelector(".opponent-suggestions")?.setAttribute("hidden", "");
       }
     }

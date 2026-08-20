@@ -731,7 +731,7 @@ th.sortable.sorted {
   margin-top: 0.35rem;
 }
 
-.pod-commander[hidden] {
+.pod-seat-row[hidden] {
   display: none;
 }
 
