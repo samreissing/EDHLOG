@@ -1,3 +1,11 @@
+/** US Eastern — used for default "today" in forms. */
+const APP_TIMEZONE = "America/New_York";
+
+/** Today's date as YYYY-MM-DD in US Eastern (handles EST/EDT). */
+export function todayISO() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: APP_TIMEZONE }).format(new Date());
+}
+
 /** Normalize spreadsheet quirks like "10/?/24" → 2024-10-15. */
 export function normalizeDate(dateStr) {
   if (!dateStr || typeof dateStr !== "string") return dateStr;
