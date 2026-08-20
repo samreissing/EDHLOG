@@ -133,6 +133,8 @@ function bindEvents() {
       if (tableId === "decks-main") {
         deckSort = col;
         deckSortDir = tableSort[tableId].dir;
+        if (col === "lastPlayed") deckSort = "recent";
+        else if (col === "createdAt") deckSort = "newest";
       }
       if (tableId === "color-stats" || tableId === "bracket-stats") pieAnimKey++;
       render();
@@ -157,13 +159,6 @@ function bindEvents() {
     if (e.target.id === "color-agg-toggle") {
       colorAgg = colorAgg === "inclusive" ? "exclusive" : "inclusive";
       pieAnimKey++;
-      render();
-      return;
-    }
-
-    if (e.target.id === "deck-sort-dir") {
-      deckSortDir = deckSortDir === "asc" ? "desc" : "asc";
-      tableSort["decks-main"] = { col: deckSort, dir: deckSortDir };
       render();
       return;
     }
@@ -292,7 +287,17 @@ function bindEvents() {
       render();
     } else if (id === "deck-sort") {
       deckSort = value;
-      tableSort["decks-main"] = { col: value, dir: deckSortDir };
+      let col = value;
+      let dir = deckSortDir;
+      if (value === "recent") {
+        col = "lastPlayed";
+        dir = "desc";
+      } else if (value === "newest") {
+        col = "createdAt";
+        dir = "desc";
+      }
+      tableSort["decks-main"] = { col, dir };
+      deckSortDir = dir;
       render();
     } else if (e.target.name === "mySeat") {
       syncPodFormSeats();
@@ -743,9 +748,18 @@ function renderDecks() {
   const sortState = tableSort["decks-main"] || { col: deckSort, dir: deckSortDir };
   deckSort = sortState.col;
   deckSortDir = sortState.dir;
-  list = sortDeckList(list, deckSort, deckSortDir);
+  if (sortState.col === "lastPlayed") deckSort = "recent";
+  else if (sortState.col === "createdAt") deckSort = "newest";
+  else if (sortState.col === "colors") deckSort = "colors";
 
-  const dirLabel = deckSortDir === "asc" ? "↑ Asc" : "↓ Desc";
+  list = sortDeckList(list, sortState.col, sortState.dir);
+
+  const showLastPlayed = deckSort === "recent" || sortState.col === "lastPlayed";
+  const dateSortCol = showLastPlayed ? "lastPlayed" : "createdAt";
+  const dateColLabel = showLastPlayed ? "Last Played" : "Added";
+  const dateCell = (d) =>
+    showLastPlayed ? (d.lastPlayed ? formatDate(d.lastPlayed) : "—") : formatDate(d.createdAt);
+
   const editingDeck = editingDeckName
     ? data.decks.find((d) => d.name === editingDeckName)
     : null;
@@ -764,15 +778,14 @@ function renderDecks() {
             <option value="recent" ${deckSort === "recent" ? "selected" : ""}>Most recent</option>
             <option value="name" ${deckSort === "name" ? "selected" : ""}>Name</option>
           </select></label>
-          <button type="button" class="btn btn-ghost btn-sm" id="deck-sort-dir" title="Toggle sort direction">${dirLabel}</button>
         </div>
         <button type="button" class="btn btn-primary" id="add-deck-btn">+ Deck</button>
       </div>
       <table class="table sortable-table">
         <thead><tr>
-          ${sortHeader("decks-main", "createdAt", "Added", sortState)}
+          ${sortHeader("decks-main", dateSortCol, dateColLabel, sortState)}
           ${sortHeader("decks-main", "name", "Deck", sortState)}
-          <th>Color Identity</th>
+          ${sortHeader("decks-main", "colors", "Color Identity", sortState)}
           ${sortHeader("decks-main", "bracket", "Bracket", sortState)}
           ${sortHeader("decks-main", "games", "Games", sortState)}
           ${sortHeader("decks-main", "wins", "Wins", sortState)}
@@ -781,7 +794,7 @@ function renderDecks() {
           <th></th>
         </tr></thead>
         <tbody>
-          ${list.length ? list.map((d) => `<tr><td>${formatDate(d.createdAt)}</td><td class="deck-name"><button type="button" class="link-btn deck-link" data-deck-detail="${escapeHtml(d.name)}">${escapeHtml(d.name)}</button></td><td>${colorBadge(d.colors)}</td><td>${d.bracket}</td><td>${d.games}</td><td>${d.wins}</td><td>${d.games ? pctCell(d.normalizedWr) : "—"}</td><td>${d.games ? pctCell(d.winRate) : "—"}</td><td class="row-actions"><button type="button" class="btn-icon edit-deck" data-name="${escapeHtml(d.name)}" title="Edit deck">✎</button><button type="button" class="btn-icon delete-deck" data-name="${escapeHtml(d.name)}" title="Delete deck">×</button></td></tr>`).join("") : '<tr><td colspan="9"></td></tr>'}
+          ${list.length ? list.map((d) => `<tr><td>${dateCell(d)}</td><td class="deck-name"><button type="button" class="link-btn deck-link" data-deck-detail="${escapeHtml(d.name)}">${escapeHtml(d.name)}</button></td><td>${colorBadge(d.colors)}</td><td>${d.bracket}</td><td>${d.games}</td><td>${d.wins}</td><td>${d.games ? pctCell(d.normalizedWr) : "—"}</td><td>${d.games ? pctCell(d.winRate) : "—"}</td><td class="row-actions"><button type="button" class="btn-icon edit-deck" data-name="${escapeHtml(d.name)}" title="Edit deck">✎</button><button type="button" class="btn-icon delete-deck" data-name="${escapeHtml(d.name)}" title="Delete deck">×</button></td></tr>`).join("") : '<tr><td colspan="9"></td></tr>'}
         </tbody>
       </table>
     </section>
