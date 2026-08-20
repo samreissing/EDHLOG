@@ -6,6 +6,8 @@ import {
   resetToSeed,
   nextGameId,
   getLastSeedSync,
+  shouldShowRecoveryBanner,
+  dismissRecoveryBanner,
 } from "./store.js";
 import {
   computeDeckStats,
@@ -102,6 +104,7 @@ async function boot() {
   });
   renderNav();
   render();
+  renderRecoveryBanner();
   if (sync) {
     if (sync.removed > 0) {
       toast(`Removed ${sync.removed} duplicate games — now at ${sync.games + sync.keptLocal} total`);
@@ -404,9 +407,15 @@ function bindEvents() {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      data = await importData(file);
+      const result = await importData(file, { merge: true });
+      data = result.data;
       render();
-      toast("Data imported");
+      const parts = [];
+      if (result.added) parts.push(`${result.added} game${result.added === 1 ? "" : "s"} added`);
+      if (result.updated) parts.push(`${result.updated} updated`);
+      toast(parts.length ? `Import merged — ${parts.join(", ")}` : "Import merged — no new games");
+      document.getElementById("recovery-banner")?.remove();
+      dismissRecoveryBanner();
     } catch {
       toast("Import failed — check the JSON file", true);
     }
@@ -1196,6 +1205,44 @@ function syncPodFormSeats() {
         commanderInput.closest(".opponent-input-wrap")?.querySelector(".opponent-suggestions")?.setAttribute("hidden", "");
       }
     }
+  });
+}
+
+function renderRecoveryBanner() {
+  const existing = document.getElementById("recovery-banner");
+  if (!shouldShowRecoveryBanner()) {
+    existing?.remove();
+    return;
+  }
+  if (existing) return;
+
+  const banner = document.createElement("aside");
+  banner.id = "recovery-banner";
+  banner.className = "recovery-banner";
+  banner.innerHTML = `
+    <div class="recovery-banner-body">
+      <strong>Missing games from localhost?</strong>
+      <p>
+        Games logged on <code>http://localhost:5173</code> stay in that browser only.
+        Open your old dev site, click <strong>Export JSON</strong>, then use
+        <strong>Import JSON</strong> here (merges without overwriting spreadsheet games).
+      </p>
+      <ol>
+        <li>On your computer: <code>npm run dev</code> → open localhost → Export JSON</li>
+        <li>On this site: Import JSON and pick that file</li>
+      </ol>
+      <p class="hint">
+        Or paste in the localhost browser console:
+        <code>copy(localStorage.getItem('edhlog-data-v1'))</code>
+        then save the clipboard to a <code>.json</code> file and import it here.
+      </p>
+    </div>
+    <button type="button" class="btn btn-ghost" id="recovery-dismiss">Got it</button>
+  `;
+  document.getElementById("app").prepend(banner);
+  document.getElementById("recovery-dismiss").addEventListener("click", () => {
+    dismissRecoveryBanner();
+    banner.remove();
   });
 }
 

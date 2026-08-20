@@ -672,6 +672,38 @@ th.sortable.sorted {
   font-weight: 600;
 }
 
+.recovery-banner {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0 0 1rem;
+  padding: 1rem 1.25rem;
+  background: rgba(255, 196, 86, 0.08);
+  border: 1px solid rgba(255, 196, 86, 0.35);
+  border-radius: 10px;
+}
+
+.recovery-banner-body p,
+.recovery-banner-body ol {
+  margin: 0.5rem 0 0;
+  color: var(--text);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.recovery-banner-body ol {
+  padding-left: 1.25rem;
+}
+
+.recovery-banner-body strong {
+  color: var(--accent);
+}
+
+.recovery-banner code {
+  font-size: 0.82rem;
+}
+
 .opponent-seat[hidden] {
   display: none;
 }
