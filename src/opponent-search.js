@@ -1,5 +1,7 @@
 /** @typedef {{ name: string, count: number, lastDate: string }} NameEntry */
 
+export const MY_PLAYER_NAME = "Brass";
+
 function escapeHtml(str) {
   return String(str)
     .replace(/&/g, "&amp;")
@@ -41,19 +43,69 @@ export function collectCommanderHistory(games) {
   return [...map.values()];
 }
 
+/**
+ * Player -> commanders they have played, built from saved games.
+ * @param {import('./store.js').Game[]} games
+ * @returns {Map<string, Map<string, NameEntry>>}
+ */
+export function collectPlayerCommanderLinks(games) {
+  /** @type {Map<string, Map<string, NameEntry>>} */
+  const byPlayer = new Map();
+
+  function link(player, commander, date) {
+    const playerName = String(player || "").trim();
+    const commanderName = String(commander || "").trim();
+    if (!playerName || !commanderName) return;
+
+    const playerKey = playerName.toLowerCase();
+    if (!byPlayer.has(playerKey)) byPlayer.set(playerKey, new Map());
+
+    /** @type {Map<string, NameEntry>} */
+    const commanders = byPlayer.get(playerKey);
+    const commanderKey = commanderName.toLowerCase();
+    const existing = commanders.get(commanderKey);
+    if (!existing) {
+      commanders.set(commanderKey, { name: commanderName, count: 1, lastDate: date });
+      return;
+    }
+
+    existing.count += 1;
+    if (date >= existing.lastDate) {
+      existing.lastDate = date;
+      existing.name = commanderName;
+    }
+  }
+
+  for (const game of games) {
+    if (game.mySeat && game.deck) {
+      link(MY_PLAYER_NAME, game.deck, game.date);
+    }
+    for (const opp of game.opponents || []) {
+      link(opp.player, opp.name, game.date);
+    }
+  }
+
+  return byPlayer;
+}
+
 /** @param {import('./store.js').Game[]} games */
 export function collectPlayerHistory(games) {
+  const links = collectPlayerCommanderLinks(games);
   /** @type {Map<string, NameEntry>} */
   const map = new Map();
 
   for (const game of games) {
-    trackName(map, game.myPlayer, game.date);
+    if (game.mySeat && game.deck) {
+      trackName(map, MY_PLAYER_NAME, game.date);
+    }
     for (const opp of game.opponents || []) {
-      trackName(map, opp.player, game.date);
+      if (opp.player && opp.name) {
+        trackName(map, opp.player, game.date);
+      }
     }
   }
 
-  return [...map.values()];
+  return [...map.values()].filter((entry) => links.has(entry.name.toLowerCase()));
 }
 
 /** @param {string} name @param {string} query */
@@ -74,6 +126,10 @@ function scoreMatch(name, query) {
   }
 
   return 0;
+}
+
+function alphaSort(names) {
+  return [...names].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
 }
 
 /** @param {string} query @param {NameEntry[]} entries @param {number} limit */
@@ -98,14 +154,52 @@ export function searchNameHistory(query, entries, limit = 8) {
     .map((entry) => entry.name);
 }
 
+/**
+ * @param {string} query
+ * @param {NameEntry[]} allCommanders
+ * @param {NameEntry[]} playerCommanders
+ * @param {number} limit
+ */
+export function searchCommanderHistory(query, allCommanders, playerCommanders, limit = 8) {
+  if (!playerCommanders.length) {
+    return searchNameHistory(query, allCommanders, limit);
+  }
+
+  const q = query.trim();
+  const playerKeys = new Set(playerCommanders.map((entry) => entry.name.toLowerCase()));
+  const playerNames = alphaSort(playerCommanders.map((entry) => entry.name));
+  const otherNames = alphaSort(
+    allCommanders
+      .filter((entry) => !playerKeys.has(entry.name.toLowerCase()))
+      .map((entry) => entry.name)
+  );
+
+  const matches = (name) => !q || scoreMatch(name, q) > 0;
+  const ranked = [...playerNames.filter(matches), ...otherNames.filter(matches)];
+
+  return ranked.slice(0, limit);
+}
+
 /** @param {HTMLFormElement | null} form @param {import('./store.js').Game[]} games */
 export function bindPodAutocomplete(form, games) {
   if (!form) return;
 
   const commanders = collectCommanderHistory(games);
   const players = collectPlayerHistory(games);
+  const playerCommanderLinks = collectPlayerCommanderLinks(games);
   /** @type {WeakMap<HTMLInputElement, number>} */
   const activeIndexByInput = new WeakMap();
+
+  function playerNameForCommanderInput(input) {
+    const row = input.closest(".pod-seat-row");
+    const playerInput = row?.querySelector(".player-input");
+    return playerInput instanceof HTMLInputElement ? playerInput.value.trim() : "";
+  }
+
+  function commandersForPlayer(playerName) {
+    const linked = playerCommanderLinks.get(playerName.toLowerCase());
+    return linked ? [...linked.values()] : [];
+  }
 
   function entriesFor(input) {
     if (input.classList.contains("opponent-input")) return commanders;
@@ -139,11 +233,23 @@ export function bindPodAutocomplete(form, games) {
     input.focus();
   }
 
+  function searchResults(input) {
+    if (input.classList.contains("opponent-input")) {
+      const playerName = playerNameForCommanderInput(input);
+      return searchCommanderHistory(
+        input.value,
+        commanders,
+        commandersForPlayer(playerName)
+      );
+    }
+    return searchNameHistory(input.value, entriesFor(input));
+  }
+
   function renderList(input) {
     const list = listFor(input);
     if (!list) return;
 
-    const results = searchNameHistory(input.value, entriesFor(input));
+    const results = searchResults(input);
     activeIndexByInput.set(input, -1);
 
     if (!results.length) {
@@ -156,6 +262,16 @@ export function bindPodAutocomplete(form, games) {
       .map((name) => `<li role="option" data-value="${escapeHtml(name)}">${escapeHtml(name)}</li>`)
       .join("");
     list.hidden = false;
+  }
+
+  function refreshCommanderListForRow(playerInput) {
+    const row = playerInput.closest(".pod-seat-row");
+    const commanderInput = row?.querySelector(".opponent-input");
+    if (!(commanderInput instanceof HTMLInputElement)) return;
+    const list = listFor(commanderInput);
+    if (commanderInput === document.activeElement || (list && !list.hidden)) {
+      renderList(commanderInput);
+    }
   }
 
   function setActiveOption(input, index) {
@@ -173,7 +289,12 @@ export function bindPodAutocomplete(form, games) {
 
   form.addEventListener("input", (e) => {
     const input = e.target;
-    if (!isAutocompleteInput(input)) return;
+    if (!(input instanceof HTMLInputElement) || !isAutocompleteInput(input)) return;
+
+    if (input.classList.contains("player-input")) {
+      refreshCommanderListForRow(input);
+    }
+
     renderList(input);
   });
 
@@ -213,6 +334,9 @@ export function bindPodAutocomplete(form, games) {
     } else if (e.key === "Enter" && activeIndex >= 0) {
       e.preventDefault();
       selectValue(input, items[activeIndex].dataset.value || "");
+      if (input.classList.contains("player-input")) {
+        refreshCommanderListForRow(input);
+      }
     } else if (e.key === "Escape") {
       hideList(input);
     }
@@ -227,6 +351,9 @@ export function bindPodAutocomplete(form, games) {
     const input = wrap?.querySelector(".opponent-input, .player-input");
     if (input instanceof HTMLInputElement) {
       selectValue(input, option.dataset.value || "");
+      if (input.classList.contains("player-input")) {
+        refreshCommanderListForRow(input);
+      }
     }
   });
 }
