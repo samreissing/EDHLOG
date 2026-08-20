@@ -611,6 +611,7 @@ th.sortable.sorted {
 .game-form select,
 .game-form input[type="number"],
 .game-form input[type="text"],
+.game-form-readonly .field-value,
 .deck-form input,
 .deck-form select {
   display: block;
@@ -622,6 +623,15 @@ th.sortable.sorted {
   border-radius: 8px;
   color: var(--text);
   font: inherit;
+}
+
+.game-form-readonly .result-pill {
+  display: inline-block;
+  margin-top: 0.35rem;
+}
+
+.game-form-readonly .pod-fieldset {
+  margin-bottom: 1rem;
 }
 
 .result-toggle {

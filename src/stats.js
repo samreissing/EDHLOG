@@ -216,13 +216,31 @@ export function colorBadge(colors) {
 
 export function sortDeckList(list, sortKey, dir) {
   const mul = dir === "asc" ? 1 : -1;
+
+  function comparePlayedDecks(a, b, compare) {
+    const aEmpty = !a.games;
+    const bEmpty = !b.games;
+    if (aEmpty && bEmpty) return a.name.localeCompare(b.name);
+    if (aEmpty) return 1;
+    if (bEmpty) return -1;
+    return compare() || a.name.localeCompare(b.name);
+  }
+
   return [...list].sort((a, b) => {
     if (sortKey === "name") return mul * a.name.localeCompare(b.name);
-    if (sortKey === "games") return mul * (a.games - b.games) || a.name.localeCompare(b.name);
-    if (sortKey === "wr" || sortKey === "winRate") return mul * (a.winRate - b.winRate) || b.games - a.games;
-    if (sortKey === "normWr") return mul * (a.normalizedWr - b.normalizedWr) || b.games - a.games;
+    if (sortKey === "games") {
+      return comparePlayedDecks(a, b, () => mul * (a.games - b.games));
+    }
+    if (sortKey === "wr" || sortKey === "winRate") {
+      return comparePlayedDecks(a, b, () => mul * (a.winRate - b.winRate));
+    }
+    if (sortKey === "normWr") {
+      return comparePlayedDecks(a, b, () => mul * (a.normalizedWr - b.normalizedWr));
+    }
     if (sortKey === "bracket") return mul * (a.bracket - b.bracket) || a.name.localeCompare(b.name);
-    if (sortKey === "wins") return mul * (a.wins - b.wins) || a.name.localeCompare(b.name);
+    if (sortKey === "wins") {
+      return comparePlayedDecks(a, b, () => mul * (a.wins - b.wins));
+    }
     if (sortKey === "losses") return mul * (a.losses - b.losses) || a.name.localeCompare(b.name);
     if (sortKey === "newest" || sortKey === "createdAt") {
       const ad = a.createdAt || "";

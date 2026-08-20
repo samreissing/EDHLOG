@@ -60,6 +60,7 @@ let currentView = "stats";
 let statsTab = "overview";
 let decksTab = "active";
 let gameModalOpen = false;
+let viewingGameId = null;
 let editingGameId = null;
 let editingDeckName = null;
 let selectedDeckName = null;
@@ -94,6 +95,10 @@ async function boot() {
       gameModalOpen = false;
       render();
     },
+    gameDetail: () => {
+      viewingGameId = null;
+      render();
+    },
   });
   renderNav();
   render();
@@ -116,6 +121,7 @@ function bindEvents() {
     if (currentView === "games") {
       gameModalOpen = false;
       editingGameId = null;
+      viewingGameId = null;
     }
     if (currentView !== "decks") {
       selectedDeckName = null;
@@ -173,6 +179,7 @@ function bindEvents() {
 
     if (e.target.id === "add-game-btn") {
       editingGameId = null;
+      viewingGameId = null;
       gameModalOpen = true;
       render();
       return;
@@ -181,6 +188,21 @@ function bindEvents() {
     if (e.target.id === "cancel-game") {
       editingGameId = null;
       gameModalOpen = false;
+      render();
+      return;
+    }
+
+    if (e.target.id === "close-game-detail") {
+      viewingGameId = null;
+      render();
+      return;
+    }
+
+    const viewGameBtn = e.target.closest(".view-game");
+    if (viewGameBtn) {
+      viewingGameId = viewGameBtn.dataset.id;
+      gameModalOpen = false;
+      editingGameId = null;
       render();
       return;
     }
@@ -236,6 +258,7 @@ function bindEvents() {
     const editBtn = e.target.closest(".edit-game");
     if (editBtn) {
       editingGameId = editBtn.dataset.id;
+      viewingGameId = null;
       gameModalOpen = true;
       render();
       return;
@@ -248,6 +271,9 @@ function bindEvents() {
       if (editingGameId === deleteBtn.dataset.id) {
         editingGameId = null;
         gameModalOpen = false;
+      }
+      if (viewingGameId === deleteBtn.dataset.id) {
+        viewingGameId = null;
       }
       saveData(data);
       render();
@@ -744,6 +770,7 @@ function renderGames() {
   const years = [...new Set(data.games.map((g) => gameYear(g.date)))].sort();
   const sort = tableSort["game-log"];
   const editing = editingGameId ? data.games.find((g) => g.id === editingGameId) : null;
+  const viewing = viewingGameId ? data.games.find((g) => g.id === viewingGameId) : null;
 
   return `
     <section class="section">
@@ -775,6 +802,15 @@ function renderGames() {
         <h3>${editing ? "Edit Game" : "Log Game"}</h3>
         ${renderLogForm()}
       </div>
+    </div>
+    <div id="game-detail-modal" class="modal ${viewing ? "" : "hidden"}">
+      <div class="modal-content modal-content-wide">
+        <h3>Game Details</h3>
+        ${viewing ? renderGameDetail(viewing) : ""}
+        <div class="form-actions">
+          <button type="button" class="btn btn-ghost" id="close-game-detail">Close</button>
+        </div>
+      </div>
     </div>`;
 }
 
@@ -798,6 +834,45 @@ function playerName(game, seat) {
   if (game.mySeat === seat && game.myPlayer) return game.myPlayer;
   const row = game.opponents?.find((o) => o.seat === seat);
   return row?.player || "";
+}
+
+function fieldValue(value, placeholder = "—") {
+  const text = value != null && value !== "" ? String(value) : placeholder;
+  return `<span class="field-value">${escapeHtml(text)}</span>`;
+}
+
+function renderGameDetail(game) {
+  const mySeat = Number(game.mySeat) || 0;
+  const showPod = mySeat > 0;
+  const resultCls = game.result === "Win" ? "win" : "loss";
+
+  return `
+    <div class="game-form game-form-readonly">
+      <label>Date${fieldValue(formatDate(game.date))}</label>
+      <label>Time${fieldValue(game.time)}</label>
+      <label>My deck${fieldValue(game.deck)}</label>
+      <label>My seat${fieldValue(game.mySeat)}</label>
+      <label>Turn ended${fieldValue(game.turn)}</label>
+      <label>Winning seat${fieldValue(game.winnerSeat)}</label>
+      ${
+        showPod
+          ? `<fieldset class="pod-fieldset">
+        <legend>Pod</legend>
+        ${[1, 2, 3, 4]
+          .filter((seat) => seat !== mySeat)
+          .map(
+            (seat) => `
+          <div class="pod-seat-row">
+            <label class="pod-player">Player ${seat}${fieldValue(playerName(game, seat))}</label>
+            <label class="pod-commander">Commander${fieldValue(opponentName(game, seat))}</label>
+          </div>`
+          )
+          .join("")}
+      </fieldset>`
+          : ""
+      }
+      <label>Result<span class="result-pill ${resultCls}">${escapeHtml(game.result)}</span></label>
+    </div>`;
 }
 
 function renderLogForm() {
@@ -881,7 +956,7 @@ function renderLogForm() {
 function gameRow(g) {
   const cls = g.result === "Win" ? "win" : "loss";
   return `<tr data-deck="${escapeHtml(g.deck)}" data-result="${g.result}" data-year="${gameYear(g.date)}">
-    <td>${formatDate(g.date)}</td><td class="deck-name"><button type="button" class="link-btn deck-link" data-deck-detail="${escapeHtml(g.deck)}">${escapeHtml(g.deck)}</button></td>
+    <td><button type="button" class="link-btn view-game" data-id="${g.id}">${formatDate(g.date)}</button></td><td class="deck-name"><button type="button" class="link-btn deck-link" data-deck-detail="${escapeHtml(g.deck)}">${escapeHtml(g.deck)}</button></td>
     <td>${g.mySeat || "—"}</td><td>${g.turn || "—"}</td>
     <td><span class="result-pill ${cls}">${g.result}</span></td>
     <td class="row-actions">
