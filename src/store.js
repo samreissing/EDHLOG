@@ -1,4 +1,4 @@
-import { normalizeDate } from "./dates.js";
+import { normalizeDate, todayISO } from "./dates.js";
 
 const STORAGE_KEY = "edhlog-data-v1";
 
@@ -148,7 +148,7 @@ export function exportData() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `edhlog-${new Date().toISOString().slice(0, 10)}.json`;
+  a.download = `edhlog-${todayISO()}.json`;
   a.click();
   URL.revokeObjectURL(url);
 }

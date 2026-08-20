@@ -17,7 +17,7 @@ import {
   colorBadge,
   sortDeckList,
 } from "./stats.js";
-import { formatDate, gameYear } from "./dates.js";
+import { formatDate, gameYear, todayISO } from "./dates.js";
 import { pctCell, valueCell, colorStatAverage } from "./wr-color.js";
 import { sortHeader, applySort, toggleSort } from "./table.js";
 import {
@@ -331,7 +331,7 @@ function bindEvents() {
         bracket: Number(fd.get("bracket")),
         colors: fd.getAll("color"),
         retired: fd.get("retired") === "on",
-        createdAt: fd.get("createdAt") || new Date().toISOString().slice(0, 10),
+        createdAt: fd.get("createdAt") || todayISO(),
       };
       const originalName = fd.get("originalName");
 
@@ -788,7 +788,7 @@ function renderDecks() {
         <form id="deck-form">
           ${editingDeck ? `<input type="hidden" name="originalName" value="${escapeHtml(editingDeck.name)}" />` : ""}
           <label>Name<input name="name" required value="${editingDeck ? escapeHtml(editingDeck.name) : ""}" /></label>
-          <label>Created<input type="date" name="createdAt" value="${editingDeck?.createdAt || new Date().toISOString().slice(0, 10)}" required /></label>
+          <label>Created<input type="date" name="createdAt" value="${editingDeck?.createdAt || todayISO()}" required /></label>
           <label>Bracket<select name="bracket">${[1, 2, 3, 4, 5].map((b) => `<option value="${b}" ${(editingDeck ? editingDeck.bracket : 4) === b ? "selected" : ""}>${b}</option>`).join("")}</select></label>
           <fieldset class="color-fieldset"><legend>Colors</legend>
             ${["W", "U", "B", "R", "G"].map((c) => `<label class="checkbox mana-check"><input type="checkbox" name="color" value="${c}" ${editingDeck?.colors?.includes(c) ? "checked" : ""} />${colorBadge([c])}</label>`).join("")}
@@ -865,7 +865,7 @@ function renderLogForm() {
     "desc"
   );
   const editing = editingGameId ? data.games.find((g) => g.id === editingGameId) : null;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISO();
   const dateVal = editing?.date || today;
   const resultWin = !editing || editing.result === "Win";
   const resultLoss = editing?.result === "Loss";
@@ -1057,7 +1057,7 @@ async function importDeckListForSelected(url) {
     deck.listUrl = result.url;
     deck.listSource = result.source;
     deck.cards = result.cards;
-    deck.listSyncedAt = new Date().toISOString().slice(0, 10);
+    deck.listSyncedAt = todayISO();
     saveData(data);
     toast(`Imported ${result.cards.length} cards`);
     render();
