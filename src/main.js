@@ -31,6 +31,9 @@ import {
   colorColumnSortLabel,
   colorViewLabel,
 } from "./color-stats.js";
+import { renderDeckDetail } from "./deck-detail.js";
+import { importDeckFromUrl } from "./deck-import.js";
+import { loadImagesIntoDeckDetail } from "./scryfall.js";
 
 const VIEWS = [
   { id: "stats", label: "Stats" },
@@ -63,6 +66,7 @@ let statsTab = "overview";
 let decksTab = "active";
 let gamesTab = "history";
 let editingGameId = null;
+let selectedDeckName = null;
 let deckSort = "normWr";
 let deckSortDir = "desc";
 let deckBracketFilter = "";
@@ -106,6 +110,7 @@ function bindEvents() {
     const btn = e.target.closest("[data-view]");
     if (!btn) return;
     currentView = btn.dataset.view;
+    if (currentView !== "decks") selectedDeckName = null;
     renderNav();
     render();
   });
@@ -173,6 +178,19 @@ function bindEvents() {
       const nextTab = gamesBtn.getAttribute("data-games-tab");
       if (nextTab !== "log") editingGameId = null;
       gamesTab = nextTab;
+      render();
+      return;
+    }
+
+    const deckDetailBtn = e.target.closest("[data-deck-detail]");
+    if (deckDetailBtn) {
+      selectedDeckName = deckDetailBtn.dataset.deckDetail;
+      render();
+      return;
+    }
+
+    if (e.target.id === "deck-detail-back") {
+      selectedDeckName = null;
       render();
       return;
     }
@@ -269,6 +287,9 @@ function bindEvents() {
         el.disabled = false;
       });
       saveGameFromForm(new FormData(e.target));
+    } else if (e.target.id === "deck-list-form") {
+      e.preventDefault();
+      importDeckListForSelected(new FormData(e.target).get("listUrl"));
     } else if (e.target.id === "deck-form") {
       e.preventDefault();
       const fd = new FormData(e.target);
@@ -358,6 +379,7 @@ function render() {
   bindPieCharts();
   syncPodFormSeats();
   syncResultFromSeats();
+  if (selectedDeckName) loadImagesIntoDeckDetail(selectedDeckName);
 }
 
 function applyLogFilters() {
@@ -638,6 +660,16 @@ function miniDeckTable(decks) {
 }
 
 function renderDecks() {
+  if (selectedDeckName) {
+    const deck = data.decks.find((d) => d.name === selectedDeckName);
+    if (!deck) {
+      selectedDeckName = null;
+    } else {
+      const stats = getStats().deckStats.find((d) => d.name === selectedDeckName);
+      return renderDeckDetail(deck, stats);
+    }
+  }
+
   const { deckStats } = getStats();
   let list = deckStats;
   if (decksTab === "active") list = list.filter((d) => !d.retired);
@@ -682,7 +714,7 @@ function renderDecks() {
           ${sortHeader("decks-main", "winRate", "WR", sortState)}
         </tr></thead>
         <tbody>
-          ${list.length ? list.map((d) => `<tr><td>${formatDate(d.createdAt)}</td><td class="deck-name">${escapeHtml(d.name)}</td><td>${colorBadge(d.colors)}</td><td>${d.bracket}</td><td>${d.games}</td><td>${d.wins}</td><td>${d.losses}</td><td>${d.games ? pctCell(d.normalizedWr) : "—"}</td><td>${d.games ? pctCell(d.winRate) : "—"}</td></tr>`).join("") : '<tr><td colspan="9"></td></tr>'}
+          ${list.length ? list.map((d) => `<tr><td>${formatDate(d.createdAt)}</td><td class="deck-name"><button type="button" class="link-btn deck-link" data-deck-detail="${escapeHtml(d.name)}">${escapeHtml(d.name)}</button></td><td>${colorBadge(d.colors)}</td><td>${d.bracket}</td><td>${d.games}</td><td>${d.wins}</td><td>${d.losses}</td><td>${d.games ? pctCell(d.normalizedWr) : "—"}</td><td>${d.games ? pctCell(d.winRate) : "—"}</td></tr>`).join("") : '<tr><td colspan="9"></td></tr>'}
         </tbody>
       </table>
     </section>
@@ -853,16 +885,20 @@ function parseGameForm(fd) {
     source: "local",
   };
 
-  if (mySeatRaw) game.mySeat = Number(mySeatRaw);
-  if (winnerSeatRaw) game.winnerSeat = Number(winnerSeatRaw);
-  if (winnerSeatRaw && mySeatRaw) {
-    game.result = Number(winnerSeatRaw) === Number(mySeatRaw) ? "Win" : "Loss";
+  if (mySeatRaw) {
+    game.mySeat = Number(mySeatRaw);
+    game.opponents = opponents;
+  }
+  if (winnerSeatRaw) {
+    game.winnerSeat = Number(winnerSeatRaw);
+    if (mySeatRaw) {
+      game.result = Number(winnerSeatRaw) === Number(mySeatRaw) ? "Win" : "Loss";
+    }
   }
   if (turnRaw) {
     const turn = Number(turnRaw);
     if (!Number.isNaN(turn) && turn > 0) game.turn = turn;
   }
-  if (opponents.length) game.opponents = opponents;
   return game;
 }
 
@@ -880,10 +916,12 @@ function saveGameFromForm(fd) {
         result: payload.result,
         source: "local",
       };
-      if (payload.mySeat) updated.mySeat = payload.mySeat;
+      if (payload.mySeat) {
+        updated.mySeat = payload.mySeat;
+        updated.opponents = payload.opponents || [];
+      }
       if (payload.winnerSeat) updated.winnerSeat = payload.winnerSeat;
       if (payload.turn) updated.turn = payload.turn;
-      if (payload.opponents?.length) updated.opponents = payload.opponents;
       data.games[idx] = updated;
     }
     editingGameId = null;
@@ -933,6 +971,28 @@ function syncResultFromSeats() {
     const isWin = winnerSeat === mySeat;
     if (winInput) winInput.checked = isWin;
     if (lossInput) lossInput.checked = !isWin;
+  }
+}
+
+async function importDeckListForSelected(url) {
+  if (!selectedDeckName) return;
+  const deck = data.decks.find((d) => d.name === selectedDeckName);
+  if (!deck) return;
+
+  const trimmed = String(url || "").trim();
+  if (!trimmed) return toast("Paste a deck link", true);
+
+  try {
+    const result = await importDeckFromUrl(trimmed);
+    deck.listUrl = result.url;
+    deck.listSource = result.source;
+    deck.cards = result.cards;
+    deck.listSyncedAt = new Date().toISOString().slice(0, 10);
+    saveData(data);
+    toast(`Imported ${result.cards.length} cards`);
+    render();
+  } catch (err) {
+    toast(err.message || "Import failed", true);
   }
 }
 
