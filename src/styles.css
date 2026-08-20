@@ -614,6 +614,7 @@ th.sortable.sorted {
 }
 
 .game-form input[type="date"],
+.game-form input[type="time"],
 .game-form select,
 .game-form input[type="number"],
 .game-form input[type="text"],

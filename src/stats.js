@@ -119,7 +119,7 @@ export function computeBracketStats(games, deckStats) {
   }));
 }
 
-import { gameYear } from "./dates.js";
+import { compareGamesChronologically, gameYear } from "./dates.js";
 import { canonicalizeColors, colorIdentitySortIndex } from "./color-identity.js";
 
 export function computeYearStats(games) {
@@ -141,7 +141,7 @@ export function computeYearStats(games) {
 }
 
 export function computeRolling100Stats(games) {
-  const sorted = [...games].sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
+  const sorted = [...games].sort(compareGamesChronologically);
   const total = sorted.length;
   const windows = [];
 
