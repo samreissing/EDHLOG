@@ -21,13 +21,32 @@ npm run dev
 
 Open http://localhost:5173
 
-## Build for GitHub Pages
+## GitHub Pages
+
+Live site (after Pages is enabled): **https://samreissing.github.io/EDHLOG/**
+
+Pushes to `main` run [.github/workflows/deploy.yml](.github/workflows/deploy.yml) to build and deploy automatically — same pattern as [30-cent-edh](https://github.com/samreissing/30-cent-edh).
+
+**One-time setup** (repo owner):
+
+1. Open [EDHLOG → Settings → Pages](https://github.com/samreissing/EDHLOG/settings/pages)
+2. Under **Build and deployment**, set **Source** to **GitHub Actions**
+3. Re-run the latest **Deploy to GitHub Pages** workflow (or push to `main`)
+
+Local production preview:
+
+```bash
+BASE_PATH=/EDHLOG/ npm run build
+npm run preview
+```
+
+## Build
 
 ```bash
 npm run build
 ```
 
-Deploy the `dist/` folder. The app uses relative paths (`base: "./"`) so it works on GitHub Pages project sites.
+Deploy the `dist/` folder, or use the GitHub Actions workflow above.
 
 ## Data
 
