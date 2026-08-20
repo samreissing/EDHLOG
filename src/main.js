@@ -813,6 +813,8 @@ function renderGames() {
     date: (g) => g.date,
     deck: (g) => g.deck,
     result: (g) => (g.result === "Win" ? 1 : 0),
+    mySeat: (g) => g.mySeat || 0,
+    turn: (g) => g.turn || 0,
   });
 
   const decks = [...new Set(data.decks.map((d) => d.name))].sort();
@@ -833,8 +835,10 @@ function renderGames() {
           <thead><tr>
             ${sortHeader("game-log", "date", "Date", sort)}
             ${sortHeader("game-log", "deck", "Deck", sort)}
+            ${sortHeader("game-log", "mySeat", "Seat", sort)}
+            ${sortHeader("game-log", "turn", "End Turn", sort)}
             ${sortHeader("game-log", "result", "Result", sort)}
-            <th></th>
+            <th class="row-actions-col"></th>
           </tr></thead>
           <tbody>${games.map((g) => gameRow(g)).join("")}</tbody>
         </table>
@@ -930,6 +934,7 @@ function gameRow(g) {
   const cls = g.result === "Win" ? "win" : "loss";
   return `<tr data-deck="${escapeHtml(g.deck)}" data-result="${g.result}" data-year="${gameYear(g.date)}">
     <td>${formatDate(g.date)}</td><td class="deck-name">${escapeHtml(g.deck)}</td>
+    <td>${g.mySeat || "—"}</td><td>${g.turn || "—"}</td>
     <td><span class="result-pill ${cls}">${g.result}</span></td>
     <td class="row-actions">
       <button type="button" class="btn-icon edit-game" data-id="${g.id}" title="Edit game">✎</button>

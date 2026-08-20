@@ -733,6 +733,16 @@ th.sortable.sorted {
   margin-left: 0.25rem;
 }
 
+#game-log-table .row-actions-col,
+#game-log-table .row-actions {
+  width: 1%;
+  padding-right: 0;
+}
+
+#game-log-table .row-actions {
+  padding-left: 0.5rem;
+}
+
 .radio-card {
   display: block;
   cursor: pointer;
