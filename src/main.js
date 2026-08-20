@@ -218,6 +218,12 @@ function bindEvents() {
         deck: (quickWin || quickLoss).dataset.deck,
         result: quickWin ? "Win" : "Loss",
       });
+      return;
+    }
+
+    if (e.target.closest(".result-toggle.result-locked")) {
+      e.preventDefault();
+      syncResultFromSeats();
     }
   });
 
@@ -242,6 +248,10 @@ function bindEvents() {
       syncResultFromSeats();
     } else if (e.target.name === "winnerSeat") {
       syncResultFromSeats();
+    } else if (e.target.name === "result") {
+      const form = document.getElementById("add-game-form");
+      const winnerSeat = Number(form?.querySelector('[name="winnerSeat"]')?.value) || 0;
+      if (winnerSeat > 0) syncResultFromSeats();
     } else if (id === "filter-deck" || id === "filter-result" || id === "filter-year") {
       logFilters = {
         deck: document.getElementById("filter-deck")?.value || "",
@@ -255,6 +265,9 @@ function bindEvents() {
   document.getElementById("main").addEventListener("submit", (e) => {
     if (e.target.id === "add-game-form") {
       e.preventDefault();
+      e.target.querySelectorAll('[name="result"]').forEach((el) => {
+        el.disabled = false;
+      });
       saveGameFromForm(new FormData(e.target));
     } else if (e.target.id === "deck-form") {
       e.preventDefault();
@@ -789,7 +802,7 @@ function renderLogForm() {
           <label class="radio-card loss"><input type="radio" name="result" value="Loss" ${resultLoss ? "checked" : ""} /><span>Loss</span></label>
         </div>
       </label>
-      <div class="form-actions">
+      <div class="form-actions${editing ? " form-actions--split" : ""}">
         ${editing ? `<button type="button" class="btn btn-ghost" id="cancel-edit-game">Cancel</button>` : ""}
         <button type="submit" class="btn btn-primary btn-lg">${editing ? "Save" : "Save Game"}</button>
       </div>
@@ -874,6 +887,7 @@ function saveGameFromForm(fd) {
       data.games[idx] = updated;
     }
     editingGameId = null;
+    gamesTab = "history";
     saveData(data);
     toast("Game saved");
     render();
@@ -892,8 +906,9 @@ function fillLogForm({ deck, result }) {
   if (!form) return;
   const deckSelect = form.querySelector('[name="deck"]');
   const resultInput = form.querySelector(`[name="result"][value="${result}"]`);
+  const winnerSeat = Number(form.querySelector('[name="winnerSeat"]')?.value) || 0;
   if (deckSelect) deckSelect.value = deck;
-  if (resultInput) resultInput.checked = true;
+  if (winnerSeat === 0 && resultInput) resultInput.checked = true;
   form.querySelector('[name="date"]')?.focus();
   syncPodFormSeats();
   syncResultFromSeats();
@@ -911,6 +926,8 @@ function syncResultFromSeats() {
   const locked = winnerSeat > 0;
 
   if (toggle) toggle.classList.toggle("result-locked", locked);
+  if (winInput) winInput.disabled = locked;
+  if (lossInput) lossInput.disabled = locked;
 
   if (locked && mySeat > 0) {
     const isWin = winnerSeat === mySeat;
