@@ -34,6 +34,7 @@ import {
 import { renderDeckDetail } from "./deck-detail.js";
 import { importDeckFromUrl } from "./deck-import.js";
 import { loadImagesIntoDeckDetail } from "./scryfall.js";
+import { bindOpponentAutocomplete } from "./opponent-search.js";
 
 const VIEWS = [
   { id: "stats", label: "Stats" },
@@ -436,6 +437,9 @@ function render() {
   bindPieCharts();
   syncPodFormSeats();
   syncResultFromSeats();
+  if (currentView === "games" && gamesTab === "log") {
+    bindOpponentAutocomplete(document.getElementById("add-game-form"), data.games);
+  }
   if (selectedDeckName) loadImagesIntoDeckDetail(selectedDeckName);
 }
 
@@ -885,7 +889,12 @@ function renderLogForm() {
         ${[1, 2, 3, 4]
           .map(
             (seat) => `
-          <label class="opponent-seat" data-opponent-seat="${seat}">Seat ${seat}<input type="text" name="opponent-${seat}" value="${escapeHtml(opponentName(editing, seat))}" placeholder="Commander name" autocomplete="off" /></label>`
+          <label class="opponent-seat" data-opponent-seat="${seat}">Seat ${seat}
+            <div class="opponent-input-wrap">
+              <input type="text" class="opponent-input" name="opponent-${seat}" value="${escapeHtml(opponentName(editing, seat))}" placeholder="Commander name" autocomplete="off" />
+              <ul class="opponent-suggestions" hidden role="listbox"></ul>
+            </div>
+          </label>`
           )
           .join("")}
       </fieldset>
@@ -1069,8 +1078,11 @@ function syncPodFormSeats() {
     const hidden = mySeat > 0 && seat === mySeat;
     label.hidden = hidden;
     if (hidden) {
-      const input = label.querySelector("input");
-      if (input) input.value = "";
+      const input = label.querySelector(".opponent-input");
+      if (input) {
+        input.value = "";
+        label.querySelector(".opponent-suggestions")?.setAttribute("hidden", "");
+      }
     }
   });
 }

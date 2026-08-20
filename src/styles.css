@@ -653,6 +653,46 @@ th.sortable.sorted {
   display: none;
 }
 
+.opponent-input-wrap {
+  position: relative;
+}
+
+.opponent-input {
+  width: 100%;
+}
+
+.opponent-suggestions {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 0.25rem 0;
+  list-style: none;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.opponent-suggestions [role="option"] {
+  padding: 0.45rem 0.65rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.opponent-suggestions [role="option"]:hover,
+.opponent-suggestions [role="option"].active {
+  background: var(--accent-dim);
+  color: var(--text);
+}
+
 .pod-fieldset {
   border: 1px solid var(--border);
   border-radius: 8px;
