@@ -895,6 +895,9 @@ function syncPodFormSeats() {
   const form = document.getElementById("add-game-form");
   if (!form) return;
   const mySeat = Number(form.querySelector('[name="mySeat"]')?.value) || 0;
+  const fieldset = form.querySelector(".pod-fieldset");
+  if (fieldset) fieldset.hidden = mySeat === 0;
+
   form.querySelectorAll("[data-opponent-seat]").forEach((label) => {
     const seat = Number(label.dataset.opponentSeat);
     const hidden = mySeat > 0 && seat === mySeat;
