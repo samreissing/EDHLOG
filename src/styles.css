@@ -656,6 +656,14 @@ th.sortable.sorted {
   margin-top: 0.5rem;
 }
 
+.game-form .form-actions--split .btn {
+  flex: 1;
+}
+
+.result-toggle.result-locked .radio-card {
+  cursor: not-allowed;
+}
+
 .row-actions {
   white-space: nowrap;
   text-align: right;
@@ -688,6 +696,11 @@ th.sortable.sorted {
   border-color: var(--green);
   background: rgba(61, 186, 122, 0.15);
   color: var(--green);
+}
+
+.radio-card input:disabled + span {
+  opacity: 0.85;
+  cursor: not-allowed;
 }
 
 .radio-card.loss input:checked + span {
