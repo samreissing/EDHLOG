@@ -35,6 +35,7 @@ import { renderDeckDetail } from "./deck-detail.js";
 import { importDeckFromUrl } from "./deck-import.js";
 import { loadImagesIntoDeckDetail } from "./scryfall.js";
 import { bindOpponentAutocomplete } from "./opponent-search.js";
+import { bindModalBackdropDismiss } from "./modals.js";
 
 const VIEWS = [
   { id: "stats", label: "Stats" },
@@ -89,6 +90,17 @@ async function boot() {
   data = await initData();
   const sync = getLastSeedSync();
   bindEvents();
+  bindModalBackdropDismiss({
+    deck: () => {
+      editingDeckName = null;
+      document.getElementById("deck-modal")?.classList.add("hidden");
+    },
+    game: () => {
+      editingGameId = null;
+      gameModalOpen = false;
+      render();
+    },
+  });
   renderNav();
   render();
   if (sync) {
@@ -879,6 +891,13 @@ function opponentName(game, seat) {
   return row?.name || "";
 }
 
+function playerName(game, seat) {
+  if (!game) return "";
+  if (game.mySeat === seat && game.myPlayer) return game.myPlayer;
+  const row = game.opponents?.find((o) => o.seat === seat);
+  return row?.player || "";
+}
+
 function renderLogForm() {
   const { deckStats } = getStats();
   const decks = sortDeckList(
@@ -906,16 +925,19 @@ function renderLogForm() {
       <label>Turn ended<input type="number" name="turn" min="1" placeholder="Optional" value="${editing?.turn ?? ""}" /></label>
       <label>Winner seat<select name="winnerSeat"><option value="">—</option>${seatOptions(editing?.winnerSeat)}</select></label>
       <fieldset class="pod-fieldset">
-        <legend>Other commanders</legend>
+        <legend>Pod</legend>
         ${[1, 2, 3, 4]
           .map(
             (seat) => `
-          <label class="opponent-seat" data-opponent-seat="${seat}">Seat ${seat}
-            <div class="opponent-input-wrap">
-              <input type="text" class="opponent-input" name="opponent-${seat}" value="${escapeHtml(opponentName(editing, seat))}" placeholder="Commander name" autocomplete="off" />
-              <ul class="opponent-suggestions" hidden role="listbox"></ul>
-            </div>
-          </label>`
+          <div class="pod-seat-row" data-opponent-seat="${seat}">
+            <label class="pod-player">Player ${seat}<input type="text" name="player-${seat}" value="${escapeHtml(playerName(editing, seat))}" placeholder="Player name" autocomplete="off" /></label>
+            <label class="pod-commander">Seat ${seat}
+              <div class="opponent-input-wrap">
+                <input type="text" class="opponent-input" name="opponent-${seat}" value="${escapeHtml(opponentName(editing, seat))}" placeholder="Commander name" autocomplete="off" />
+                <ul class="opponent-suggestions" hidden role="listbox"></ul>
+              </div>
+            </label>
+          </div>`
           )
           .join("")}
       </fieldset>
@@ -965,7 +987,9 @@ function parseGameForm(fd) {
   const opponents = [1, 2, 3, 4].flatMap((seat) => {
     if (mySeat && seat === mySeat) return [];
     const name = String(fd.get(`opponent-${seat}`) || "").trim();
-    return name ? [{ seat, name }] : [];
+    const player = String(fd.get(`player-${seat}`) || "").trim();
+    if (!name && !player) return [];
+    return [{ seat, name, ...(player ? { player } : {}) }];
   });
   const winnerSeatRaw = fd.get("winnerSeat");
   const turnRaw = fd.get("turn");
@@ -980,6 +1004,8 @@ function parseGameForm(fd) {
   if (mySeatRaw) {
     game.mySeat = Number(mySeatRaw);
     game.opponents = opponents;
+    const myPlayer = String(fd.get(`player-${mySeat}`) || "").trim();
+    if (myPlayer) game.myPlayer = myPlayer;
   }
   if (winnerSeatRaw) {
     game.winnerSeat = Number(winnerSeatRaw);
@@ -1011,6 +1037,7 @@ function saveGameFromForm(fd) {
       if (payload.mySeat) {
         updated.mySeat = payload.mySeat;
         updated.opponents = payload.opponents || [];
+        if (payload.myPlayer) updated.myPlayer = payload.myPlayer;
       }
       if (payload.winnerSeat) updated.winnerSeat = payload.winnerSeat;
       if (payload.turn) updated.turn = payload.turn;
@@ -1096,15 +1123,16 @@ function syncPodFormSeats() {
   const fieldset = form.querySelector(".pod-fieldset");
   if (fieldset) fieldset.hidden = mySeat === 0;
 
-  form.querySelectorAll("[data-opponent-seat]").forEach((label) => {
-    const seat = Number(label.dataset.opponentSeat);
-    const hidden = mySeat > 0 && seat === mySeat;
-    label.hidden = hidden;
-    if (hidden) {
-      const input = label.querySelector(".opponent-input");
+  form.querySelectorAll("[data-opponent-seat]").forEach((row) => {
+    const seat = Number(row.dataset.opponentSeat);
+    const isMySeat = mySeat > 0 && seat === mySeat;
+    const commander = row.querySelector(".pod-commander");
+    if (commander) commander.hidden = isMySeat;
+    if (isMySeat) {
+      const input = row.querySelector(".opponent-input");
       if (input) {
         input.value = "";
-        label.querySelector(".opponent-suggestions")?.setAttribute("hidden", "");
+        row.querySelector(".opponent-suggestions")?.setAttribute("hidden", "");
       }
     }
   });
