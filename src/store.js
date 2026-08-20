@@ -58,15 +58,25 @@ function sanitizeData(data) {
 
 /** @param {AppData} local @param {AppData} seed */
 export function syncFromSeed(local, seed) {
-  const seedFingerprints = new Set(seed.games.map(gameFingerprint));
+  const seedIds = new Set(seed.games.map((game) => game.id));
   const beforeCount = local.games.length;
 
-  // Only keep games the user logged in the app — not stale copies with wrong dates.
+  const localEditsById = new Map();
+  for (const game of local.games) {
+    if (game.source === "local" && seedIds.has(game.id)) {
+      localEditsById.set(game.id, game);
+    }
+  }
+
+  // Games logged in the app that are not in the seed spreadsheet.
   const localOnlyGames = local.games.filter(
-    (game) => game.source === "local" && !seedFingerprints.has(gameFingerprint(game))
+    (game) => game.source === "local" && !seedIds.has(game.id)
   );
 
-  local.games = seed.games.map((game) => ({ ...game }));
+  local.games = seed.games.map((game) => {
+    const edit = localEditsById.get(game.id);
+    return edit ? { ...game, ...edit, source: "local" } : { ...game };
+  });
   let nextNum = local.games.length + 1;
   for (const game of localOnlyGames) {
     local.games.push({ ...game, id: `game-${nextNum++}`, source: "local" });
