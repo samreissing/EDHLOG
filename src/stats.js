@@ -174,15 +174,12 @@ export function computeRankings(deckStats) {
   );
 }
 
-const MANA_BASE = `${import.meta.env.BASE_URL}mana`;
-
+/** Colored letter pips — same approach as 30ccstat (globals.css .pip). */
 export function colorBadge(colors) {
   if (!colors.length) {
-    return `<img class="mana-img" src="${MANA_BASE}/C.svg" alt="C" />`;
+    return `<span class="pip C">C</span>`;
   }
-  return colors
-    .map((c) => `<img class="mana-img" src="${MANA_BASE}/${c}.svg" alt="${c}" />`)
-    .join("");
+  return colors.map((c) => `<span class="pip ${c}">${c}</span>`).join("");
 }
 
 export function sortDeckList(list, sortKey, dir) {
