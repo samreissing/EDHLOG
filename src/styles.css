@@ -979,6 +979,16 @@ th.sortable.sorted {
   margin: 0 0 1rem;
 }
 
+.modal-content-wide {
+  width: min(640px, 94vw);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-content-wide .form-actions--split .btn {
+  flex: 1;
+}
+
 .deck-form label {
   display: block;
   margin-bottom: 0.75rem;

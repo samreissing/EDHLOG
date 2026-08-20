@@ -56,16 +56,11 @@ const DECKS_TABS = [
   { id: "all", label: "All" },
 ];
 
-const GAMES_TABS = [
-  { id: "history", label: "History" },
-  { id: "log", label: "Log Game" },
-];
-
 let data = null;
 let currentView = "stats";
 let statsTab = "overview";
 let decksTab = "active";
-let gamesTab = "history";
+let gameModalOpen = false;
 let editingGameId = null;
 let editingDeckName = null;
 let selectedDeckName = null;
@@ -113,7 +108,7 @@ function bindEvents() {
     if (!btn) return;
     currentView = btn.dataset.view;
     if (currentView === "games") {
-      gamesTab = "history";
+      gameModalOpen = false;
       editingGameId = null;
     }
     if (currentView !== "decks") {
@@ -177,11 +172,16 @@ function bindEvents() {
       return;
     }
 
-    const gamesBtn = e.target.closest("[data-games-tab]");
-    if (gamesBtn) {
-      const nextTab = gamesBtn.getAttribute("data-games-tab");
-      if (nextTab !== "log") editingGameId = null;
-      gamesTab = nextTab;
+    if (e.target.id === "add-game-btn") {
+      editingGameId = null;
+      gameModalOpen = true;
+      render();
+      return;
+    }
+
+    if (e.target.id === "cancel-game") {
+      editingGameId = null;
+      gameModalOpen = false;
       render();
       return;
     }
@@ -235,7 +235,7 @@ function bindEvents() {
     const editBtn = e.target.closest(".edit-game");
     if (editBtn) {
       editingGameId = editBtn.dataset.id;
-      gamesTab = "log";
+      gameModalOpen = true;
       render();
       return;
     }
@@ -244,16 +244,13 @@ function bindEvents() {
     if (deleteBtn) {
       if (!confirm("Delete this game?")) return;
       data.games = data.games.filter((g) => g.id !== deleteBtn.dataset.id);
-      if (editingGameId === deleteBtn.dataset.id) editingGameId = null;
+      if (editingGameId === deleteBtn.dataset.id) {
+        editingGameId = null;
+        gameModalOpen = false;
+      }
       saveData(data);
       render();
       toast("Deleted");
-      return;
-    }
-
-    if (e.target.id === "cancel-edit-game") {
-      editingGameId = null;
-      render();
       return;
     }
 
@@ -438,11 +435,11 @@ function render() {
   else if (currentView === "decks") main.innerHTML = renderDecks();
   else main.innerHTML = renderGames();
 
-  if (currentView === "games" && gamesTab === "history") applyLogFilters();
+  if (currentView === "games") applyLogFilters();
   bindPieCharts();
-  syncPodFormSeats();
-  syncResultFromSeats();
-  if (currentView === "games" && gamesTab === "log") {
+  if (gameModalOpen) {
+    syncPodFormSeats();
+    syncResultFromSeats();
     bindOpponentAutocomplete(document.getElementById("add-game-form"), data.games);
   }
   if (selectedDeckName) loadImagesIntoDeckDetail(selectedDeckName);
@@ -820,10 +817,6 @@ function renderDecks() {
 }
 
 function renderGames() {
-  if (gamesTab === "log") {
-    return `<section class="section narrow">${subTabs(GAMES_TABS, gamesTab, "games-tab")}${renderLogForm()}</section>`;
-  }
-
   let games = [...data.games];
   games = applySort(games, tableSort["game-log"], {
     date: (g) => g.date,
@@ -836,15 +829,18 @@ function renderGames() {
   const decks = [...new Set(data.decks.map((d) => d.name))].sort();
   const years = [...new Set(data.games.map((g) => gameYear(g.date)))].sort();
   const sort = tableSort["game-log"];
+  const editing = editingGameId ? data.games.find((g) => g.id === editingGameId) : null;
 
   return `
     <section class="section">
-      ${subTabs(GAMES_TABS, gamesTab, "games-tab")}
-      <div class="filters">
-        <label>Deck<select id="filter-deck"><option value="">All</option>${decks.map((d) => `<option value="${escapeHtml(d)}" ${logFilters.deck === d ? "selected" : ""}>${escapeHtml(d)}</option>`).join("")}</select></label>
-        <label>Result<select id="filter-result"><option value="">All</option><option value="Win" ${logFilters.result === "Win" ? "selected" : ""}>Wins</option><option value="Loss" ${logFilters.result === "Loss" ? "selected" : ""}>Losses</option></select></label>
-        <label>Year<select id="filter-year"><option value="">All</option>${years.map((y) => `<option value="${y}" ${logFilters.year === y ? "selected" : ""}>${y}</option>`).join("")}</select></label>
-        <span class="filter-count" id="filter-count">${games.length} games</span>
+      <div class="section-header">
+        <div class="filters inline">
+          <label>Deck<select id="filter-deck"><option value="">All</option>${decks.map((d) => `<option value="${escapeHtml(d)}" ${logFilters.deck === d ? "selected" : ""}>${escapeHtml(d)}</option>`).join("")}</select></label>
+          <label>Result<select id="filter-result"><option value="">All</option><option value="Win" ${logFilters.result === "Win" ? "selected" : ""}>Wins</option><option value="Loss" ${logFilters.result === "Loss" ? "selected" : ""}>Losses</option></select></label>
+          <label>Year<select id="filter-year"><option value="">All</option>${years.map((y) => `<option value="${y}" ${logFilters.year === y ? "selected" : ""}>${y}</option>`).join("")}</select></label>
+          <span class="filter-count" id="filter-count">${games.length} games</span>
+        </div>
+        <button type="button" class="btn btn-primary" id="add-game-btn">+ Game</button>
       </div>
       <div class="table-wrap">
         <table class="table sortable-table" id="game-log-table">
@@ -859,7 +855,13 @@ function renderGames() {
           <tbody>${games.map((g) => gameRow(g)).join("")}</tbody>
         </table>
       </div>
-    </section>`;
+    </section>
+    <div id="game-modal" class="modal ${gameModalOpen ? "" : "hidden"}">
+      <div class="modal-content modal-content-wide">
+        <h3>${editing ? "Edit Game" : "Log Game"}</h3>
+        ${renderLogForm()}
+      </div>
+    </div>`;
 }
 
 function seatOptions(selected = "") {
@@ -891,7 +893,6 @@ function renderLogForm() {
   const resultLoss = editing?.result === "Loss";
 
   return `
-    ${editing ? `<p class="edit-banner">Editing game</p>` : ""}
     <form id="add-game-form" class="game-form">
       ${editing ? `<input type="hidden" name="gameId" value="${escapeHtml(editing.id)}" />` : ""}
       <label>Date<input type="date" name="date" value="${dateVal}" required /></label>
@@ -924,8 +925,8 @@ function renderLogForm() {
           <label class="radio-card loss"><input type="radio" name="result" value="Loss" ${resultLoss ? "checked" : ""} /><span>Loss</span></label>
         </div>
       </label>
-      <div class="form-actions${editing ? " form-actions--split" : ""}">
-        ${editing ? `<button type="button" class="btn btn-ghost" id="cancel-edit-game">Cancel</button>` : ""}
+      <div class="form-actions form-actions--split">
+        <button type="button" class="btn btn-ghost" id="cancel-game">Cancel</button>
         <button type="submit" class="btn btn-primary btn-lg">${editing ? "Save" : "Save Game"}</button>
       </div>
     </form>
@@ -1016,7 +1017,7 @@ function saveGameFromForm(fd) {
       data.games[idx] = updated;
     }
     editingGameId = null;
-    gamesTab = "history";
+    gameModalOpen = false;
     saveData(data);
     toast("Game saved");
     render();
@@ -1025,6 +1026,7 @@ function saveGameFromForm(fd) {
 
   data.games.push({ id: nextGameId(data.games), ...payload });
   saveData(data);
+  gameModalOpen = false;
   toast(`${payload.result} logged`);
   render();
 }
