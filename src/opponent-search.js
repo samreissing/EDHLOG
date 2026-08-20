@@ -1,4 +1,4 @@
-/** @typedef {{ name: string, count: number, lastDate: string }} OpponentEntry */
+/** @typedef {{ name: string, count: number, lastDate: string }} NameEntry */
 
 function escapeHtml(str) {
   return String(str)
@@ -8,28 +8,48 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
+/** @param {Map<string, NameEntry>} map @param {string} name @param {string} date */
+function trackName(map, name, date) {
+  const trimmed = String(name || "").trim();
+  if (!trimmed) return;
+
+  const key = trimmed.toLowerCase();
+  const existing = map.get(key);
+  if (!existing) {
+    map.set(key, { name: trimmed, count: 1, lastDate: date });
+    return;
+  }
+
+  existing.count += 1;
+  if (date >= existing.lastDate) {
+    existing.lastDate = date;
+    existing.name = trimmed;
+  }
+}
+
 /** @param {import('./store.js').Game[]} games */
-export function collectOpponentHistory(games) {
-  /** @type {Map<string, OpponentEntry>} */
+export function collectCommanderHistory(games) {
+  /** @type {Map<string, NameEntry>} */
   const map = new Map();
 
   for (const game of games) {
     for (const opp of game.opponents || []) {
-      const name = String(opp.name || "").trim();
-      if (!name) continue;
+      trackName(map, opp.name, game.date);
+    }
+  }
 
-      const key = name.toLowerCase();
-      const existing = map.get(key);
-      if (!existing) {
-        map.set(key, { name, count: 1, lastDate: game.date });
-        continue;
-      }
+  return [...map.values()];
+}
 
-      existing.count += 1;
-      if (game.date >= existing.lastDate) {
-        existing.lastDate = game.date;
-        existing.name = name;
-      }
+/** @param {import('./store.js').Game[]} games */
+export function collectPlayerHistory(games) {
+  /** @type {Map<string, NameEntry>} */
+  const map = new Map();
+
+  for (const game of games) {
+    trackName(map, game.myPlayer, game.date);
+    for (const opp of game.opponents || []) {
+      trackName(map, opp.player, game.date);
     }
   }
 
@@ -56,35 +76,49 @@ function scoreMatch(name, query) {
   return 0;
 }
 
-/** @param {string} query @param {OpponentEntry[]} opponents @param {number} limit */
-export function searchOpponents(query, opponents, limit = 8) {
+/** @param {string} query @param {NameEntry[]} entries @param {number} limit */
+export function searchNameHistory(query, entries, limit = 8) {
   const q = query.trim();
 
   if (!q) {
-    return [...opponents]
+    return [...entries]
       .sort((a, b) => b.lastDate.localeCompare(a.lastDate) || b.count - a.count)
       .slice(0, limit)
-      .map((o) => o.name);
+      .map((entry) => entry.name);
   }
 
-  return opponents
-    .map((o) => ({ ...o, score: scoreMatch(o.name, q) }))
-    .filter((o) => o.score > 0)
+  return entries
+    .map((entry) => ({ ...entry, score: scoreMatch(entry.name, q) }))
+    .filter((entry) => entry.score > 0)
     .sort(
       (a, b) =>
         b.score - a.score || b.count - a.count || b.lastDate.localeCompare(a.lastDate)
     )
     .slice(0, limit)
-    .map((o) => o.name);
+    .map((entry) => entry.name);
 }
 
 /** @param {HTMLFormElement | null} form @param {import('./store.js').Game[]} games */
-export function bindOpponentAutocomplete(form, games) {
+export function bindPodAutocomplete(form, games) {
   if (!form) return;
 
-  const opponents = collectOpponentHistory(games);
+  const commanders = collectCommanderHistory(games);
+  const players = collectPlayerHistory(games);
   /** @type {WeakMap<HTMLInputElement, number>} */
   const activeIndexByInput = new WeakMap();
+
+  function entriesFor(input) {
+    if (input.classList.contains("opponent-input")) return commanders;
+    if (input.classList.contains("player-input")) return players;
+    return [];
+  }
+
+  function isAutocompleteInput(input) {
+    return (
+      input instanceof HTMLInputElement &&
+      (input.classList.contains("opponent-input") || input.classList.contains("player-input"))
+    );
+  }
 
   function wrapFor(input) {
     return input.closest(".opponent-input-wrap");
@@ -109,7 +143,7 @@ export function bindOpponentAutocomplete(form, games) {
     const list = listFor(input);
     if (!list) return;
 
-    const results = searchOpponents(input.value, opponents);
+    const results = searchNameHistory(input.value, entriesFor(input));
     activeIndexByInput.set(input, -1);
 
     if (!results.length) {
@@ -139,19 +173,19 @@ export function bindOpponentAutocomplete(form, games) {
 
   form.addEventListener("input", (e) => {
     const input = e.target;
-    if (!(input instanceof HTMLInputElement) || !input.classList.contains("opponent-input")) return;
+    if (!isAutocompleteInput(input)) return;
     renderList(input);
   });
 
   form.addEventListener("focusin", (e) => {
     const input = e.target;
-    if (!(input instanceof HTMLInputElement) || !input.classList.contains("opponent-input")) return;
+    if (!isAutocompleteInput(input)) return;
     renderList(input);
   });
 
   form.addEventListener("focusout", (e) => {
     const input = e.target;
-    if (!(input instanceof HTMLInputElement) || !input.classList.contains("opponent-input")) return;
+    if (!isAutocompleteInput(input)) return;
     setTimeout(() => {
       const wrap = wrapFor(input);
       if (wrap && !wrap.contains(document.activeElement)) hideList(input);
@@ -160,7 +194,7 @@ export function bindOpponentAutocomplete(form, games) {
 
   form.addEventListener("keydown", (e) => {
     const input = e.target;
-    if (!(input instanceof HTMLInputElement) || !input.classList.contains("opponent-input")) return;
+    if (!isAutocompleteInput(input)) return;
 
     const list = listFor(input);
     if (!list || list.hidden) return;
@@ -189,9 +223,15 @@ export function bindOpponentAutocomplete(form, games) {
     if (!option) return;
 
     e.preventDefault();
-    const input = option.closest(".opponent-input-wrap")?.querySelector(".opponent-input");
+    const wrap = option.closest(".opponent-input-wrap");
+    const input = wrap?.querySelector(".opponent-input, .player-input");
     if (input instanceof HTMLInputElement) {
       selectValue(input, option.dataset.value || "");
     }
   });
+}
+
+/** @deprecated Use bindPodAutocomplete */
+export function bindOpponentAutocomplete(form, games) {
+  bindPodAutocomplete(form, games);
 }
