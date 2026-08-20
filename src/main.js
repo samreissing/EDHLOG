@@ -16,7 +16,7 @@ import {
   colorBadge,
   sortDeckList,
 } from "./stats.js";
-import { formatDate, gameSortKey, gameYear, normalizeTime, nowTime, todayISO } from "./dates.js";
+import { formatDate, gameSortKey, gameYear, normalizeTime, nowTime, todayISO, compareGamesChronologically } from "./dates.js";
 import { pctCell, valueCell, colorStatAverage } from "./wr-color.js";
 import { sortHeader, applySort, toggleSort } from "./table.js";
 import {
@@ -320,6 +320,8 @@ function bindEvents() {
       tableSort["decks-main"] = { col, dir };
       deckSortDir = dir;
       render();
+    } else if (e.target.name === "deck") {
+      syncBracketFromDeck();
     } else if (e.target.name === "mySeat") {
       syncPodFormSeats();
       syncResultFromSeats();
@@ -463,6 +465,7 @@ function render() {
   if (gameModalOpen) {
     syncPodFormSeats();
     syncResultFromSeats();
+    syncBracketFromDeck();
     bindPodAutocomplete(document.getElementById("add-game-form"), data.games);
   }
   if (selectedDeckName) loadImagesIntoDeckDetail(selectedDeckName);
@@ -886,6 +889,28 @@ function renderGameDetail(game) {
     </div>`;
 }
 
+function deckBracketValue(deckName) {
+  return data.decks.find((d) => d.name === deckName)?.bracket ?? 4;
+}
+
+function recentDecksPlayed(deckStats, limit = 5) {
+  const sorted = [...data.games].sort((a, b) => compareGamesChronologically(b, a));
+  const seen = new Set();
+  /** @type {typeof deckStats} */
+  const recent = [];
+
+  for (const game of sorted) {
+    if (!game.deck || seen.has(game.deck)) continue;
+    const deck = deckStats.find((d) => d.name === game.deck && !d.retired);
+    if (!deck) continue;
+    seen.add(game.deck);
+    recent.push(deck);
+    if (recent.length >= limit) break;
+  }
+
+  return recent;
+}
+
 function renderLogForm() {
   const { deckStats } = getStats();
   const decks = sortDeckList(
@@ -893,12 +918,15 @@ function renderLogForm() {
     "recent",
     "desc"
   );
+  const quickDecks = recentDecksPlayed(deckStats, 5);
   const editing = editingGameId ? data.games.find((g) => g.id === editingGameId) : null;
   const today = todayISO();
   const dateVal = editing?.date || today;
   const timeVal = editing?.time ?? (editing ? "" : nowTime());
   const resultWin = !editing || editing.result === "Win";
   const resultLoss = editing?.result === "Loss";
+  const bracketVal =
+    editing?.bracket ?? (editing?.deck ? deckBracketValue(editing.deck) : "");
 
   return `
     <form id="add-game-form" class="game-form">
@@ -908,7 +936,15 @@ function renderLogForm() {
       <label>My deck<select name="deck" required><option value="">Select…</option>${decks
         .map(
           (d) =>
-            `<option value="${escapeHtml(d.name)}" ${editing?.deck === d.name ? "selected" : ""}>${escapeHtml(d.name)}</option>`
+            `<option value="${escapeHtml(d.name)}" data-bracket="${d.bracket}" ${editing?.deck === d.name ? "selected" : ""}>${escapeHtml(d.name)}</option>`
+        )
+        .join("")}</select></label>
+      <label>Bracket<select name="bracket"><option value="" ${!bracketVal ? "selected" : ""}>—</option>${[
+        1, 2, 3, 4, 5,
+      ]
+        .map(
+          (b) =>
+            `<option value="${b}" ${String(bracketVal) === String(b) ? "selected" : ""}>${b}</option>`
         )
         .join("")}</select></label>
       <label>My seat<select name="mySeat"><option value="">—</option>${seatOptions(editing?.mySeat)}</select></label>
@@ -950,7 +986,7 @@ function renderLogForm() {
     <div class="quick-log">
       <h3>Quick fill</h3>
       <div class="quick-grid">
-        ${decks
+        ${quickDecks
           .map(
             (d) => `
           <div class="quick-deck">
@@ -1000,6 +1036,12 @@ function parseGameForm(fd) {
   const time = normalizeTime(String(timeRaw || ""));
   if (time) game.time = time;
 
+  const bracketRaw = fd.get("bracket");
+  if (bracketRaw) {
+    const bracket = Number(bracketRaw);
+    if (!Number.isNaN(bracket) && bracket >= 1 && bracket <= 5) game.bracket = bracket;
+  }
+
   if (mySeatRaw) {
     game.mySeat = Number(mySeatRaw);
     game.opponents = opponents;
@@ -1041,6 +1083,7 @@ function saveGameFromForm(fd) {
       if (payload.winnerSeat) updated.winnerSeat = payload.winnerSeat;
       if (payload.turn) updated.turn = payload.turn;
       if (payload.time) updated.time = payload.time;
+      if (payload.bracket) updated.bracket = payload.bracket;
       data.games[idx] = updated;
     }
     editingGameId = null;
@@ -1066,6 +1109,7 @@ function fillLogForm({ deck, result }) {
   const resultInput = form.querySelector(`[name="result"][value="${result}"]`);
   const winnerSeat = Number(form.querySelector('[name="winnerSeat"]')?.value) || 0;
   if (deckSelect) deckSelect.value = deck;
+  syncBracketFromDeck();
   if (winnerSeat === 0 && resultInput) resultInput.checked = true;
   form.querySelector('[name="date"]')?.focus();
   syncPodFormSeats();
@@ -1114,6 +1158,19 @@ async function importDeckListForSelected(url) {
   } catch (err) {
     toast(err.message || "Import failed", true);
   }
+}
+
+function syncBracketFromDeck() {
+  const form = document.getElementById("add-game-form");
+  if (!form) return;
+
+  const deckSelect = form.querySelector('[name="deck"]');
+  const bracketSelect = form.querySelector('[name="bracket"]');
+  if (!deckSelect || !bracketSelect) return;
+
+  const selected = deckSelect.selectedOptions[0];
+  const bracket = selected?.dataset.bracket;
+  if (bracket) bracketSelect.value = bracket;
 }
 
 function syncPodFormSeats() {

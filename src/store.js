@@ -4,7 +4,7 @@ const STORAGE_KEY = "edhlog-data-v1";
 
 /** @typedef {{ name: string, qty: number, board: string }} DeckCard */
 /** @typedef {{ name: string, bracket: number, colors: string[], retired: boolean, createdAt?: string, listUrl?: string, listSource?: 'moxfield' | 'deckstats', listSyncedAt?: string, cards?: DeckCard[] }} Deck */
-/** @typedef {{ id: string, date: string, time?: string, deck: string, result: 'Win' | 'Loss', source?: 'local', mySeat?: number, myPlayer?: string, winnerSeat?: number, turn?: number, opponents?: { seat: number, name: string, player?: string }[] }} Game */
+/** @typedef {{ id: string, date: string, time?: string, deck: string, result: 'Win' | 'Loss', source?: 'local', bracket?: number, mySeat?: number, myPlayer?: string, winnerSeat?: number, turn?: number, opponents?: { seat: number, name: string, player?: string }[] }} Game */
 /** @typedef {{ seedHash?: string, seedGames?: number }} DataMeta */
 /** @typedef {{ meta?: DataMeta, decks: Deck[], games: Game[] }} AppData */
 
