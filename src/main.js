@@ -17,7 +17,7 @@ import {
   colorBadge,
   sortDeckList,
 } from "./stats.js";
-import { formatDate, gameYear, todayISO } from "./dates.js";
+import { formatDate, gameSortKey, gameYear, normalizeTime, nowTime, todayISO } from "./dates.js";
 import { pctCell, valueCell, colorStatAverage } from "./wr-color.js";
 import { sortHeader, applySort, toggleSort } from "./table.js";
 import {
@@ -76,7 +76,6 @@ let colorAgg = "inclusive";
 let colorSortOrder = "wubrgc";
 let pieAnimKey = 0;
 let tableSort = {
-  "top-decks": { col: "normWr", dir: "desc" },
   "color-stats": { col: "colorOrder", dir: "asc" },
   "bracket-stats": { col: "bracket", dir: "asc" },
   "rankings": { col: "normWr", dir: "desc" },
@@ -484,17 +483,6 @@ function renderStats() {
   let body = "";
 
   if (statsTab === "overview") {
-    const topDecks = applySort(
-      s.deckStats.filter((d) => !d.retired && d.games > 0),
-      tableSort["top-decks"],
-      {
-        name: (d) => d.name,
-        games: (d) => d.games,
-        normWr: (d) => d.normalizedWr,
-        winRate: (d) => d.winRate,
-      }
-    ).slice(0, 6);
-
     body = `
       <div class="stat-grid">
         ${statCard("Games", s.overview.games)}
@@ -513,9 +501,7 @@ function renderStats() {
           </div>`
           )
           .join("")}
-      </div>
-      <h3 class="section-sub">Top Decks</h3>
-      ${miniDeckTable(topDecks)}`;
+      </div>`;
   } else if (statsTab === "colors") {
     const sortCol = tableSort["color-stats"]?.col || "colorOrder";
     const colors = applySort(s.colorStats, tableSort["color-stats"], {
@@ -709,34 +695,6 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
-function miniDeckTable(decks) {
-  const sort = tableSort["top-decks"];
-  return `
-    <table class="table compact sortable-table">
-      <thead><tr>
-        ${sortHeader("top-decks", "name", "Deck", sort)}
-        <th>CI</th>
-        ${sortHeader("top-decks", "games", "G", sort)}
-        ${sortHeader("top-decks", "normWr", "Norm WR", sort)}
-        ${sortHeader("top-decks", "winRate", "Real WR", sort)}
-      </tr></thead>
-      <tbody>
-        ${decks
-          .map(
-            (d) => `
-          <tr>
-            <td class="deck-name">${escapeHtml(d.name)}</td>
-            <td>${colorBadge(d.colors)}</td>
-            <td>${d.games}</td>
-            <td>${pctCell(d.normalizedWr)}</td>
-            <td>${pctCell(d.winRate)}</td>
-          </tr>`
-          )
-          .join("")}
-      </tbody>
-    </table>`;
-}
-
 function renderDecks() {
   if (selectedDeckName) {
     const deck = data.decks.find((d) => d.name === selectedDeckName);
@@ -831,7 +789,7 @@ function renderDecks() {
 function renderGames() {
   let games = [...data.games];
   games = applySort(games, tableSort["game-log"], {
-    date: (g) => g.date,
+    date: (g) => gameSortKey(g),
     deck: (g) => g.deck,
     result: (g) => (g.result === "Win" ? 1 : 0),
     mySeat: (g) => g.mySeat || 0,
@@ -908,6 +866,7 @@ function renderLogForm() {
   const editing = editingGameId ? data.games.find((g) => g.id === editingGameId) : null;
   const today = todayISO();
   const dateVal = editing?.date || today;
+  const timeVal = editing?.time ?? (editing ? "" : nowTime());
   const resultWin = !editing || editing.result === "Win";
   const resultLoss = editing?.result === "Loss";
 
@@ -915,6 +874,7 @@ function renderLogForm() {
     <form id="add-game-form" class="game-form">
       ${editing ? `<input type="hidden" name="gameId" value="${escapeHtml(editing.id)}" />` : ""}
       <label>Date<input type="date" name="date" value="${dateVal}" required /></label>
+      <label>Time<input type="time" name="time" value="${escapeHtml(timeVal)}" /></label>
       <label>My deck<select name="deck" required><option value="">Select…</option>${decks
         .map(
           (d) =>
@@ -923,7 +883,7 @@ function renderLogForm() {
         .join("")}</select></label>
       <label>My seat<select name="mySeat"><option value="">—</option>${seatOptions(editing?.mySeat)}</select></label>
       <label>Turn ended<input type="number" name="turn" min="1" placeholder="Optional" value="${editing?.turn ?? ""}" /></label>
-      <label>Winner seat<select name="winnerSeat"><option value="">—</option>${seatOptions(editing?.winnerSeat)}</select></label>
+      <label>Winning seat<select name="winnerSeat"><option value="">—</option>${seatOptions(editing?.winnerSeat)}</select></label>
       <fieldset class="pod-fieldset">
         <legend>Pod</legend>
         ${[1, 2, 3, 4]
@@ -998,6 +958,7 @@ function parseGameForm(fd) {
   });
   const winnerSeatRaw = fd.get("winnerSeat");
   const turnRaw = fd.get("turn");
+  const timeRaw = fd.get("time");
 
   const game = {
     date: fd.get("date"),
@@ -1005,6 +966,9 @@ function parseGameForm(fd) {
     result: fd.get("result"),
     source: "local",
   };
+
+  const time = normalizeTime(String(timeRaw || ""));
+  if (time) game.time = time;
 
   if (mySeatRaw) {
     game.mySeat = Number(mySeatRaw);
@@ -1046,6 +1010,7 @@ function saveGameFromForm(fd) {
       }
       if (payload.winnerSeat) updated.winnerSeat = payload.winnerSeat;
       if (payload.turn) updated.turn = payload.turn;
+      if (payload.time) updated.time = payload.time;
       data.games[idx] = updated;
     }
     editingGameId = null;
