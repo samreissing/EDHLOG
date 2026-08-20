@@ -120,6 +120,7 @@ export function computeBracketStats(games, deckStats) {
 }
 
 import { gameYear } from "./dates.js";
+import { canonicalizeColors, colorIdentitySortIndex } from "./color-identity.js";
 
 export function computeYearStats(games) {
   const byYear = new Map();
@@ -208,10 +209,11 @@ const MANA_BASE = `${import.meta.env.BASE_URL}mana`;
 
 /** Standard MTG mana symbol SVGs (Scryfall glyphs, retinted circle fills). */
 export function colorBadge(colors) {
-  if (!colors.length) {
+  const canon = canonicalizeColors(colors);
+  if (!canon.length) {
     return `<img class="mana-img" src="${MANA_BASE}/C.svg" alt="C" title="Colorless" />`;
   }
-  return colors
+  return canon
     .map(
       (c) =>
         `<img class="mana-img" src="${MANA_BASE}/${c}.svg" alt="${c}" title="${COLOR_NAMES[c] || c}" />`
@@ -234,10 +236,16 @@ export function sortDeckList(list, sortKey, dir) {
       const bd = b.createdAt || "";
       return mul * ad.localeCompare(bd) || a.name.localeCompare(b.name);
     }
-    if (sortKey === "recent") {
+    if (sortKey === "recent" || sortKey === "lastPlayed") {
       const ad = a.lastPlayed || "";
       const bd = b.lastPlayed || "";
       return mul * ad.localeCompare(bd) || a.name.localeCompare(b.name);
+    }
+    if (sortKey === "colors" || sortKey === "colorIdentity") {
+      return (
+        mul * (colorIdentitySortIndex(a.colors) - colorIdentitySortIndex(b.colors)) ||
+        a.name.localeCompare(b.name)
+      );
     }
     return 0;
   });
