@@ -55,6 +55,8 @@ const DECK_STATUS_OPTIONS = [
   { id: "all", label: "All" },
 ];
 
+const MY_PLAYER_NAME = "Brass";
+
 let data = null;
 let currentView = "stats";
 let statsTab = "overview";
@@ -841,37 +843,48 @@ function fieldValue(value, placeholder = "—") {
   return `<span class="field-value">${escapeHtml(text)}</span>`;
 }
 
-function renderGameDetail(game) {
-  const mySeat = Number(game.mySeat) || 0;
-  const showPod = mySeat > 0;
-  const resultCls = game.result === "Win" ? "win" : "loss";
+function podPlayerName(game, seat) {
+  if (Number(game.mySeat) === seat) return MY_PLAYER_NAME;
+  return playerName(game, seat);
+}
 
+function podCommanderName(game, seat) {
+  if (Number(game.mySeat) === seat) return game.deck || "";
+  return opponentName(game, seat);
+}
+
+function winnerSeatForGame(game) {
+  if (game.winnerSeat) return Number(game.winnerSeat);
+  if (game.mySeat && game.result === "Win") return Number(game.mySeat);
+  return 0;
+}
+
+function seatOutcomeClass(game, seat) {
+  const winnerSeat = winnerSeatForGame(game);
+  if (!winnerSeat) {
+    if (Number(game.mySeat) === seat && game.result === "Loss") return "pod-seat-loss";
+    return "";
+  }
+  return seat === winnerSeat ? "pod-seat-win" : "pod-seat-loss";
+}
+
+function renderGameDetail(game) {
   return `
-    <div class="game-form game-form-readonly">
+    <div class="game-form game-form-readonly game-detail-view">
       <label>Date${fieldValue(formatDate(game.date))}</label>
       <label>Time${fieldValue(game.time)}</label>
-      <label>My deck${fieldValue(game.deck)}</label>
-      <label>My seat${fieldValue(game.mySeat)}</label>
-      <label>Turn ended${fieldValue(game.turn)}</label>
-      <label>Winning seat${fieldValue(game.winnerSeat)}</label>
-      ${
-        showPod
-          ? `<fieldset class="pod-fieldset">
+      <fieldset class="pod-fieldset">
         <legend>Pod</legend>
         ${[1, 2, 3, 4]
-          .filter((seat) => seat !== mySeat)
           .map(
             (seat) => `
-          <div class="pod-seat-row">
-            <label class="pod-player">Player ${seat}${fieldValue(playerName(game, seat))}</label>
-            <label class="pod-commander">Commander${fieldValue(opponentName(game, seat))}</label>
+          <div class="pod-seat-row ${seatOutcomeClass(game, seat)}">
+            <label class="pod-player">Player ${seat}${fieldValue(podPlayerName(game, seat))}</label>
+            <label class="pod-commander">Commander${fieldValue(podCommanderName(game, seat))}</label>
           </div>`
           )
           .join("")}
-      </fieldset>`
-          : ""
-      }
-      <label>Result<span class="result-pill ${resultCls}">${escapeHtml(game.result)}</span></label>
+      </fieldset>
     </div>`;
 }
 

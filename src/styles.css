@@ -625,13 +625,32 @@ th.sortable.sorted {
   font: inherit;
 }
 
-.game-form-readonly .result-pill {
-  display: inline-block;
-  margin-top: 0.35rem;
-}
-
 .game-form-readonly .pod-fieldset {
   margin-bottom: 1rem;
+}
+
+.game-detail-view .pod-seat-row {
+  border-radius: 8px;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border);
+}
+
+.game-detail-view .pod-seat-row.pod-seat-win {
+  background: rgba(61, 186, 122, 0.16);
+  border-color: rgba(61, 186, 122, 0.45);
+}
+
+.game-detail-view .pod-seat-row.pod-seat-win .field-value {
+  color: var(--green);
+}
+
+.game-detail-view .pod-seat-row.pod-seat-loss {
+  background: rgba(224, 92, 92, 0.12);
+  border-color: rgba(224, 92, 92, 0.35);
+}
+
+.game-detail-view .pod-seat-row.pod-seat-loss .field-value {
+  color: var(--red);
 }
 
 .result-toggle {
