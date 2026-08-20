@@ -34,7 +34,7 @@ import {
 import { renderDeckDetail } from "./deck-detail.js";
 import { importDeckFromUrl } from "./deck-import.js";
 import { loadImagesIntoDeckDetail } from "./scryfall.js";
-import { bindOpponentAutocomplete } from "./opponent-search.js";
+import { bindPodAutocomplete } from "./opponent-search.js";
 import { bindModalBackdropDismiss } from "./modals.js";
 
 const VIEWS = [
@@ -452,7 +452,7 @@ function render() {
   if (gameModalOpen) {
     syncPodFormSeats();
     syncResultFromSeats();
-    bindOpponentAutocomplete(document.getElementById("add-game-form"), data.games);
+    bindPodAutocomplete(document.getElementById("add-game-form"), data.games);
   }
   if (selectedDeckName) loadImagesIntoDeckDetail(selectedDeckName);
 }
@@ -930,8 +930,13 @@ function renderLogForm() {
           .map(
             (seat) => `
           <div class="pod-seat-row" data-opponent-seat="${seat}">
-            <label class="pod-player">Player ${seat}<input type="text" name="player-${seat}" value="${escapeHtml(playerName(editing, seat))}" placeholder="Player name" autocomplete="off" /></label>
-            <label class="pod-commander">Seat ${seat}
+            <label class="pod-player">Player ${seat}
+              <div class="opponent-input-wrap">
+                <input type="text" class="player-input" name="player-${seat}" value="${escapeHtml(playerName(editing, seat))}" placeholder="Player name" autocomplete="off" />
+                <ul class="opponent-suggestions" hidden role="listbox"></ul>
+              </div>
+            </label>
+            <label class="pod-commander">Commander
               <div class="opponent-input-wrap">
                 <input type="text" class="opponent-input" name="opponent-${seat}" value="${escapeHtml(opponentName(editing, seat))}" placeholder="Commander name" autocomplete="off" />
                 <ul class="opponent-suggestions" hidden role="listbox"></ul>
@@ -1128,12 +1133,15 @@ function syncPodFormSeats() {
     const isMySeat = mySeat > 0 && seat === mySeat;
     row.hidden = isMySeat;
     if (isMySeat) {
-      const playerInput = row.querySelector(`[name="player-${seat}"]`);
+      const playerInput = row.querySelector(".player-input");
       const commanderInput = row.querySelector(".opponent-input");
-      if (playerInput) playerInput.value = "";
+      if (playerInput) {
+        playerInput.value = "";
+        playerInput.closest(".opponent-input-wrap")?.querySelector(".opponent-suggestions")?.setAttribute("hidden", "");
+      }
       if (commanderInput) {
         commanderInput.value = "";
-        row.querySelector(".opponent-suggestions")?.setAttribute("hidden", "");
+        commanderInput.closest(".opponent-input-wrap")?.querySelector(".opponent-suggestions")?.setAttribute("hidden", "");
       }
     }
   });

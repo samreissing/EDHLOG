@@ -657,7 +657,8 @@ th.sortable.sorted {
   position: relative;
 }
 
-.opponent-input {
+.opponent-input,
+.player-input {
   width: 100%;
 }
 
@@ -726,7 +727,7 @@ th.sortable.sorted {
   color: var(--muted);
 }
 
-.pod-player input,
+.pod-player .opponent-input-wrap,
 .pod-commander .opponent-input-wrap {
   margin-top: 0.35rem;
 }
