@@ -675,7 +675,8 @@ th.sortable.sorted {
   margin-top: 0.5rem;
 }
 
-.game-form .form-actions--split .btn {
+.game-form .form-actions--split .btn,
+.form-actions--split .btn {
   flex: 1;
 }
 

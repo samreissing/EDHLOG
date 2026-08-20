@@ -66,6 +66,7 @@ let statsTab = "overview";
 let decksTab = "active";
 let gamesTab = "history";
 let editingGameId = null;
+let editingDeckName = null;
 let selectedDeckName = null;
 let deckSort = "normWr";
 let deckSortDir = "desc";
@@ -110,7 +111,14 @@ function bindEvents() {
     const btn = e.target.closest("[data-view]");
     if (!btn) return;
     currentView = btn.dataset.view;
-    if (currentView !== "decks") selectedDeckName = null;
+    if (currentView === "games") {
+      gamesTab = "history";
+      editingGameId = null;
+    }
+    if (currentView !== "decks") {
+      selectedDeckName = null;
+      editingDeckName = null;
+    }
     renderNav();
     render();
   });
@@ -196,11 +204,35 @@ function bindEvents() {
     }
 
     if (e.target.id === "add-deck-btn") {
+      editingDeckName = null;
+      render();
       document.getElementById("deck-modal")?.classList.remove("hidden");
       return;
     }
     if (e.target.id === "cancel-deck") {
+      editingDeckName = null;
       document.getElementById("deck-modal")?.classList.add("hidden");
+      return;
+    }
+
+    const editDeckBtn = e.target.closest(".edit-deck");
+    if (editDeckBtn) {
+      editingDeckName = editDeckBtn.dataset.name;
+      render();
+      document.getElementById("deck-modal")?.classList.remove("hidden");
+      return;
+    }
+
+    const deleteDeckBtn = e.target.closest(".delete-deck");
+    if (deleteDeckBtn) {
+      if (!confirm("Delete this deck?")) return;
+      const name = deleteDeckBtn.dataset.name;
+      data.decks = data.decks.filter((d) => d.name !== name);
+      if (editingDeckName === name) editingDeckName = null;
+      if (selectedDeckName === name) selectedDeckName = null;
+      saveData(data);
+      render();
+      toast("Deleted");
       return;
     }
 
@@ -300,6 +332,31 @@ function bindEvents() {
         retired: fd.get("retired") === "on",
         createdAt: fd.get("createdAt") || new Date().toISOString().slice(0, 10),
       };
+      const originalName = fd.get("originalName");
+
+      if (originalName) {
+        const idx = data.decks.findIndex((d) => d.name === originalName);
+        if (idx < 0) return toast("Deck not found", true);
+        if (deck.name !== originalName && data.decks.some((d) => d.name === deck.name)) {
+          return toast("Deck exists", true);
+        }
+        const existing = data.decks[idx];
+        data.decks[idx] = { ...existing, ...deck };
+        if (deck.name !== originalName) {
+          for (const game of data.games) {
+            if (game.deck === originalName) game.deck = deck.name;
+          }
+          if (selectedDeckName === originalName) selectedDeckName = deck.name;
+        }
+        editingDeckName = null;
+        saveData(data);
+        document.getElementById("deck-modal")?.classList.add("hidden");
+        e.target.reset();
+        render();
+        toast("Deck saved");
+        return;
+      }
+
       if (data.decks.some((d) => d.name === deck.name)) return toast("Deck exists", true);
       data.decks.push(deck);
       saveData(data);
@@ -682,6 +739,9 @@ function renderDecks() {
   list = sortDeckList(list, deckSort, deckSortDir);
 
   const dirLabel = deckSortDir === "asc" ? "↑ Asc" : "↓ Desc";
+  const editingDeck = editingDeckName
+    ? data.decks.find((d) => d.name === editingDeckName)
+    : null;
 
   return `
     <section class="section">
@@ -705,33 +765,34 @@ function renderDecks() {
         <thead><tr>
           ${sortHeader("decks-main", "createdAt", "Added", sortState)}
           ${sortHeader("decks-main", "name", "Deck", sortState)}
-          <th>CI</th>
-          ${sortHeader("decks-main", "bracket", "Brkt", sortState)}
-          ${sortHeader("decks-main", "games", "G", sortState)}
-          ${sortHeader("decks-main", "wins", "W", sortState)}
-          ${sortHeader("decks-main", "losses", "L", sortState)}
-          ${sortHeader("decks-main", "normWr", "Norm WR", sortState)}
-          ${sortHeader("decks-main", "winRate", "WR", sortState)}
+          <th>Color Identity</th>
+          ${sortHeader("decks-main", "bracket", "Bracket", sortState)}
+          ${sortHeader("decks-main", "games", "Games", sortState)}
+          ${sortHeader("decks-main", "wins", "Wins", sortState)}
+          ${sortHeader("decks-main", "normWr", "Normalized Win Rate", sortState)}
+          ${sortHeader("decks-main", "winRate", "Win Rate", sortState)}
+          <th></th>
         </tr></thead>
         <tbody>
-          ${list.length ? list.map((d) => `<tr><td>${formatDate(d.createdAt)}</td><td class="deck-name"><button type="button" class="link-btn deck-link" data-deck-detail="${escapeHtml(d.name)}">${escapeHtml(d.name)}</button></td><td>${colorBadge(d.colors)}</td><td>${d.bracket}</td><td>${d.games}</td><td>${d.wins}</td><td>${d.losses}</td><td>${d.games ? pctCell(d.normalizedWr) : "—"}</td><td>${d.games ? pctCell(d.winRate) : "—"}</td></tr>`).join("") : '<tr><td colspan="9"></td></tr>'}
+          ${list.length ? list.map((d) => `<tr><td>${formatDate(d.createdAt)}</td><td class="deck-name"><button type="button" class="link-btn deck-link" data-deck-detail="${escapeHtml(d.name)}">${escapeHtml(d.name)}</button></td><td>${colorBadge(d.colors)}</td><td>${d.bracket}</td><td>${d.games}</td><td>${d.wins}</td><td>${d.games ? pctCell(d.normalizedWr) : "—"}</td><td>${d.games ? pctCell(d.winRate) : "—"}</td><td class="row-actions"><button type="button" class="btn-icon edit-deck" data-name="${escapeHtml(d.name)}" title="Edit deck">✎</button><button type="button" class="btn-icon delete-deck" data-name="${escapeHtml(d.name)}" title="Delete deck">×</button></td></tr>`).join("") : '<tr><td colspan="9"></td></tr>'}
         </tbody>
       </table>
     </section>
     <div id="deck-modal" class="modal hidden">
       <div class="modal-content">
-        <h3>Add Deck</h3>
+        <h3>${editingDeck ? "Edit Deck" : "Add Deck"}</h3>
         <form id="deck-form">
-          <label>Name<input name="name" required /></label>
-          <label>Created<input type="date" name="createdAt" value="${new Date().toISOString().slice(0, 10)}" required /></label>
-          <label>Bracket<select name="bracket">${[1, 2, 3, 4, 5].map((b) => `<option value="${b}" ${b === 4 ? "selected" : ""}>${b}</option>`).join("")}</select></label>
+          ${editingDeck ? `<input type="hidden" name="originalName" value="${escapeHtml(editingDeck.name)}" />` : ""}
+          <label>Name<input name="name" required value="${editingDeck ? escapeHtml(editingDeck.name) : ""}" /></label>
+          <label>Created<input type="date" name="createdAt" value="${editingDeck?.createdAt || new Date().toISOString().slice(0, 10)}" required /></label>
+          <label>Bracket<select name="bracket">${[1, 2, 3, 4, 5].map((b) => `<option value="${b}" ${(editingDeck ? editingDeck.bracket : 4) === b ? "selected" : ""}>${b}</option>`).join("")}</select></label>
           <fieldset class="color-fieldset"><legend>Colors</legend>
-            ${["W", "U", "B", "R", "G"].map((c) => `<label class="checkbox mana-check"><input type="checkbox" name="color" value="${c}" />${colorBadge([c])}</label>`).join("")}
+            ${["W", "U", "B", "R", "G"].map((c) => `<label class="checkbox mana-check"><input type="checkbox" name="color" value="${c}" ${editingDeck?.colors?.includes(c) ? "checked" : ""} />${colorBadge([c])}</label>`).join("")}
           </fieldset>
-          <label class="checkbox"><input type="checkbox" name="retired" /> Retired</label>
-          <div class="form-actions">
+          <label class="checkbox"><input type="checkbox" name="retired" ${editingDeck?.retired ? "checked" : ""} /> Retired</label>
+          <div class="form-actions${editingDeck ? " form-actions--split" : ""}">
             <button type="button" class="btn btn-ghost" id="cancel-deck">Cancel</button>
-            <button type="submit" class="btn btn-primary">Save</button>
+            <button type="submit" class="btn btn-primary">${editingDeck ? "Save" : "Add Deck"}</button>
           </div>
         </form>
       </div>
