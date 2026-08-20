@@ -141,20 +141,38 @@ export function computeYearStats(games) {
 
 export function computeRolling100Stats(games) {
   const sorted = [...games].sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
+  const total = sorted.length;
   const windows = [];
-  for (let end = 100; end <= sorted.length; end += 100) {
-    const slice = sorted.slice(end - 100, end);
+
+  for (let end = 100; end <= total; end += 100) {
+    const start = end - 99;
+    const slice = sorted.slice(start - 1, end);
     const wins = slice.filter((g) => g.result === "Win").length;
     windows.push({
-      label: `${end - 99}-${end}`,
-      cumulativeLabel: `1-${end}`,
+      label: `${start}-${end}`,
+      rangeStart: start,
       games: 100,
       wins,
       winRate: winRate(wins, 100),
     });
   }
+
+  const remainder = total % 100;
+  if (remainder > 0) {
+    const start = total - remainder + 1;
+    const slice = sorted.slice(start - 1, total);
+    const wins = slice.filter((g) => g.result === "Win").length;
+    windows.push({
+      label: `${start}-${total}`,
+      rangeStart: start,
+      games: remainder,
+      wins,
+      winRate: winRate(wins, remainder),
+    });
+  }
+
   const cumulative = [];
-  for (let end = 100; end <= sorted.length; end += 100) {
+  for (let end = 100; end <= total; end += 100) {
     const slice = sorted.slice(0, end);
     const wins = slice.filter((g) => g.result === "Win").length;
     cumulative.push({
@@ -164,6 +182,18 @@ export function computeRolling100Stats(games) {
       winRate: winRate(wins, end),
     });
   }
+
+  if (remainder > 0) {
+    const slice = sorted.slice(0, total);
+    const wins = slice.filter((g) => g.result === "Win").length;
+    cumulative.push({
+      label: `1-${total}`,
+      games: total,
+      wins,
+      winRate: winRate(wins, total),
+    });
+  }
+
   return { windows, cumulative };
 }
 

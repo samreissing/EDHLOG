@@ -84,8 +84,8 @@ let tableSort = {
   "color-stats": { col: "colorOrder", dir: "asc" },
   "bracket-stats": { col: "bracket", dir: "asc" },
   "rankings": { col: "normWr", dir: "desc" },
-  "trends-windows": { col: "winRate", dir: "desc" },
-  "trends-cumulative": { col: "winRate", dir: "desc" },
+  "trends-windows": { col: "rangeStart", dir: "asc" },
+  "trends-cumulative": { col: "games", dir: "asc" },
   "decks-main": { col: "normWr", dir: "desc" },
   "game-log": { col: "date", dir: "desc" },
 };
@@ -644,10 +644,13 @@ function renderStats() {
     } else {
       const windows = applySort(s.rolling.windows, tableSort["trends-windows"], {
         label: (w) => w.label,
+        rangeStart: (w) => w.rangeStart,
+        games: (w) => w.games,
         winRate: (w) => w.winRate,
       });
       const cumulative = applySort(s.rolling.cumulative, tableSort["trends-cumulative"], {
         label: (w) => w.label,
+        games: (w) => w.games,
         winRate: (w) => w.winRate,
       });
 
@@ -657,7 +660,7 @@ function renderStats() {
             <h3 class="section-sub">Per 100 Games</h3>
             <table class="table compact sortable-table">
               <thead><tr>
-                ${sortHeader("trends-windows", "label", "Games", tableSort["trends-windows"])}
+                ${sortHeader("trends-windows", "rangeStart", "Games", tableSort["trends-windows"])}
                 ${sortHeader("trends-windows", "winRate", "WR", tableSort["trends-windows"])}
               </tr></thead>
               <tbody>
@@ -669,7 +672,7 @@ function renderStats() {
             <h3 class="section-sub">Cumulative</h3>
             <table class="table compact sortable-table">
               <thead><tr>
-                ${sortHeader("trends-cumulative", "label", "Games", tableSort["trends-cumulative"])}
+                ${sortHeader("trends-cumulative", "games", "Games", tableSort["trends-cumulative"])}
                 ${sortHeader("trends-cumulative", "winRate", "WR", tableSort["trends-cumulative"])}
               </tr></thead>
               <tbody>
