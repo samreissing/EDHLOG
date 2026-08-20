@@ -198,13 +198,6 @@ export function computeRolling100Stats(games) {
   return { windows, cumulative };
 }
 
-export function computeRankings(deckStats) {
-  const played = deckStats.filter((d) => d.games > 0);
-  return [...played].sort(
-    (a, b) => b.normalizedWr - a.normalizedWr || b.games - a.games
-  );
-}
-
 const MANA_BASE = `${import.meta.env.BASE_URL}mana`;
 
 /** Standard MTG mana symbol SVGs (Scryfall glyphs, retinted circle fills). */
