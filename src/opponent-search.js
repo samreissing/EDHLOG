@@ -1,3 +1,5 @@
+import { compareGamesChronologically, gameSortKey } from "./dates.js";
+
 /** @typedef {{ name: string, count: number, lastDate: string }} NameEntry */
 
 export const MY_PLAYER_NAME = "Brass";
@@ -78,10 +80,10 @@ export function collectPlayerCommanderLinks(games) {
 
   for (const game of games) {
     if (game.mySeat && game.deck) {
-      link(MY_PLAYER_NAME, game.deck, game.date);
+      link(MY_PLAYER_NAME, game.deck, gameSortKey(game));
     }
     for (const opp of game.opponents || []) {
-      link(opp.player, opp.name, game.date);
+      link(opp.player, opp.name, gameSortKey(game));
     }
   }
 
@@ -96,16 +98,20 @@ export function collectPlayerHistory(games) {
 
   for (const game of games) {
     if (game.mySeat && game.deck) {
-      trackName(map, MY_PLAYER_NAME, game.date);
+      trackName(map, MY_PLAYER_NAME, gameSortKey(game));
     }
     for (const opp of game.opponents || []) {
       if (opp.player && opp.name) {
-        trackName(map, opp.player, game.date);
+        trackName(map, opp.player, gameSortKey(game));
       }
     }
   }
 
-  return [...map.values()].filter((entry) => links.has(entry.name.toLowerCase()));
+  return [...map.values()].filter(
+    (entry) =>
+      links.has(entry.name.toLowerCase()) &&
+      entry.name.toLowerCase() !== MY_PLAYER_NAME.toLowerCase()
+  );
 }
 
 /** @param {string} name @param {string} query */
@@ -132,6 +138,28 @@ function alphaSort(names) {
   return [...names].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
 }
 
+/** @param {import('./store.js').Game[]} games @param {number} limit */
+function collectRecentPlayers(games, limit = 8) {
+  const sorted = [...games].sort((a, b) => compareGamesChronologically(b, a));
+  const seen = new Set();
+  const results = [];
+
+  for (const game of sorted) {
+    const opponents = [...(game.opponents || [])].sort((a, b) => a.seat - b.seat);
+    for (const opp of opponents) {
+      const name = String(opp.player || "").trim();
+      if (!name || !opp.name) continue;
+      const key = name.toLowerCase();
+      if (key === MY_PLAYER_NAME.toLowerCase() || seen.has(key)) continue;
+      seen.add(key);
+      results.push(name);
+      if (results.length >= limit) return results;
+    }
+  }
+
+  return results;
+}
+
 /** @param {string} query @param {NameEntry[]} entries @param {number} limit */
 export function searchNameHistory(query, entries, limit = 8) {
   const q = query.trim();
@@ -152,6 +180,34 @@ export function searchNameHistory(query, entries, limit = 8) {
     )
     .slice(0, limit)
     .map((entry) => entry.name);
+}
+
+/**
+ * @param {string} query
+ * @param {import('./store.js').Game[]} games
+ * @param {NameEntry[]} entries
+ * @param {number} limit
+ */
+export function searchPlayerHistory(query, games, entries, limit = 8) {
+  const q = query.trim();
+  const pool = entries.filter(
+    (entry) => entry.name.toLowerCase() !== MY_PLAYER_NAME.toLowerCase()
+  );
+
+  if (!q) {
+    const recent = collectRecentPlayers(games, limit);
+    if (recent.length >= limit) return recent;
+
+    const seen = new Set(recent.map((name) => name.toLowerCase()));
+    const backfill = [...pool]
+      .filter((entry) => !seen.has(entry.name.toLowerCase()))
+      .sort((a, b) => b.lastDate.localeCompare(a.lastDate) || b.count - a.count)
+      .map((entry) => entry.name);
+
+    return [...recent, ...backfill].slice(0, limit);
+  }
+
+  return searchNameHistory(q, pool, limit);
 }
 
 /**
@@ -242,7 +298,7 @@ export function bindPodAutocomplete(form, games) {
         commandersForPlayer(playerName)
       );
     }
-    return searchNameHistory(input.value, entriesFor(input));
+    return searchPlayerHistory(input.value, games, entriesFor(input));
   }
 
   function renderList(input) {
