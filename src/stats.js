@@ -174,12 +174,19 @@ export function computeRankings(deckStats) {
   );
 }
 
-/** Colored letter pips — same approach as 30ccstat (globals.css .pip). */
+const MANA_BASE = `${import.meta.env.BASE_URL}mana`;
+
+/** Standard MTG mana symbol SVGs (Scryfall glyphs, retinted circle fills). */
 export function colorBadge(colors) {
   if (!colors.length) {
-    return `<span class="pip C">C</span>`;
+    return `<img class="mana-img" src="${MANA_BASE}/C.svg" alt="C" title="Colorless" />`;
   }
-  return colors.map((c) => `<span class="pip ${c}">${c}</span>`).join("");
+  return colors
+    .map(
+      (c) =>
+        `<img class="mana-img" src="${MANA_BASE}/${c}.svg" alt="${c}" title="${COLOR_NAMES[c] || c}" />`
+    )
+    .join("");
 }
 
 export function sortDeckList(list, sortKey, dir) {

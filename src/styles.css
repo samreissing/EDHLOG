@@ -506,35 +506,23 @@ th.sortable.sorted {
   margin-right: 0.5rem !important;
 }
 
-/* Mana pips — matches 30ccstat globals.css */
-.pip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 1.1em;
-  height: 1.1em;
-  padding: 0 0.3em;
-  border-radius: 999px;
-  font-size: 0.75em;
-  font-weight: 600;
-  background: #2a2a35;
-  color: #e6e6ea;
-  margin: 0 1px;
+/* MTG mana symbol SVGs */
+.mana-img {
+  width: 1.25rem;
+  height: 1.25rem;
   vertical-align: middle;
-  flex-shrink: 0;
+  margin-right: 1px;
+  display: inline-block;
 }
-
-.pip.W { background: #fffbd5; color: #2a2a35; }
-.pip.U { background: #aae0fa; color: #07304b; }
-.pip.B { background: #2a2a35; color: #e6e6ea; }
-.pip.R { background: #f9aa8f; color: #4a1407; }
-.pip.G { background: #9bd3ae; color: #07321a; }
-.pip.C { background: #ccc2c0; color: #2a2a35; }
 
 .color-label {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
+}
+
+.quick-deck .mana-img {
+  flex-shrink: 0;
 }
 
 /* Badges & tags */
@@ -628,6 +616,11 @@ th.sortable.sorted {
   grid-template-columns: 1fr 1fr;
   gap: 0.75rem;
   margin-top: 0.35rem;
+}
+
+.result-toggle.result-locked {
+  opacity: 0.65;
+  pointer-events: none;
 }
 
 .edit-banner {

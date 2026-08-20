@@ -239,6 +239,9 @@ function bindEvents() {
       render();
     } else if (e.target.name === "mySeat") {
       syncPodFormSeats();
+      syncResultFromSeats();
+    } else if (e.target.name === "winnerSeat") {
+      syncResultFromSeats();
     } else if (id === "filter-deck" || id === "filter-result" || id === "filter-year") {
       logFilters = {
         deck: document.getElementById("filter-deck")?.value || "",
@@ -341,6 +344,7 @@ function render() {
   if (currentView === "games" && gamesTab === "history") applyLogFilters();
   bindPieCharts();
   syncPodFormSeats();
+  syncResultFromSeats();
 }
 
 function applyLogFilters() {
@@ -838,6 +842,9 @@ function parseGameForm(fd) {
 
   if (mySeatRaw) game.mySeat = Number(mySeatRaw);
   if (winnerSeatRaw) game.winnerSeat = Number(winnerSeatRaw);
+  if (winnerSeatRaw && mySeatRaw) {
+    game.result = Number(winnerSeatRaw) === Number(mySeatRaw) ? "Win" : "Loss";
+  }
   if (turnRaw) {
     const turn = Number(turnRaw);
     if (!Number.isNaN(turn) && turn > 0) game.turn = turn;
@@ -889,6 +896,27 @@ function fillLogForm({ deck, result }) {
   if (resultInput) resultInput.checked = true;
   form.querySelector('[name="date"]')?.focus();
   syncPodFormSeats();
+  syncResultFromSeats();
+}
+
+function syncResultFromSeats() {
+  const form = document.getElementById("add-game-form");
+  if (!form) return;
+
+  const mySeat = Number(form.querySelector('[name="mySeat"]')?.value) || 0;
+  const winnerSeat = Number(form.querySelector('[name="winnerSeat"]')?.value) || 0;
+  const winInput = form.querySelector('[name="result"][value="Win"]');
+  const lossInput = form.querySelector('[name="result"][value="Loss"]');
+  const toggle = form.querySelector(".result-toggle");
+  const locked = winnerSeat > 0;
+
+  if (toggle) toggle.classList.toggle("result-locked", locked);
+
+  if (locked && mySeat > 0) {
+    const isWin = winnerSeat === mySeat;
+    if (winInput) winInput.checked = isWin;
+    if (lossInput) lossInput.checked = !isWin;
+  }
 }
 
 function syncPodFormSeats() {
