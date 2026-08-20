@@ -33,7 +33,7 @@ import {
 import { renderDeckDetail } from "./deck-detail.js";
 import { importDeckFromUrl } from "./deck-import.js";
 import { loadImagesIntoDeckDetail } from "./scryfall.js";
-import { bindPodAutocomplete } from "./opponent-search.js";
+import { bindPodAutocomplete, MY_PLAYER_NAME } from "./opponent-search.js";
 import { bindModalBackdropDismiss } from "./modals.js";
 
 const VIEWS = [
@@ -54,8 +54,6 @@ const DECK_STATUS_OPTIONS = [
   { id: "retired", label: "Retired" },
   { id: "all", label: "All" },
 ];
-
-const MY_PLAYER_NAME = "Brass";
 
 let data = null;
 let currentView = "stats";
