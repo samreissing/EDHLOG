@@ -11,10 +11,12 @@ import {
   computeDeckStats,
   computeOverview,
   computeBracketStats,
+  computeBracketDetail,
   computeYearStats,
   computeRolling100Stats,
   colorBadge,
   sortDeckList,
+  pct,
 } from "./stats.js";
 import { formatDate, gameSortKey, gameYear, normalizeTime, nowTime, todayISO, compareGamesChronologically } from "./dates.js";
 import { pctCell, valueCell, colorStatAverage } from "./wr-color.js";
@@ -35,6 +37,12 @@ import { importDeckFromUrl } from "./deck-import.js";
 import { loadImagesIntoDeckDetail } from "./scryfall.js";
 import { bindPodAutocomplete, MY_PLAYER_NAME } from "./opponent-search.js";
 import { bindModalBackdropDismiss } from "./modals.js";
+import {
+  computeAllMatchups,
+  formatMatchupImpact,
+  matchupImpactClass,
+  MATCHUP_TABS,
+} from "./matchups.js";
 
 const VIEWS = [
   { id: "stats", label: "Stats" },
@@ -47,6 +55,7 @@ const STATS_TABS = [
   { id: "colors", label: "Colors" },
   { id: "brackets", label: "Brackets" },
   { id: "trends", label: "Trends" },
+  { id: "matchups", label: "Matchups" },
 ];
 
 const DECK_STATUS_OPTIONS = [
@@ -58,6 +67,8 @@ const DECK_STATUS_OPTIONS = [
 let data = null;
 let currentView = "stats";
 let statsTab = "overview";
+let statsBracketFilter = "";
+let matchupTab = "players";
 let decksTab = "active";
 let gameModalOpen = false;
 let viewingGameId = null;
@@ -79,6 +90,7 @@ let tableSort = {
   "trends-cumulative": { col: "games", dir: "asc" },
   "decks-main": { col: "normWr", dir: "desc" },
   "game-log": { col: "date", dir: "desc" },
+  matchups: { col: "normalizedMatchupImpact", dir: "desc" },
 };
 
 async function boot() {
@@ -166,6 +178,20 @@ function bindEvents() {
     if (e.target.id === "color-agg-toggle") {
       colorAgg = colorAgg === "inclusive" ? "exclusive" : "inclusive";
       pieAnimKey++;
+      render();
+      return;
+    }
+
+    const bracketFilterBtn = e.target.closest("[data-bracket-filter]");
+    if (bracketFilterBtn) {
+      statsBracketFilter = bracketFilterBtn.getAttribute("data-bracket-filter") || "";
+      render();
+      return;
+    }
+
+    const matchupBtn = e.target.closest("[data-matchup-tab]");
+    if (matchupBtn) {
+      matchupTab = matchupBtn.getAttribute("data-matchup-tab");
       render();
       return;
     }
@@ -449,8 +475,10 @@ function getStats() {
       sortOrder: colorSortOrder,
     }),
     bracketStats: computeBracketStats(data.games, deckStats),
+    bracketDetail: computeBracketDetail(data.games, data.decks, statsBracketFilter),
     yearStats: computeYearStats(data.games),
     rolling: computeRolling100Stats(data.games),
+    matchups: computeAllMatchups(data.games),
   };
 }
 
@@ -491,6 +519,52 @@ function applyLogFilters() {
 function statCard(label, value, isWr = false) {
   const rendered = isWr ? pctCell(value) : `<span class="stat-value">${value}</span>`;
   return `<div class="stat-card"><span class="stat-label">${label}</span>${rendered}</div>`;
+}
+
+function impactCell(value) {
+  const cls = matchupImpactClass(value);
+  return `<span class="impact-cell ${cls}">${formatMatchupImpact(value)}</span>`;
+}
+
+function renderPodium(podium) {
+  if (!podium.length) {
+    return `<p class="hint">No deck results in this bracket yet.</p>`;
+  }
+
+  const labels = ["1st", "2nd", "3rd"];
+  return `<div class="podium">${podium
+    .map(
+      (deck, index) => `
+      <div class="podium-slot podium-${index + 1}">
+        <span class="podium-rank">${labels[index]}</span>
+        <strong class="podium-name">${escapeHtml(deck.name)}</strong>
+        <span class="podium-meta">${deck.wins}W · ${deck.games}G · ${pct(deck.winRate)}</span>
+      </div>`
+    )
+    .join("")}</div>`;
+}
+
+function renderBracketDetail(detail) {
+  const turnWin =
+    detail.avgTurnWin != null ? detail.avgTurnWin.toFixed(1) : "—";
+  const turnLoss =
+    detail.avgTurnLoss != null ? detail.avgTurnLoss.toFixed(1) : "—";
+
+  return `
+    <div class="bracket-detail">
+      <div class="stat-grid">
+        ${statCard("Games", detail.overview.games)}
+        ${statCard("Wins", detail.overview.wins)}
+        ${statCard("Losses", detail.overview.losses)}
+        ${statCard("Win Rate", detail.overview.winRate, true)}
+      </div>
+      <h3 class="section-sub">Top Decks</h3>
+      ${renderPodium(detail.podium)}
+      <div class="stat-grid stat-grid-compact">
+        ${statCard("Avg Turn (Win)", turnWin)}
+        ${statCard("Avg Turn (Loss)", turnLoss)}
+      </div>
+    </div>`;
 }
 
 function renderStats() {
@@ -610,7 +684,18 @@ function renderStats() {
           </table>
         </div>
         ${renderPieChart(pieSlices, pieAnimKey)}
-      </div>`;
+      </div>
+      <div class="bracket-filter-row">
+        ${["", "1", "2", "3", "4", "5"]
+          .map(
+            (b) => `
+          <button type="button" class="btn btn-ghost btn-sm bracket-filter-btn ${statsBracketFilter === b ? "active" : ""}" data-bracket-filter="${b}">
+            ${b ? `Bracket ${b}` : "All"}
+          </button>`
+          )
+          .join("")}
+      </div>
+      ${renderBracketDetail(s.bracketDetail)}`;
   } else if (statsTab === "trends") {
     if (!s.rolling.windows.length) {
       body = "";
@@ -655,6 +740,52 @@ function renderStats() {
           </div>
         </div>`;
     }
+  } else if (statsTab === "matchups") {
+    const rows = applySort(s.matchups[matchupTab] || [], tableSort.matchups, {
+      subject: (r) => r.subject,
+      opponent: (r) => r.opponent,
+      games: (r) => r.games,
+      wins: (r) => r.wins,
+      winRate: (r) => r.winRate,
+      matchupImpact: (r) => r.matchupImpact,
+      normalizedMatchupImpact: (r) => r.normalizedMatchupImpact,
+    });
+
+    body = `
+      ${subTabs(MATCHUP_TABS, matchupTab, "matchup-tab")}
+      ${
+        rows.length
+          ? `
+      <table class="table compact sortable-table matchup-table">
+        <thead><tr>
+          ${sortHeader("matchups", "subject", "Subject", tableSort.matchups)}
+          ${sortHeader("matchups", "opponent", "Opponent", tableSort.matchups)}
+          ${sortHeader("matchups", "games", "G", tableSort.matchups)}
+          ${sortHeader("matchups", "wins", "W", tableSort.matchups)}
+          ${sortHeader("matchups", "winRate", "WR", tableSort.matchups)}
+          ${sortHeader("matchups", "matchupImpact", "MI", tableSort.matchups)}
+          ${sortHeader("matchups", "normalizedMatchupImpact", "NMI", tableSort.matchups)}
+        </tr></thead>
+        <tbody>
+          ${rows
+            .map(
+              (row) => `
+            <tr>
+              <td>${escapeHtml(row.subject)}</td>
+              <td>${escapeHtml(row.opponent)}</td>
+              <td>${row.games}</td>
+              <td>${row.wins}</td>
+              <td>${pctCell(row.winRate)}</td>
+              <td>${impactCell(row.matchupImpact)}</td>
+              <td>${impactCell(row.normalizedMatchupImpact)}</td>
+            </tr>`
+            )
+            .join("")}
+        </tbody>
+      </table>
+      <p class="hint matchup-hint">MI and NMI use 30CCSTAT formulas: pod baseline 25%, prior 6.25 wins / 25 games, shared losses weighted at 20%.</p>`
+          : `<p class="hint">Log games with pod players (and ideally winning seat) to build matchup stats.</p>`
+      }`;
   }
 
   return `<section class="section">${subTabs(STATS_TABS, statsTab, "stats-tab")}${body}</section>`;
