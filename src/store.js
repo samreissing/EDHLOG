@@ -56,21 +56,91 @@ function sanitizeData(data) {
   return changed;
 }
 
+function hasExtraGameFields(game) {
+  return !!(
+    game.mySeat ||
+    game.myPlayer ||
+    game.winnerSeat ||
+    game.turn ||
+    game.time ||
+    game.bracket ||
+    game.opponents?.length
+  );
+}
+
+function maxSeedGameNum(games) {
+  return games.reduce((max, game) => {
+    const num = parseInt(String(game.id).replace("game-", ""), 10);
+    return Number.isNaN(num) ? max : Math.max(max, num);
+  }, 0);
+}
+
+function isLocalEdit(game) {
+  return game.source === "local" || hasExtraGameFields(game);
+}
+
+function isLocalOnlyGame(game, seedIds, maxSeedNum) {
+  if (seedIds.has(game.id)) return false;
+  if (game.source === "local") return true;
+  const num = parseInt(String(game.id).replace("game-", ""), 10);
+  return !Number.isNaN(num) && num > maxSeedNum;
+}
+
+/** @param {AppData} base @param {AppData} incoming */
+export function mergeAppData(base, incoming) {
+  const merged = {
+    meta: base.meta ? { ...base.meta } : undefined,
+    decks: base.decks.map((deck) => ({ ...deck, colors: [...(deck.colors || [])] })),
+    games: base.games.map((game) => ({ ...game })),
+  };
+
+  const deckNames = new Set(merged.decks.map((deck) => deck.name));
+  for (const deck of incoming.decks || []) {
+    if (deckNames.has(deck.name)) continue;
+    merged.decks.push({ ...deck, colors: [...(deck.colors || [])] });
+    deckNames.add(deck.name);
+  }
+
+  const byId = new Map(merged.games.map((game) => [game.id, game]));
+  let added = 0;
+  let updated = 0;
+
+  for (const game of incoming.games || []) {
+    const existing = byId.get(game.id);
+    if (!existing) {
+      const copy = { ...game, source: game.source || "local" };
+      merged.games.push(copy);
+      byId.set(game.id, copy);
+      added += 1;
+      continue;
+    }
+    if (game.source === "local" || hasExtraGameFields(game)) {
+      const idx = merged.games.findIndex((g) => g.id === game.id);
+      merged.games[idx] = { ...existing, ...game, source: "local" };
+      updated += 1;
+    }
+  }
+
+  return { data: merged, added, updated };
+}
+
 /** @param {AppData} local @param {AppData} seed */
 export function syncFromSeed(local, seed) {
   const seedIds = new Set(seed.games.map((game) => game.id));
+  const maxSeedNum = maxSeedGameNum(seed.games);
   const beforeCount = local.games.length;
 
   const localEditsById = new Map();
   for (const game of local.games) {
-    if (game.source === "local" && seedIds.has(game.id)) {
+    if (!seedIds.has(game.id)) continue;
+    if (isLocalEdit(game)) {
       localEditsById.set(game.id, game);
     }
   }
 
   // Games logged in the app that are not in the seed spreadsheet.
-  const localOnlyGames = local.games.filter(
-    (game) => game.source === "local" && !seedIds.has(game.id)
+  const localOnlyGames = local.games.filter((game) =>
+    isLocalOnlyGame(game, seedIds, maxSeedNum)
   );
 
   local.games = seed.games.map((game) => {
@@ -163,13 +233,21 @@ export function exportData() {
   URL.revokeObjectURL(url);
 }
 
-/** @param {File} file */
-export async function importData(file) {
+/** @param {File} file @param {{ merge?: boolean }} [opts] */
+export async function importData(file, opts = {}) {
   const text = await file.text();
-  const data = JSON.parse(text);
-  if (!data.decks || !data.games) throw new Error("Invalid EDHLOG data file");
-  saveData(data);
-  return data;
+  const incoming = JSON.parse(text);
+  if (!incoming.decks || !incoming.games) throw new Error("Invalid EDHLOG data file");
+
+  if (opts.merge) {
+    const base = loadData() || (await loadSeed());
+    const result = mergeAppData(base, incoming);
+    saveData(result.data);
+    return { data: result.data, added: result.added, updated: result.updated };
+  }
+
+  saveData(incoming);
+  return { data: incoming, added: incoming.games.length, updated: 0 };
 }
 
 export function nextGameId(games) {
@@ -178,4 +256,30 @@ export function nextGameId(games) {
     .filter((n) => !Number.isNaN(n));
   const max = nums.length ? Math.max(...nums) : 0;
   return `game-${max + 1}`;
+}
+
+/** True when the user has logged games in the app beyond the spreadsheet seed. */
+export function hasLocalOnlyGames(data) {
+  const seedGames = data.meta?.seedGames;
+  if (!seedGames) return false;
+  return data.games.some((game) => {
+    if (game.source === "local") return true;
+    const num = parseInt(String(game.id).replace("game-", ""), 10);
+    return !Number.isNaN(num) && num > seedGames;
+  });
+}
+
+const RECOVERY_DISMISS_KEY = "edhlog-recovery-dismissed";
+
+export function shouldShowRecoveryBanner() {
+  if (typeof window === "undefined") return false;
+  if (!window.location.hostname.includes("github.io")) return false;
+  if (localStorage.getItem(RECOVERY_DISMISS_KEY)) return false;
+  const data = loadData();
+  if (!data) return false;
+  return !hasLocalOnlyGames(data);
+}
+
+export function dismissRecoveryBanner() {
+  localStorage.setItem(RECOVERY_DISMISS_KEY, "1");
 }
