@@ -1,6 +1,6 @@
 # EDHLOG
 
-A bare-bones static site for tracking your Commander games and stats.
+A bare-bones local app for tracking your Commander games and stats.
 
 ## Features
 
@@ -21,36 +21,18 @@ npm run dev
 
 Open http://localhost:5173
 
-## GitHub Pages
+Your game data stays in this browser on this computer. Use **Export JSON** to back up, and **Import JSON** to restore.
 
-Live site (after Pages is enabled): **https://samreissing.github.io/EDHLOG/**
-
-Pushes to `main` run [.github/workflows/deploy.yml](.github/workflows/deploy.yml) to build and deploy automatically — same pattern as [30-cent-edh](https://github.com/samreissing/30-cent-edh).
-
-**One-time setup** (repo owner):
-
-1. Open [EDHLOG → Settings → Pages](https://github.com/samreissing/EDHLOG/settings/pages)
-2. Under **Build and deployment**, set **Source** to **GitHub Actions**
-3. Re-run the latest **Deploy to GitHub Pages** workflow (or push to `main`)
-
-Local production preview:
-
-```bash
-BASE_PATH=/EDHLOG/ npm run build
-npm run preview
-```
-
-## Build
+## Build (optional)
 
 ```bash
 npm run build
+npm run preview
 ```
-
-Deploy the `dist/` folder, or use the GitHub Actions workflow above.
 
 ## Data
 
-- `public/data/seed.json` — imported from your Google Sheet (904 games, 27 decks)
+- `public/data/seed.json` — imported from your Google Sheet (923 games, 27 decks)
 - To re-import from the spreadsheet:
 
 ```bash
