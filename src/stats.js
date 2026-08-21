@@ -80,6 +80,42 @@ export function computeOverview(games) {
   };
 }
 
+/** @param {import('./store.js').Game[]} games @param {import('./store.js').Deck[]} decks @param {string} bracketFilter "" for all, else "1"-"5" */
+export function computeBracketDetail(games, decks, bracketFilter = "") {
+  const deckMap = new Map(decks.map((d) => [d.name, d]));
+  const filtered = games.filter((game) => {
+    if (!bracketFilter) return true;
+    const deck = deckMap.get(game.deck);
+    const bracket = String(game.bracket ?? deck?.bracket ?? 4);
+    return bracket === bracketFilter;
+  });
+
+  const overview = computeOverview(filtered);
+  const deckStats = computeDeckStats(decks, filtered).filter((d) => d.games > 0);
+  const podium = sortDeckList(deckStats, "wins", "desc").slice(0, 3);
+
+  const winTurns = filtered
+    .filter((g) => g.result === "Win" && Number(g.turn) > 0)
+    .map((g) => Number(g.turn));
+  const lossTurns = filtered
+    .filter((g) => g.result === "Loss" && Number(g.turn) > 0)
+    .map((g) => Number(g.turn));
+
+  const avg = (nums) => (nums.length ? nums.reduce((sum, n) => sum + n, 0) / nums.length : null);
+
+  return {
+    overview,
+    podium,
+    avgTurnWin: avg(winTurns),
+    avgTurnLoss: avg(lossTurns),
+  };
+}
+
+export function gameBracket(game, deckMap) {
+  const deck = deckMap.get(game.deck);
+  return game.bracket ?? deck?.bracket ?? 4;
+}
+
 export function computeColorStats(deckStats) {
   return COLOR_ORDER.map((color) => {
     const withColor =
