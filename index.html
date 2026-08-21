@@ -14,23 +14,27 @@
   </head>
   <body>
     <div id="app">
-      <header class="header">
-        <div class="brand">
-          <h1>EDHLOG</h1>
-          <p class="tagline">Commander game tracker & stats</p>
-        </div>
-        <nav class="nav" id="nav"></nav>
-      </header>
-      <main id="main"></main>
-      <footer class="footer">
-        <span>Data stored locally in your browser</span>
-        <div class="footer-actions">
-          <button type="button" class="btn btn-ghost" id="export-btn">Export JSON</button>
-          <button type="button" class="btn btn-ghost" id="import-btn">Import JSON</button>
-          <input type="file" id="import-file" accept=".json" hidden />
-          <button type="button" class="btn btn-ghost btn-danger" id="reset-btn">Reset to seed</button>
-        </div>
-      </footer>
+      <section id="auth-screen" class="auth-screen hidden"></section>
+      <div id="app-shell">
+        <header class="header">
+          <div class="brand">
+            <h1>EDHLOG</h1>
+            <p class="tagline">Commander game tracker & stats</p>
+          </div>
+          <nav class="nav" id="nav"></nav>
+        </header>
+        <main id="main"></main>
+        <footer class="footer">
+          <span id="storage-label">Data stored locally in your browser</span>
+          <div class="footer-actions">
+            <button type="button" class="btn btn-ghost hidden" id="sign-out-btn">Sign out</button>
+            <button type="button" class="btn btn-ghost" id="export-btn">Export JSON</button>
+            <button type="button" class="btn btn-ghost" id="import-btn">Import JSON</button>
+            <input type="file" id="import-file" accept=".json" hidden />
+            <button type="button" class="btn btn-ghost btn-danger" id="reset-btn">Reset to seed</button>
+          </div>
+        </footer>
+      </div>
     </div>
     <script type="module" src="/src/main.js"></script>
   </body>

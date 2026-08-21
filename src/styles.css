@@ -1302,3 +1302,52 @@ th.sortable.sorted {
     width: min(200px, 100%);
   }
 }
+
+.hidden {
+  display: none !important;
+}
+
+.auth-screen {
+  display: grid;
+  place-items: center;
+  min-height: 70vh;
+  padding: 2rem 1rem;
+}
+
+.auth-card {
+  width: min(420px, 100%);
+  padding: 2rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.auth-card h1 {
+  margin: 0;
+}
+
+.auth-card .tagline {
+  margin: 0.35rem 0 1.25rem;
+  color: var(--muted);
+}
+
+.auth-form label {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.auth-form input {
+  width: 100%;
+}
+
+.auth-error {
+  margin: 0 0 1rem;
+  color: var(--red);
+  font-size: 0.9rem;
+}
+
+.auth-hint {
+  margin: 1rem 0 0;
+}

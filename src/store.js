@@ -1,3 +1,5 @@
+import { getUser } from "./auth.js";
+import { cloudSyncEnabled, loadRemoteData, scheduleRemoteSave } from "./cloud-sync.js";
 import { normalizeDate, todayISO } from "./dates.js";
 
 const STORAGE_KEY = "edhlog-data-v1";
@@ -117,6 +119,19 @@ export async function initData() {
   const seed = await loadSeed();
   let data = loadData();
 
+  if (cloudSyncEnabled() && getUser()) {
+    try {
+      const remote = await loadRemoteData();
+      if (remote?.decks && remote?.games) {
+        data = remote;
+        cache = data;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      }
+    } catch (err) {
+      console.error("Cloud load failed; using local cache if available.", err);
+    }
+  }
+
   if (!data) {
     saveData(seed);
     return seed;
@@ -142,6 +157,7 @@ export async function initData() {
 export function saveData(data) {
   cache = data;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  scheduleRemoteSave(data);
 }
 
 export async function resetToSeed() {

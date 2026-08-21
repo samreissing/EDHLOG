@@ -1,4 +1,16 @@
 import {
+  cloudAuthEnabled,
+  completeAuthFromUrl,
+  getSession,
+  getUser,
+  initAuth,
+  setAuthChangeHandler,
+  signInWithEmail,
+  signOut,
+} from "./auth.js";
+import { cloudSyncEnabled } from "./cloud-sync.js";
+import { getAllowedEmail } from "./supabase.js";
+import {
   initData,
   saveData,
   exportData,
@@ -82,9 +94,44 @@ let tableSort = {
 };
 
 async function boot() {
+  bindEvents();
+
+  if (cloudAuthEnabled()) {
+    try {
+      await completeAuthFromUrl();
+      await initAuth();
+    } catch (err) {
+      renderLoginScreen(err.message || "Sign-in failed");
+      return;
+    }
+
+    setAuthChangeHandler(async (session) => {
+      if (!session) {
+        data = null;
+        renderLoginScreen();
+        return;
+      }
+      showAppShell();
+      data = await initData();
+      renderNav();
+      render();
+      updateFooterMeta();
+      toast("Signed in — data synced from cloud");
+    });
+
+    if (!getSession()) {
+      renderLoginScreen();
+      return;
+    }
+  }
+
+  await startApp();
+}
+
+async function startApp() {
+  showAppShell();
   data = await initData();
   const sync = getLastSeedSync();
-  bindEvents();
   bindModalBackdropDismiss({
     deck: () => {
       editingDeckName = null;
@@ -102,6 +149,7 @@ async function boot() {
   });
   renderNav();
   render();
+  updateFooterMeta();
   if (sync) {
     if (sync.removed > 0) {
       toast(`Removed ${sync.removed} duplicate games — now at ${sync.games + sync.keptLocal} total`);
@@ -110,6 +158,60 @@ async function boot() {
     } else {
       toast(`Synced ${sync.games} games from spreadsheet`);
     }
+  }
+}
+
+function renderLoginScreen(errorMessage = "") {
+  const authScreen = document.getElementById("auth-screen");
+  const appShell = document.getElementById("app-shell");
+  const allowed = getAllowedEmail();
+  authScreen.classList.remove("hidden");
+  appShell.classList.add("hidden");
+  authScreen.innerHTML = `
+    <div class="auth-card">
+      <h1>EDHLOG</h1>
+      <p class="tagline">Sign in to access your game log</p>
+      ${errorMessage ? `<p class="auth-error">${escapeHtml(errorMessage)}</p>` : ""}
+      <form id="login-form" class="auth-form">
+        <label>
+          Email
+          <input type="email" name="email" required autocomplete="email"
+            placeholder="${allowed || "you@example.com"}"
+            ${allowed ? `value="${escapeHtml(allowed)}" readonly` : ""} />
+        </label>
+        <button type="submit" class="btn btn-primary">Send magic link</button>
+      </form>
+      <p class="hint auth-hint">We email you a one-time sign-in link. Only your account can read or write data.</p>
+    </div>
+  `;
+
+  document.getElementById("login-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = new FormData(e.target).get("email");
+    try {
+      await signInWithEmail(String(email || ""));
+      toast("Check your email for the sign-in link");
+    } catch (err) {
+      toast(err.message || "Could not send sign-in link", true);
+    }
+  });
+}
+
+function showAppShell() {
+  document.getElementById("auth-screen")?.classList.add("hidden");
+  document.getElementById("app-shell")?.classList.remove("hidden");
+}
+
+function updateFooterMeta() {
+  const label = document.getElementById("storage-label");
+  const signOutBtn = document.getElementById("sign-out-btn");
+  if (!label) return;
+  if (cloudSyncEnabled() && getUser()) {
+    label.textContent = `Signed in as ${getUser().email} · synced to cloud`;
+    signOutBtn?.classList.remove("hidden");
+  } else {
+    label.textContent = "Data stored locally in your browser";
+    signOutBtn?.classList.add("hidden");
   }
 }
 
@@ -417,6 +519,12 @@ function bindEvents() {
     data = await resetToSeed();
     render();
     toast("Reset to seed");
+  });
+
+  document.getElementById("sign-out-btn")?.addEventListener("click", async () => {
+    await signOut();
+    data = null;
+    renderLoginScreen();
   });
 }
 
