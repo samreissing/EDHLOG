@@ -1,23 +1,52 @@
+import { formatDate, normalizeDate } from "./dates.js";
 import { pct } from "./stats.js";
 
 /**
+ * One point per calendar day. Multiple games on the same day are combined into
+ * a single point using that day's average win rate, while cumulative totals
+ * reflect all games through the end of that day.
  * @param {import('./store.js').Game[]} games
- * @returns {Array<{ index: number, date: string, deck: string, wins: number, games: number, winRate: number }>}
  */
 export function computeWinRateSeries(games) {
-  let wins = 0;
-  return games.map((game, index) => {
-    if (game.result === "Win") wins += 1;
-    const gamesPlayed = index + 1;
-    return {
-      index: gamesPlayed,
-      date: game.date,
-      deck: game.deck,
-      wins,
-      games: gamesPlayed,
-      winRate: wins / gamesPlayed,
-    };
-  });
+  if (!games.length) return [];
+
+  let cumulativeWins = 0;
+  let cumulativeGames = 0;
+  /** @type {Map<string, { date: string, dayWins: number, dayGames: number, cumulativeWins: number, cumulativeGames: number }>} */
+  const byDay = new Map();
+
+  for (const game of games) {
+    cumulativeGames += 1;
+    if (game.result === "Win") cumulativeWins += 1;
+
+    const date = normalizeDate(game.date) || game.date;
+    const existing = byDay.get(date);
+    if (existing) {
+      existing.dayGames += 1;
+      if (game.result === "Win") existing.dayWins += 1;
+      existing.cumulativeWins = cumulativeWins;
+      existing.cumulativeGames = cumulativeGames;
+    } else {
+      byDay.set(date, {
+        date,
+        dayWins: game.result === "Win" ? 1 : 0,
+        dayGames: 1,
+        cumulativeWins,
+        cumulativeGames,
+      });
+    }
+  }
+
+  return [...byDay.values()].map((day, index) => ({
+    index: index + 1,
+    date: day.date,
+    dayGames: day.dayGames,
+    dayWins: day.dayWins,
+    dayWinRate: day.dayWins / day.dayGames,
+    games: day.cumulativeGames,
+    wins: day.cumulativeWins,
+    winRate: day.cumulativeWins / day.cumulativeGames,
+  }));
 }
 
 /**
@@ -30,8 +59,8 @@ export function renderWinRateLineChart(series, title = "") {
   }
 
   const width = 760;
-  const height = 260;
-  const pad = { top: 24, right: 20, bottom: 36, left: 44 };
+  const height = 280;
+  const pad = { top: 24, right: 20, bottom: 48, left: 44 };
   const plotW = width - pad.left - pad.right;
   const plotH = height - pad.top - pad.bottom;
   const baseline = 0.25;
@@ -54,12 +83,24 @@ export function renderWinRateLineChart(series, title = "") {
     })
     .join("");
 
+  const xLabelIndices =
+    series.length <= 3
+      ? series.map((_, i) => i)
+      : [0, Math.floor((series.length - 1) / 2), series.length - 1];
+  const xLabels = xLabelIndices
+    .map((i) => {
+      const p = points[i];
+      return `<text class="trends-axis-label trends-x-label" x="${p.x}" y="${height - 10}" text-anchor="middle">${escAttr(formatDate(series[i].date))}</text>`;
+    })
+    .join("");
+
   const dots = points
     .map(
       (p) => `
       <circle class="trends-point" cx="${p.x}" cy="${p.y}" r="4"
-        data-wr="${p.winRate}" data-games="${p.games}" data-wins="${p.wins}"
-        data-date="${escAttr(p.date)}" data-deck="${escAttr(p.deck)}" data-index="${p.index}" />
+        data-wr="${p.winRate}" data-day-wr="${p.dayWinRate}" data-games="${p.games}" data-wins="${p.wins}"
+        data-day-games="${p.dayGames}" data-day-wins="${p.dayWins}"
+        data-date="${escAttr(p.date)}" data-index="${p.index}" />
     `
     )
     .join("");
@@ -72,7 +113,8 @@ export function renderWinRateLineChart(series, title = "") {
         <line class="trends-baseline" x1="${pad.left}" y1="${baselineY}" x2="${width - pad.right}" y2="${baselineY}" />
         <path class="trends-line" d="${linePath}" />
         ${dots}
-        <text class="trends-axis-label" x="${pad.left + plotW / 2}" y="${height - 8}" text-anchor="middle">Games</text>
+        ${xLabels}
+        <text class="trends-axis-label" x="${pad.left + plotW / 2}" y="${height - 28}" text-anchor="middle">Date</text>
       </svg>
       <div class="trends-chart-tip" hidden></div>
     </div>`;
@@ -93,9 +135,18 @@ export function bindWinRateLineCharts() {
     wrap.querySelectorAll(".trends-point").forEach((point) => {
       point.addEventListener("mouseenter", () => {
         const wr = Number(point.dataset.wr);
+        const dayWr = Number(point.dataset.dayWr);
+        const dayGames = Number(point.dataset.dayGames);
+        const dayWins = Number(point.dataset.dayWins);
         tip.hidden = false;
-        tip.innerHTML = `Game ${point.dataset.index}<br>${point.dataset.date}<br>${point.dataset.deck}<br>${pct(wr)} (${point.dataset.wins}/${point.dataset.games})`;
-        const rect = wrap.getBoundingClientRect();
+
+        const dateLabel = formatDate(point.dataset.date);
+        const dayLine =
+          dayGames > 1
+            ? `${dayWins}W / ${dayGames}G · ${pct(dayWr)} that day`
+            : `${dayWins === 1 ? "Win" : "Loss"} that day`;
+        tip.innerHTML = `${dateLabel}<br>${dayLine}<br>Overall ${pct(wr)} (${point.dataset.wins}/${point.dataset.games})`;
+
         const cx = Number(point.getAttribute("cx"));
         const cy = Number(point.getAttribute("cy"));
         tip.style.left = `${cx}px`;
