@@ -489,8 +489,30 @@ th.sortable.sorted {
   margin-top: 0.75rem;
 }
 
-.matchup-hint {
-  margin-top: 0.75rem;
+.matchup-filters {
+  margin: 0.75rem 0 0;
+}
+
+.matchup-search {
+  min-width: min(320px, 100%);
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.col-rank {
+  width: 2.5rem;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.85rem;
+}
+
+.impact-cell[title] {
+  cursor: help;
+  border-bottom: 1px dotted currentColor;
 }
 
 @media (max-width: 720px) {

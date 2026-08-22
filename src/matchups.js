@@ -5,7 +5,6 @@ import { winRate } from "./stats.js";
 export const MATCHUP_BASELINE = 0.25;
 export const MATCHUP_PRIOR_GAMES = 25;
 export const MATCHUP_PRIOR_WINS = MATCHUP_PRIOR_GAMES * MATCHUP_BASELINE;
-export const MATCHUP_SHARED_LOSS_WEIGHT = 0.2;
 
 export const MATCHUP_TABS = [
   { id: "players", label: "Player Matchups" },
@@ -87,9 +86,9 @@ function matchupPairKeys(mySeat, opponentSeat, tabId) {
   };
 }
 
-export function calcMatchupImpact(wins, losses, sharedLosses) {
-  const denom = wins + losses + sharedLosses * MATCHUP_SHARED_LOSS_WEIGHT;
-  return denom > 0 ? wins / denom - MATCHUP_BASELINE : 0;
+export function calcMatchupImpact(wins, games) {
+  if (!games) return 0;
+  return winRate(wins, games) - MATCHUP_BASELINE;
 }
 
 export function calcNormalizedMatchupImpact(wins, games) {
@@ -99,17 +98,23 @@ export function calcNormalizedMatchupImpact(wins, games) {
 
 function finalizeMatchupRow(row) {
   const winRateVal = row.games > 0 ? winRate(row.wins, row.games) : 0;
+  const opponentWins = row.losses;
+  const opponentWinRate = row.games > 0 ? winRate(opponentWins, row.games) : 0;
   const normalizedWinRate =
     (row.wins + MATCHUP_PRIOR_WINS) / (row.games + MATCHUP_PRIOR_GAMES);
-  const matchupImpact = calcMatchupImpact(row.wins, row.losses, row.sharedLosses);
-  const normalizedMatchupImpact = calcNormalizedMatchupImpact(row.wins, row.games);
+  const normalizedOpponentWinRate =
+    (opponentWins + MATCHUP_PRIOR_WINS) / (row.games + MATCHUP_PRIOR_GAMES);
 
   return {
     ...row,
     winRate: winRateVal,
     normalizedWinRate,
-    matchupImpact,
-    normalizedMatchupImpact,
+    opponentWins,
+    opponentWinRate,
+    matchupImpact: calcMatchupImpact(row.wins, row.games),
+    normalizedMatchupImpact: calcNormalizedMatchupImpact(row.wins, row.games),
+    opponentMatchupImpact: calcMatchupImpact(opponentWins, row.games),
+    opponentNormalizedMatchupImpact: calcNormalizedMatchupImpact(opponentWins, row.games),
   };
 }
 
@@ -174,21 +179,8 @@ export function buildMyMatchupRows(games, tabId) {
   }
 
   const finalized = [...rows.values()].map(finalizeMatchupRow);
-  const reverseLookup = new Map(
-    finalized.map((row) => [`${row.opponentKey}__${row.subjectKey}`, row])
-  );
 
-  return finalized
-    .map((row) => {
-      const reverse = reverseLookup.get(`${row.opponentKey}__${row.subjectKey}`);
-      return {
-        ...row,
-        opponentMatchupImpact: reverse?.matchupImpact ?? -row.normalizedMatchupImpact,
-        opponentNormalizedMatchupImpact:
-          reverse?.normalizedMatchupImpact ?? -row.normalizedMatchupImpact,
-      };
-    })
-    .sort((a, b) => {
+  return finalized.sort((a, b) => {
       if (b.normalizedMatchupImpact !== a.normalizedMatchupImpact) {
         return b.normalizedMatchupImpact - a.normalizedMatchupImpact;
       }
