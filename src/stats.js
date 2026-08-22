@@ -188,6 +188,7 @@ export function computeRolling100Stats(games) {
     windows.push({
       label: `${start}-${end}`,
       rangeStart: start,
+      rangeEnd: end,
       games: 100,
       wins,
       winRate: winRate(wins, 100),
@@ -202,6 +203,7 @@ export function computeRolling100Stats(games) {
     windows.push({
       label: `${start}-${total}`,
       rangeStart: start,
+      rangeEnd: total,
       games: remainder,
       wins,
       winRate: winRate(wins, remainder),

@@ -45,7 +45,7 @@ export function parseGameSeats(game) {
   for (const opp of game.opponents || []) {
     const commander = String(opp.name || "").trim();
     if (!commander) continue;
-    const player = String(opp.player || "").trim() || "Unknown";
+    const player = String(opp.player || "").trim();
     const seat = Number(opp.seat) || 0;
     const winnerSeat = winnerSeatForGame(game);
     seats.push({
@@ -147,6 +147,7 @@ export function buildMyMatchupRows(games, tabId) {
 
     for (const opponentSeat of seats) {
       if (opponentSeat === mySeat) continue;
+      if (tabId === "players" && !opponentSeat.player) continue;
 
       const { subjectKey, subjectLabel, opponentKey, opponentLabel } = matchupPairKeys(
         mySeat,

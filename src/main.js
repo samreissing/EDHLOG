@@ -43,6 +43,11 @@ import {
   matchupImpactClass,
   MATCHUP_TABS,
 } from "./matchups.js";
+import {
+  computeWinRateSeries,
+  renderWinRateLineChart,
+  bindWinRateLineCharts,
+} from "./trends-chart.js";
 
 const VIEWS = [
   { id: "stats", label: "Stats" },
@@ -70,6 +75,8 @@ let statsTab = "overview";
 let statsBracketFilter = "";
 let matchupTab = "players";
 let matchupSearch = "";
+/** @type {{ kind: 'all' } | { kind: 'window', rangeStart: number, rangeEnd: number } | { kind: 'cumulative', rangeEnd: number } | { kind: 'year', year: string }} */
+let trendsFilter = { kind: "all" };
 let decksTab = "active";
 let gameModalOpen = false;
 let viewingGameId = null;
@@ -193,6 +200,34 @@ function bindEvents() {
     const bracketFilterBtn = e.target.closest("[data-bracket-filter]");
     if (bracketFilterBtn) {
       statsBracketFilter = bracketFilterBtn.getAttribute("data-bracket-filter") || "";
+      render();
+      return;
+    }
+
+    const trendsWindowBtn = e.target.closest("[data-trends-window]");
+    if (trendsWindowBtn) {
+      trendsFilter = {
+        kind: "window",
+        rangeStart: Number(trendsWindowBtn.dataset.rangeStart),
+        rangeEnd: Number(trendsWindowBtn.dataset.rangeEnd),
+      };
+      render();
+      return;
+    }
+
+    const trendsCumulativeBtn = e.target.closest("[data-trends-cumulative]");
+    if (trendsCumulativeBtn) {
+      trendsFilter = {
+        kind: "cumulative",
+        rangeEnd: Number(trendsCumulativeBtn.dataset.rangeEnd),
+      };
+      render();
+      return;
+    }
+
+    const trendsYearBtn = e.target.closest("[data-trends-year]");
+    if (trendsYearBtn) {
+      trendsFilter = { kind: "year", year: trendsYearBtn.dataset.trendsYear };
       render();
       return;
     }
@@ -471,6 +506,47 @@ function subTabs(tabs, active, attr) {
     .join("")}</div>`;
 }
 
+function gamesForTrendsFilter(games) {
+  const sorted = [...games].sort(compareGamesChronologically);
+  if (trendsFilter.kind === "all") return sorted;
+  if (trendsFilter.kind === "window") {
+    return sorted.slice(trendsFilter.rangeStart - 1, trendsFilter.rangeEnd);
+  }
+  if (trendsFilter.kind === "cumulative") {
+    return sorted.slice(0, trendsFilter.rangeEnd);
+  }
+  if (trendsFilter.kind === "year") {
+    return sorted.filter((g) => gameYear(g.date) === trendsFilter.year);
+  }
+  return sorted;
+}
+
+function trendsChartTitle() {
+  if (trendsFilter.kind === "all") return "All games";
+  if (trendsFilter.kind === "window") {
+    return `Games ${trendsFilter.rangeStart}–${trendsFilter.rangeEnd}`;
+  }
+  if (trendsFilter.kind === "cumulative") return `Games 1–${trendsFilter.rangeEnd}`;
+  if (trendsFilter.kind === "year") return trendsFilter.year;
+  return "";
+}
+
+function isTrendsWindowActive(windowRow) {
+  return (
+    trendsFilter.kind === "window" &&
+    trendsFilter.rangeStart === windowRow.rangeStart &&
+    trendsFilter.rangeEnd === windowRow.rangeEnd
+  );
+}
+
+function isTrendsCumulativeActive(cumulativeRow) {
+  return trendsFilter.kind === "cumulative" && trendsFilter.rangeEnd === cumulativeRow.games;
+}
+
+function isTrendsYearActive(yearRow) {
+  return trendsFilter.kind === "year" && trendsFilter.year === yearRow.year;
+}
+
 function getStats() {
   const deckStats = computeDeckStats(data.decks, data.games);
   const overview = computeOverview(data.games);
@@ -501,6 +577,7 @@ function render() {
 
   if (currentView === "games") applyLogFilters();
   bindPieCharts();
+  if (currentView === "stats" && statsTab === "trends") bindWinRateLineCharts();
   if (gameModalOpen) {
     syncPodFormSeats();
     syncResultFromSeats();
@@ -599,18 +676,7 @@ function renderStats() {
         ${statCard("Losses", s.overview.losses)}
         ${statCard("Win Rate", s.overview.winRate, true)}
       </div>
-      <h3 class="section-sub">By Year</h3>
-      <div class="year-row">
-        ${s.yearStats
-          .map(
-            (y) => `
-          <div class="year-chip">
-            <strong>${y.year}</strong>
-            <span>${y.games}g · ${y.wins}w · ${pctCell(y.winRate)}</span>
-          </div>`
-          )
-          .join("")}
-      </div>`;
+      `;
   } else if (statsTab === "colors") {
     const sortCol = tableSort["color-stats"]?.col || "colorOrder";
     const colors = applySort(s.colorStats, tableSort["color-stats"], {
@@ -717,8 +783,11 @@ function renderStats() {
       </div>
       ${renderBracketDetail(s.bracketDetail)}`;
   } else if (statsTab === "trends") {
+    const chartGames = gamesForTrendsFilter(data.games);
+    const chart = renderWinRateLineChart(computeWinRateSeries(chartGames), trendsChartTitle());
+
     if (!s.rolling.windows.length) {
-      body = "";
+      body = chart;
     } else {
       const windows = applySort(s.rolling.windows, tableSort["trends-windows"], {
         label: (w) => w.label,
@@ -733,28 +802,60 @@ function renderStats() {
       });
 
       body = `
+        ${chart}
+        <h3 class="section-sub">By Year</h3>
+        <div class="year-row">
+          ${s.yearStats
+            .map(
+              (y) => `
+            <button type="button" class="year-chip trends-selectable ${isTrendsYearActive(y) ? "active" : ""}"
+              data-trends-year="${y.year}">
+              <strong>${y.year}</strong>
+              <span>${y.games}g · ${y.wins}w · ${pctCell(y.winRate)}</span>
+            </button>`
+            )
+            .join("")}
+        </div>
         <div class="two-col">
           <div>
             <h3 class="section-sub">Per 100 Games</h3>
-            <table class="table compact sortable-table">
+            <table class="table compact sortable-table trends-table">
               <thead><tr>
                 ${sortHeader("trends-windows", "rangeStart", "Games", tableSort["trends-windows"])}
                 ${sortHeader("trends-windows", "winRate", "WR", tableSort["trends-windows"])}
               </tr></thead>
               <tbody>
-                ${windows.map((w) => `<tr><td>${w.label}</td><td>${pctCell(w.winRate)}</td></tr>`).join("")}
+                ${windows
+                  .map(
+                    (w) => `
+                  <tr class="trends-selectable ${isTrendsWindowActive(w) ? "active" : ""}"
+                    data-trends-window data-range-start="${w.rangeStart}" data-range-end="${w.rangeEnd}">
+                    <td>${w.label}</td>
+                    <td>${pctCell(w.winRate)}</td>
+                  </tr>`
+                  )
+                  .join("")}
               </tbody>
             </table>
           </div>
           <div>
             <h3 class="section-sub">Cumulative</h3>
-            <table class="table compact sortable-table">
+            <table class="table compact sortable-table trends-table">
               <thead><tr>
                 ${sortHeader("trends-cumulative", "games", "Games", tableSort["trends-cumulative"])}
                 ${sortHeader("trends-cumulative", "winRate", "WR", tableSort["trends-cumulative"])}
               </tr></thead>
               <tbody>
-                ${cumulative.map((w) => `<tr><td>${w.label}</td><td>${pctCell(w.winRate)}</td></tr>`).join("")}
+                ${cumulative
+                  .map(
+                    (w) => `
+                  <tr class="trends-selectable ${isTrendsCumulativeActive(w) ? "active" : ""}"
+                    data-trends-cumulative data-range-end="${w.games}">
+                    <td>${w.label}</td>
+                    <td>${pctCell(w.winRate)}</td>
+                  </tr>`
+                  )
+                  .join("")}
               </tbody>
             </table>
           </div>
@@ -774,7 +875,8 @@ function renderStats() {
       opponentMatchupImpact: (r) => r.opponentMatchupImpact,
       opponentNormalizedMatchupImpact: (r) => r.opponentNormalizedMatchupImpact,
     });
-    const rows = sorted.filter((row) => {
+    const ranked = sorted.map((row, index) => ({ ...row, rank: index + 1 }));
+    const rows = ranked.filter((row) => {
       if (!query) return true;
       if (isDeckTab) {
         return (
@@ -787,7 +889,7 @@ function renderStats() {
     body = `
       ${subTabs(MATCHUP_TABS, matchupTab, "matchup-tab")}
       <div class="filters inline matchup-filters">
-        <input type="search" id="matchup-search" class="input matchup-search" placeholder="${isDeckTab ? "Search decks" : "Search opponents"}" value="${escapeHtml(matchupSearch)}" />
+        <input type="search" id="matchup-search" class="input matchup-search" placeholder="${isDeckTab ? "Search my or opponent decks" : "Search opponents"}" value="${escapeHtml(matchupSearch)}" />
       </div>
       <table class="table compact sortable-table matchup-table">
         <thead><tr>
@@ -805,9 +907,9 @@ function renderStats() {
         <tbody>
           ${rows
             .map(
-              (row, index) => `
+              (row) => `
             <tr>
-              <td class="col-rank">${index + 1}</td>
+              <td class="col-rank">${row.rank}</td>
               ${isDeckTab ? `<td>${escapeHtml(row.subject)}</td>` : ""}
               <td>${escapeHtml(row.opponent)}</td>
               <td>${row.games}</td>
