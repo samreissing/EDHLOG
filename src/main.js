@@ -69,6 +69,7 @@ let currentView = "stats";
 let statsTab = "overview";
 let statsBracketFilter = "";
 let matchupTab = "players";
+let matchupSearch = "";
 let decksTab = "active";
 let gameModalOpen = false;
 let viewingGameId = null;
@@ -141,6 +142,13 @@ function bindEvents() {
     }
     renderNav();
     render();
+  });
+
+  document.getElementById("main").addEventListener("input", (e) => {
+    if (e.target.id === "matchup-search") {
+      matchupSearch = e.target.value;
+      render();
+    }
   });
 
   document.getElementById("main").addEventListener("click", (e) => {
@@ -483,6 +491,9 @@ function getStats() {
 }
 
 function render() {
+  const matchupSearchFocused = document.activeElement?.id === "matchup-search";
+  const matchupSearchPos = matchupSearchFocused ? document.activeElement.selectionStart : null;
+
   const main = document.getElementById("main");
   if (currentView === "stats") main.innerHTML = renderStats();
   else if (currentView === "decks") main.innerHTML = renderDecks();
@@ -497,6 +508,14 @@ function render() {
     bindPodAutocomplete(document.getElementById("add-game-form"), data.games);
   }
   if (selectedDeckName) loadImagesIntoDeckDetail(selectedDeckName);
+
+  if (matchupSearchFocused) {
+    const el = document.getElementById("matchup-search");
+    if (el) {
+      el.focus();
+      if (matchupSearchPos != null) el.setSelectionRange(matchupSearchPos, matchupSearchPos);
+    }
+  }
 }
 
 function applyLogFilters() {
@@ -521,14 +540,15 @@ function statCard(label, value, isWr = false) {
   return `<div class="stat-card"><span class="stat-label">${label}</span>${rendered}</div>`;
 }
 
-function impactCell(value) {
+function impactCell(value, title = "") {
   const cls = matchupImpactClass(value);
-  return `<span class="impact-cell ${cls}">${formatMatchupImpact(value)}</span>`;
+  const titleAttr = title ? ` title="${escapeHtml(title)}"` : "";
+  return `<span class="impact-cell ${cls}"${titleAttr}>${formatMatchupImpact(value)}</span>`;
 }
 
 function renderPodium(podium) {
   if (!podium.length) {
-    return `<p class="hint">No deck results in this bracket yet.</p>`;
+    return "";
   }
 
   const labels = ["1st", "2nd", "3rd"];
@@ -742,7 +762,8 @@ function renderStats() {
     }
   } else if (statsTab === "matchups") {
     const isDeckTab = matchupTab === "decks";
-    const rows = applySort(s.matchups[matchupTab] || [], tableSort.matchups, {
+    const query = matchupSearch.trim().toLowerCase();
+    const sorted = applySort(s.matchups[matchupTab] || [], tableSort.matchups, {
       subject: (r) => r.subject,
       opponent: (r) => r.opponent,
       games: (r) => r.games,
@@ -753,14 +774,24 @@ function renderStats() {
       opponentMatchupImpact: (r) => r.opponentMatchupImpact,
       opponentNormalizedMatchupImpact: (r) => r.opponentNormalizedMatchupImpact,
     });
+    const rows = sorted.filter((row) => {
+      if (!query) return true;
+      if (isDeckTab) {
+        return (
+          row.opponent.toLowerCase().includes(query) || row.subject.toLowerCase().includes(query)
+        );
+      }
+      return row.opponent.toLowerCase().includes(query);
+    });
 
     body = `
       ${subTabs(MATCHUP_TABS, matchupTab, "matchup-tab")}
-      ${
-        rows.length
-          ? `
+      <div class="filters inline matchup-filters">
+        <input type="search" id="matchup-search" class="input matchup-search" placeholder="${isDeckTab ? "Search decks" : "Search opponents"}" value="${escapeHtml(matchupSearch)}" />
+      </div>
       <table class="table compact sortable-table matchup-table">
         <thead><tr>
+          <th class="col-rank">#</th>
           ${isDeckTab ? sortHeader("matchups", "subject", "Deck", tableSort.matchups) : ""}
           ${sortHeader("matchups", "opponent", isDeckTab ? "Opponent Deck" : "Opponent", tableSort.matchups)}
           ${sortHeader("matchups", "games", "G", tableSort.matchups)}
@@ -774,25 +805,23 @@ function renderStats() {
         <tbody>
           ${rows
             .map(
-              (row) => `
+              (row, index) => `
             <tr>
+              <td class="col-rank">${index + 1}</td>
               ${isDeckTab ? `<td>${escapeHtml(row.subject)}</td>` : ""}
               <td>${escapeHtml(row.opponent)}</td>
               <td>${row.games}</td>
               <td>${row.wins}</td>
               <td>${pctCell(row.winRate)}</td>
-              <td>${impactCell(row.matchupImpact)}</td>
+              <td>${impactCell(row.matchupImpact, `${row.games} games · ${row.wins} wins`)}</td>
               <td>${impactCell(row.normalizedMatchupImpact)}</td>
-              <td>${impactCell(row.opponentMatchupImpact)}</td>
+              <td>${impactCell(row.opponentMatchupImpact, `${row.games} games · ${row.opponentWins} wins`)}</td>
               <td>${impactCell(row.opponentNormalizedMatchupImpact)}</td>
             </tr>`
             )
             .join("")}
         </tbody>
-      </table>
-      <p class="hint matchup-hint">Your stats vs each opponent. Opp MI/NMI shows their record against you — both negative often means shared losses (neither of you winning).</p>`
-          : `<p class="hint">Log games with pod players (and ideally winning seat) to build matchup stats.</p>`
-      }`;
+      </table>`;
   }
 
   return `<section class="section">${subTabs(STATS_TABS, statsTab, "stats-tab")}${body}</section>`;
