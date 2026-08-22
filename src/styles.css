@@ -647,7 +647,8 @@ button.year-chip.active,
 
 .trends-chart-wrap {
   position: relative;
-  margin-bottom: 1.5rem;
+  width: 100%;
+  margin-top: 1.75rem;
 }
 
 .trends-chart-title {
@@ -658,7 +659,7 @@ button.year-chip.active,
 
 .trends-chart {
   width: 100%;
-  max-width: 760px;
+  max-width: none;
   height: auto;
   display: block;
 }
@@ -684,14 +685,20 @@ button.year-chip.active,
   stroke-linecap: round;
 }
 
-.trends-point {
-  fill: var(--accent);
-  stroke: var(--surface);
-  stroke-width: 2;
+.trends-point-hit {
+  fill: transparent;
+  stroke: none;
+  pointer-events: all;
   cursor: pointer;
 }
 
-.trends-point:hover {
+.trends-point {
+  fill: var(--accent);
+  stroke: none;
+  pointer-events: none;
+}
+
+.trends-point-group.active .trends-point {
   fill: var(--text);
 }
 
