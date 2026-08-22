@@ -741,6 +741,7 @@ function renderStats() {
         </div>`;
     }
   } else if (statsTab === "matchups") {
+    const isDeckTab = matchupTab === "decks";
     const rows = applySort(s.matchups[matchupTab] || [], tableSort.matchups, {
       subject: (r) => r.subject,
       opponent: (r) => r.opponent,
@@ -749,6 +750,8 @@ function renderStats() {
       winRate: (r) => r.winRate,
       matchupImpact: (r) => r.matchupImpact,
       normalizedMatchupImpact: (r) => r.normalizedMatchupImpact,
+      opponentMatchupImpact: (r) => r.opponentMatchupImpact,
+      opponentNormalizedMatchupImpact: (r) => r.opponentNormalizedMatchupImpact,
     });
 
     body = `
@@ -758,32 +761,36 @@ function renderStats() {
           ? `
       <table class="table compact sortable-table matchup-table">
         <thead><tr>
-          ${sortHeader("matchups", "subject", "Subject", tableSort.matchups)}
-          ${sortHeader("matchups", "opponent", "Opponent", tableSort.matchups)}
+          ${isDeckTab ? sortHeader("matchups", "subject", "Deck", tableSort.matchups) : ""}
+          ${sortHeader("matchups", "opponent", isDeckTab ? "Opponent Deck" : "Opponent", tableSort.matchups)}
           ${sortHeader("matchups", "games", "G", tableSort.matchups)}
           ${sortHeader("matchups", "wins", "W", tableSort.matchups)}
           ${sortHeader("matchups", "winRate", "WR", tableSort.matchups)}
           ${sortHeader("matchups", "matchupImpact", "MI", tableSort.matchups)}
           ${sortHeader("matchups", "normalizedMatchupImpact", "NMI", tableSort.matchups)}
+          ${sortHeader("matchups", "opponentMatchupImpact", "Opp MI", tableSort.matchups)}
+          ${sortHeader("matchups", "opponentNormalizedMatchupImpact", "Opp NMI", tableSort.matchups)}
         </tr></thead>
         <tbody>
           ${rows
             .map(
               (row) => `
             <tr>
-              <td>${escapeHtml(row.subject)}</td>
+              ${isDeckTab ? `<td>${escapeHtml(row.subject)}</td>` : ""}
               <td>${escapeHtml(row.opponent)}</td>
               <td>${row.games}</td>
               <td>${row.wins}</td>
               <td>${pctCell(row.winRate)}</td>
               <td>${impactCell(row.matchupImpact)}</td>
               <td>${impactCell(row.normalizedMatchupImpact)}</td>
+              <td>${impactCell(row.opponentMatchupImpact)}</td>
+              <td>${impactCell(row.opponentNormalizedMatchupImpact)}</td>
             </tr>`
             )
             .join("")}
         </tbody>
       </table>
-      <p class="hint matchup-hint">MI and NMI use 30CCSTAT formulas: pod baseline 25%, prior 6.25 wins / 25 games, shared losses weighted at 20%.</p>`
+      <p class="hint matchup-hint">Your stats vs each opponent. Opp MI/NMI shows their record against you — both negative often means shared losses (neither of you winning).</p>`
           : `<p class="hint">Log games with pod players (and ideally winning seat) to build matchup stats.</p>`
       }`;
   }

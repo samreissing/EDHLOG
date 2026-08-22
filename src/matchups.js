@@ -20,6 +20,10 @@ function normalizeKey(value) {
     .toLowerCase();
 }
 
+function isMySeat(seat) {
+  return normalizeKey(seat.player) === normalizeKey(MY_PLAYER_NAME);
+}
+
 /** @param {import('./store.js').Game} game */
 export function parseGameSeats(game) {
   /** @type {GameSeat[]} */
@@ -64,13 +68,23 @@ function winnerSeatForGame(game) {
   return 0;
 }
 
-/** @param {GameSeat} seat @param {'players' | 'decks'} tabId */
-function entityKeys(seat, tabId) {
+/** @param {GameSeat} mySeat @param {GameSeat} opponentSeat @param {'players' | 'decks'} tabId */
+function matchupPairKeys(mySeat, opponentSeat, tabId) {
   if (tabId === "players") {
-    return [{ key: `p:${normalizeKey(seat.player)}`, label: seat.player }];
+    return {
+      subjectKey: `p:${normalizeKey(mySeat.player)}`,
+      subjectLabel: mySeat.player,
+      opponentKey: `p:${normalizeKey(opponentSeat.player)}`,
+      opponentLabel: opponentSeat.player,
+    };
   }
-  const commander = seat.commander || seat.deck;
-  return [{ key: `dc:${normalizeKey(commander)}`, label: commander }];
+
+  return {
+    subjectKey: `d:${normalizeKey(mySeat.deck)}`,
+    subjectLabel: mySeat.deck,
+    opponentKey: `dc:${normalizeKey(opponentSeat.commander)}`,
+    opponentLabel: opponentSeat.commander,
+  };
 }
 
 export function calcMatchupImpact(wins, losses, sharedLosses) {
@@ -81,6 +95,22 @@ export function calcMatchupImpact(wins, losses, sharedLosses) {
 export function calcNormalizedMatchupImpact(wins, games) {
   const normalizedWinRate = (wins + MATCHUP_PRIOR_WINS) / (games + MATCHUP_PRIOR_GAMES);
   return normalizedWinRate - MATCHUP_BASELINE;
+}
+
+function finalizeMatchupRow(row) {
+  const winRateVal = row.games > 0 ? winRate(row.wins, row.games) : 0;
+  const normalizedWinRate =
+    (row.wins + MATCHUP_PRIOR_WINS) / (row.games + MATCHUP_PRIOR_GAMES);
+  const matchupImpact = calcMatchupImpact(row.wins, row.losses, row.sharedLosses);
+  const normalizedMatchupImpact = calcNormalizedMatchupImpact(row.wins, row.games);
+
+  return {
+    ...row,
+    winRate: winRateVal,
+    normalizedWinRate,
+    matchupImpact,
+    normalizedMatchupImpact,
+  };
 }
 
 export function formatMatchupImpact(value) {
@@ -96,69 +126,66 @@ export function matchupImpactClass(value) {
 }
 
 /**
- * Build matchup rows the same way 30CCSTAT does: every ordered pair of entities
- * in the same pod counts one game (subject win / opponent win / shared loss).
+ * Matchups from Brass's perspective only: me vs players, or my deck vs opponent decks.
  * @param {import('./store.js').Game[]} games
  * @param {'players' | 'decks'} tabId
  */
-export function buildMatchupRows(games, tabId) {
+export function buildMyMatchupRows(games, tabId) {
   const rows = new Map();
 
   for (const game of games) {
     const seats = parseGameSeats(game);
     if (seats.length < 2) continue;
 
-    for (const subjectSeat of seats) {
-      for (const opponentSeat of seats) {
-        if (subjectSeat === opponentSeat) continue;
+    const mySeat = seats.find(isMySeat);
+    if (!mySeat) continue;
 
-        const subjectKeys = entityKeys(subjectSeat, tabId);
-        const opponentKeys = entityKeys(opponentSeat, tabId);
+    for (const opponentSeat of seats) {
+      if (opponentSeat === mySeat) continue;
 
-        for (const subject of subjectKeys) {
-          for (const opponent of opponentKeys) {
-            if (subject.key === opponent.key) continue;
+      const { subjectKey, subjectLabel, opponentKey, opponentLabel } = matchupPairKeys(
+        mySeat,
+        opponentSeat,
+        tabId
+      );
+      if (subjectKey === opponentKey) continue;
 
-            const mapKey = `${subject.key}__${opponent.key}`;
-            const row =
-              rows.get(mapKey) ??
-              ({
-                subjectKey: subject.key,
-                opponentKey: opponent.key,
-                subject: subject.label,
-                opponent: opponent.label,
-                games: 0,
-                wins: 0,
-                losses: 0,
-                sharedLosses: 0,
-              });
+      const mapKey = `${subjectKey}__${opponentKey}`;
+      const row =
+        rows.get(mapKey) ??
+        ({
+          subjectKey,
+          opponentKey,
+          subject: subjectLabel,
+          opponent: opponentLabel,
+          games: 0,
+          wins: 0,
+          losses: 0,
+          sharedLosses: 0,
+        });
 
-            row.games += 1;
-            if (subjectSeat.didWin) row.wins += 1;
-            else if (opponentSeat.didWin) row.losses += 1;
-            else row.sharedLosses += 1;
+      row.games += 1;
+      if (mySeat.didWin) row.wins += 1;
+      else if (opponentSeat.didWin) row.losses += 1;
+      else row.sharedLosses += 1;
 
-            rows.set(mapKey, row);
-          }
-        }
-      }
+      rows.set(mapKey, row);
     }
   }
 
-  return [...rows.values()]
-    .map((row) => {
-      const winRateVal = row.games > 0 ? winRate(row.wins, row.games) : 0;
-      const normalizedWinRate =
-        (row.wins + MATCHUP_PRIOR_WINS) / (row.games + MATCHUP_PRIOR_GAMES);
-      const matchupImpact = calcMatchupImpact(row.wins, row.losses, row.sharedLosses);
-      const normalizedMatchupImpact = calcNormalizedMatchupImpact(row.wins, row.games);
+  const finalized = [...rows.values()].map(finalizeMatchupRow);
+  const reverseLookup = new Map(
+    finalized.map((row) => [`${row.opponentKey}__${row.subjectKey}`, row])
+  );
 
+  return finalized
+    .map((row) => {
+      const reverse = reverseLookup.get(`${row.opponentKey}__${row.subjectKey}`);
       return {
         ...row,
-        winRate: winRateVal,
-        normalizedWinRate,
-        matchupImpact,
-        normalizedMatchupImpact,
+        opponentMatchupImpact: reverse?.matchupImpact ?? -row.normalizedMatchupImpact,
+        opponentNormalizedMatchupImpact:
+          reverse?.normalizedMatchupImpact ?? -row.normalizedMatchupImpact,
       };
     })
     .sort((a, b) => {
@@ -168,7 +195,7 @@ export function buildMatchupRows(games, tabId) {
       if (b.matchupImpact !== a.matchupImpact) {
         return b.matchupImpact - a.matchupImpact;
       }
-      if (a.subject !== b.subject) {
+      if (tabId === "decks" && a.subject !== b.subject) {
         return a.subject.localeCompare(b.subject, undefined, { numeric: true });
       }
       return a.opponent.localeCompare(b.opponent, undefined, { numeric: true });
@@ -178,7 +205,7 @@ export function buildMatchupRows(games, tabId) {
 /** @param {import('./store.js').Game[]} games */
 export function computeAllMatchups(games) {
   return {
-    players: buildMatchupRows(games, "players"),
-    decks: buildMatchupRows(games, "decks"),
+    players: buildMyMatchupRows(games, "players"),
+    decks: buildMyMatchupRows(games, "decks"),
   };
 }
