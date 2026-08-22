@@ -97,10 +97,13 @@ export function renderWinRateLineChart(series, title = "") {
   const dots = points
     .map(
       (p) => `
-      <circle class="trends-point" cx="${p.x}" cy="${p.y}" r="4"
+      <g class="trends-point-group"
         data-wr="${p.winRate}" data-day-wr="${p.dayWinRate}" data-games="${p.games}" data-wins="${p.wins}"
         data-day-games="${p.dayGames}" data-day-wins="${p.dayWins}"
-        data-date="${escAttr(p.date)}" data-index="${p.index}" />
+        data-date="${escAttr(p.date)}" data-index="${p.index}">
+        <circle class="trends-point-hit" cx="${p.x}" cy="${p.y}" r="10" />
+        <circle class="trends-point" cx="${p.x}" cy="${p.y}" r="3" />
+      </g>
     `
     )
     .join("");
@@ -130,31 +133,48 @@ function escAttr(str) {
 export function bindWinRateLineCharts() {
   document.querySelectorAll(".trends-chart-wrap").forEach((wrap) => {
     const tip = wrap.querySelector(".trends-chart-tip");
-    if (!tip) return;
+    const svg = wrap.querySelector(".trends-chart");
+    if (!tip || !svg) return;
 
-    wrap.querySelectorAll(".trends-point").forEach((point) => {
-      point.addEventListener("mouseenter", () => {
-        const wr = Number(point.dataset.wr);
-        const dayWr = Number(point.dataset.dayWr);
-        const dayGames = Number(point.dataset.dayGames);
-        const dayWins = Number(point.dataset.dayWins);
+    wrap.querySelectorAll(".trends-point-group").forEach((group) => {
+      const point = group.querySelector(".trends-point");
+      if (!point) return;
+
+      const showTip = () => {
+        const wr = Number(group.dataset.wr);
+        const dayWr = Number(group.dataset.dayWr);
+        const dayGames = Number(group.dataset.dayGames);
+        const dayWins = Number(group.dataset.dayWins);
         tip.hidden = false;
+        group.classList.add("active");
+        point.setAttribute("r", "5");
 
-        const dateLabel = formatDate(point.dataset.date);
+        const dateLabel = formatDate(group.dataset.date);
         const dayLine =
           dayGames > 1
             ? `${dayWins}W / ${dayGames}G · ${pct(dayWr)} that day`
             : `${dayWins === 1 ? "Win" : "Loss"} that day`;
-        tip.innerHTML = `${dateLabel}<br>${dayLine}<br>Overall ${pct(wr)} (${point.dataset.wins}/${point.dataset.games})`;
+        tip.innerHTML = `${dateLabel}<br>${dayLine}<br>Overall ${pct(wr)} (${group.dataset.wins}/${group.dataset.games})`;
 
         const cx = Number(point.getAttribute("cx"));
         const cy = Number(point.getAttribute("cy"));
-        tip.style.left = `${cx}px`;
-        tip.style.top = `${cy}px`;
-      });
-      point.addEventListener("mouseleave", () => {
+        const pt = svg.createSVGPoint();
+        pt.x = cx;
+        pt.y = cy;
+        const screen = pt.matrixTransform(svg.getScreenCTM());
+        const wrapRect = wrap.getBoundingClientRect();
+        tip.style.left = `${screen.x - wrapRect.left}px`;
+        tip.style.top = `${screen.y - wrapRect.top}px`;
+      };
+
+      const hideTip = () => {
         tip.hidden = true;
-      });
+        group.classList.remove("active");
+        point.setAttribute("r", "3");
+      };
+
+      group.addEventListener("mouseenter", showTip);
+      group.addEventListener("mouseleave", hideTip);
     });
   });
 }

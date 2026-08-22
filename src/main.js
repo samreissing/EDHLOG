@@ -802,7 +802,6 @@ function renderStats() {
       });
 
       body = `
-        ${chart}
         <h3 class="section-sub">By Year</h3>
         <div class="year-row">
           ${s.yearStats
@@ -859,7 +858,8 @@ function renderStats() {
               </tbody>
             </table>
           </div>
-        </div>`;
+        </div>
+        ${chart}`;
     }
   } else if (statsTab === "matchups") {
     const isDeckTab = matchupTab === "decks";
