@@ -52,7 +52,7 @@ import {
 import {
   computeSeatStats,
   gamesForSeatSeries,
-  getGameDateBounds,
+  getSeatDateBounds,
   SEAT_COLORS,
 } from "./seats.js";
 
@@ -588,8 +588,10 @@ function isTrendsYearActive(yearRow) {
   return trendsFilter.kind === "year" && trendsFilter.year === yearRow.year;
 }
 
+let lastMatchupDeckRows = [];
+
 function getEffectiveSeatRange(games) {
-  const bounds = getGameDateBounds(games);
+  const bounds = getSeatDateBounds(games);
   if (!seatRange.customized) {
     return { start: bounds.min, end: bounds.max, bounds };
   }
@@ -602,30 +604,52 @@ function getEffectiveSeatRange(games) {
   };
 }
 
+function bindHoverTip(tip, triggers, getContent) {
+  if (!tip) return;
+
+  triggers.forEach((el) => {
+    const content = getContent(el);
+    if (!content) return;
+
+    const showTip = (e) => {
+      tip.hidden = false;
+      tip.innerHTML = content;
+      tip.style.left = `${e.clientX + 12}px`;
+      tip.style.top = `${e.clientY + 12}px`;
+    };
+
+    el.addEventListener("mouseenter", showTip);
+    el.addEventListener("mousemove", showTip);
+    el.addEventListener("mouseleave", () => {
+      tip.hidden = true;
+    });
+  });
+}
+
+function formatPlayerBreakdownTip(breakdown) {
+  if (!breakdown?.length) return "";
+  return breakdown.map((row) => `${escapeHtml(row.player)}: ${row.games}`).join("<br>");
+}
+
 function bindDeckOpponentTips() {
   const tip = document.getElementById("deck-opponent-tip");
   if (!tip) return;
 
   const byName = new Map(getStats().deckStats.map((d) => [d.name, d]));
 
-  document.querySelectorAll(".deck-opponent-trigger").forEach((btn) => {
+  bindHoverTip(tip, document.querySelectorAll(".deck-opponent-trigger"), (btn) => {
     const deck = byName.get(btn.dataset.deckDetail);
-    if (!deck?.opponentBreakdown?.length) return;
+    return formatPlayerBreakdownTip(deck?.opponentBreakdown);
+  });
+}
 
-    const showTip = (e) => {
-      tip.hidden = false;
-      tip.innerHTML = deck.opponentBreakdown
-        .map((row) => `${escapeHtml(row.player)}: ${row.games}`)
-        .join("<br>");
-      tip.style.left = `${e.clientX + 12}px`;
-      tip.style.top = `${e.clientY + 12}px`;
-    };
+function bindMatchupDeckTips() {
+  const tip = document.getElementById("matchup-deck-tip");
+  if (!tip) return;
 
-    btn.addEventListener("mouseenter", showTip);
-    btn.addEventListener("mousemove", showTip);
-    btn.addEventListener("mouseleave", () => {
-      tip.hidden = true;
-    });
+  bindHoverTip(tip, document.querySelectorAll(".matchup-deck-tip-trigger"), (el) => {
+    const row = lastMatchupDeckRows[Number(el.dataset.matchupRowIndex)];
+    return formatPlayerBreakdownTip(row?.opponentPlayerBreakdown);
   });
 }
 
@@ -663,6 +687,9 @@ function render() {
     bindWinRateLineCharts();
   }
   if (currentView === "decks") bindDeckOpponentTips();
+  if (currentView === "stats" && statsTab === "matchups" && matchupTab === "decks") {
+    bindMatchupDeckTips();
+  }
   if (gameModalOpen) {
     syncPodFormSeats();
     syncResultFromSeats();
@@ -947,7 +974,7 @@ function renderStats() {
         ${chart}`;
     }
   } else if (statsTab === "seats") {
-    const bounds = getGameDateBounds(data.games);
+    const bounds = getSeatDateBounds(data.games);
     const range = getEffectiveSeatRange(data.games);
     const seatStats = computeSeatStats(data.games);
     const seatChart =
@@ -1007,6 +1034,7 @@ function renderStats() {
       }
       return row.opponent.toLowerCase().includes(query);
     });
+    lastMatchupDeckRows = isDeckTab ? rows : [];
 
     body = `
       ${subTabs(MATCHUP_TABS, matchupTab, "matchup-tab")}
@@ -1029,11 +1057,11 @@ function renderStats() {
         <tbody>
           ${rows
             .map(
-              (row) => `
+              (row, rowIndex) => `
             <tr>
               <td class="col-rank">${row.rank}</td>
-              ${isDeckTab ? `<td>${escapeHtml(row.subject)}</td>` : ""}
-              <td>${escapeHtml(row.opponent)}</td>
+              ${isDeckTab ? `<td><span class="matchup-deck-tip-trigger ${row.opponentPlayerBreakdown?.length ? "has-tip" : ""}" data-matchup-row-index="${rowIndex}">${escapeHtml(row.subject)}</span></td>` : ""}
+              <td><span class="matchup-deck-tip-trigger ${row.opponentPlayerBreakdown?.length ? "has-tip" : ""}" data-matchup-row-index="${rowIndex}">${escapeHtml(row.opponent)}</span></td>
               <td>${row.games}</td>
               <td>${row.wins}</td>
               <td>${pctCell(row.winRate)}</td>
@@ -1045,7 +1073,8 @@ function renderStats() {
             )
             .join("")}
         </tbody>
-      </table>`;
+      </table>
+      ${isDeckTab ? `<div id="matchup-deck-tip" class="deck-opponent-tip" hidden></div>` : ""}`;
   }
 
   return `<section class="section">${subTabs(STATS_TABS, statsTab, "stats-tab")}${body}</section>`;
