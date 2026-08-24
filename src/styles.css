@@ -668,8 +668,7 @@ button.year-chip.active,
 
 .trends-line-series,
 .trends-point-series {
-  stroke: var(--series-color, var(--accent));
-  fill: var(--series-color, var(--accent));
+  pointer-events: auto;
 }
 
 .trends-line-series {
@@ -679,12 +678,12 @@ button.year-chip.active,
   stroke-linecap: round;
 }
 
-.trends-line.trends-line-series {
-  stroke: var(--series-color, var(--accent));
+.trends-point-series {
+  stroke: none;
 }
 
 .trends-point-group.active .trends-point-series {
-  fill: var(--text);
+  filter: brightness(1.25);
 }
 
 .trends-chart-legend {

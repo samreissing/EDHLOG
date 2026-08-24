@@ -261,6 +261,13 @@ function bindEvents() {
       return;
     }
 
+    const trendsAllBtn = e.target.closest("[data-trends-all]");
+    if (trendsAllBtn) {
+      trendsFilter = { kind: "all" };
+      render();
+      return;
+    }
+
     const matchupBtn = e.target.closest("[data-matchup-tab]");
     if (matchupBtn) {
       matchupTab = matchupBtn.getAttribute("data-matchup-tab");
@@ -916,6 +923,10 @@ function renderStats() {
       body = `
         <h3 class="section-sub">By Year</h3>
         <div class="year-row">
+          <button type="button" class="year-chip trends-selectable ${trendsFilter.kind === "all" ? "active" : ""}" data-trends-all>
+            <strong>All Time</strong>
+            <span>${s.overview.games}g · ${s.overview.wins}w · ${pctCell(s.overview.winRate)}</span>
+          </button>
           ${s.yearStats
             .map(
               (y) => `
