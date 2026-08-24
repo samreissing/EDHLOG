@@ -104,6 +104,11 @@ function finalizeMatchupRow(row) {
     (row.wins + MATCHUP_PRIOR_WINS) / (row.games + MATCHUP_PRIOR_GAMES);
   const normalizedOpponentWinRate =
     (opponentWins + MATCHUP_PRIOR_WINS) / (row.games + MATCHUP_PRIOR_GAMES);
+  const opponentPlayerBreakdown = row.opponentPlayers
+    ? [...row.opponentPlayers.entries()]
+        .map(([player, games]) => ({ player, games }))
+        .sort((a, b) => b.games - a.games || a.player.localeCompare(b.player))
+    : [];
 
   return {
     ...row,
@@ -111,6 +116,7 @@ function finalizeMatchupRow(row) {
     normalizedWinRate,
     opponentWins,
     opponentWinRate,
+    opponentPlayerBreakdown,
     matchupImpact: calcMatchupImpact(row.wins, row.games),
     normalizedMatchupImpact: calcNormalizedMatchupImpact(row.wins, row.games),
     opponentMatchupImpact: calcMatchupImpact(opponentWins, row.games),
@@ -168,12 +174,20 @@ export function buildMyMatchupRows(games, tabId) {
           wins: 0,
           losses: 0,
           sharedLosses: 0,
+          opponentPlayers: tabId === "decks" ? new Map() : undefined,
         });
 
       row.games += 1;
       if (mySeat.didWin) row.wins += 1;
       else if (opponentSeat.didWin) row.losses += 1;
       else row.sharedLosses += 1;
+
+      if (tabId === "decks" && opponentSeat.player && row.opponentPlayers) {
+        row.opponentPlayers.set(
+          opponentSeat.player,
+          (row.opponentPlayers.get(opponentSeat.player) || 0) + 1
+        );
+      }
 
       rows.set(mapKey, row);
     }
