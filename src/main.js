@@ -46,12 +46,14 @@ import {
 import {
   computeWinRateSeries,
   renderWinRateLineChart,
+  renderMultiWinRateLineChart,
   bindWinRateLineCharts,
 } from "./trends-chart.js";
 import {
   computeSeatStats,
   gamesForSeatSeries,
   getGameDateBounds,
+  SEAT_COLORS,
 } from "./seats.js";
 
 const VIEWS = [
@@ -83,7 +85,7 @@ let matchupTab = "players";
 let matchupSearch = "";
 /** @type {{ kind: 'all' } | { kind: 'window', rangeStart: number, rangeEnd: number } | { kind: 'cumulative', rangeEnd: number } | { kind: 'year', year: string }} */
 let trendsFilter = { kind: "all" };
-let selectedSeat = null;
+let selectedSeats = [];
 let seatRange = { start: null, end: null, customized: false };
 let decksTab = "active";
 let gameModalOpen = false;
@@ -150,7 +152,7 @@ function bindEvents() {
       statsTab = "overview";
       statsBracketFilter = "";
       trendsFilter = { kind: "all" };
-      selectedSeat = null;
+      selectedSeats = [];
       seatRange = { start: null, end: null, customized: false };
     }
     if (currentView === "decks") {
@@ -276,7 +278,11 @@ function bindEvents() {
     const seatToggleBtn = e.target.closest("[data-seat-toggle]");
     if (seatToggleBtn) {
       const seat = Number(seatToggleBtn.dataset.seatToggle);
-      selectedSeat = selectedSeat === seat ? null : seat;
+      if (selectedSeats.includes(seat)) {
+        selectedSeats = selectedSeats.filter((s) => s !== seat);
+      } else {
+        selectedSeats = [...selectedSeats, seat].sort((a, b) => a - b);
+      }
       render();
       return;
     }
@@ -945,12 +951,17 @@ function renderStats() {
     const range = getEffectiveSeatRange(data.games);
     const seatStats = computeSeatStats(data.games);
     const seatChart =
-      selectedSeat && range.start <= range.end
-        ? renderWinRateLineChart(
-            computeWinRateSeries(
-              gamesForSeatSeries(data.games, selectedSeat, range.start, range.end)
-            ),
-            `Seat ${selectedSeat} win rate`
+      selectedSeats.length && range.start <= range.end
+        ? renderMultiWinRateLineChart(
+            selectedSeats.map((seat) => ({
+              id: seat,
+              label: `Seat ${seat}`,
+              color: SEAT_COLORS[seat],
+              series: computeWinRateSeries(
+                gamesForSeatSeries(data.games, seat, range.start, range.end)
+              ),
+            })),
+            range
           )
         : "";
 
@@ -959,8 +970,8 @@ function renderStats() {
         ${seatStats
           .map(
             (seat) => `
-          <button type="button" class="seat-toggle ${selectedSeat === seat.seat ? "active" : ""}"
-            data-seat-toggle="${seat.seat}">
+          <button type="button" class="seat-toggle ${selectedSeats.includes(seat.seat) ? "active" : ""}"
+            data-seat-toggle="${seat.seat}" style="--seat-color:${SEAT_COLORS[seat.seat]}">
             <strong>${seat.label}</strong>
             <span>${seat.games}G · ${seat.wins}W · ${seat.games ? pctCell(seat.winRate) : "—"}</span>
           </button>`

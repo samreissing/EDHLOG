@@ -1,14 +1,17 @@
 import { compareGamesChronologically, normalizeDate } from "./dates.js";
 import { winRate } from "./stats.js";
 
+export const SEAT_COLORS = {
+  1: "#e6a756",
+  2: "#5b9bd5",
+  3: "#c75b5b",
+  4: "#7bc96f",
+};
+
 /** @param {import('./store.js').Game} game */
-export function winnerSeatForGame(game) {
+export function explicitWinnerSeat(game) {
   if (game.winnerSeat) return Number(game.winnerSeat);
   if (game.mySeat && game.result === "Win") return Number(game.mySeat);
-  if (game.mySeat && game.result === "Loss") {
-    const occupied = getOccupiedSeats(game);
-    if (occupied.length === 1) return 0;
-  }
   return 0;
 }
 
@@ -25,6 +28,30 @@ export function getOccupiedSeats(game) {
 /** @param {import('./store.js').Game} game @param {number} seat */
 export function seatWasOccupied(game, seat) {
   return getOccupiedSeats(game).includes(seat);
+}
+
+/**
+ * @param {import('./store.js').Game} game
+ * @param {number} seat
+ * @returns {'win' | 'loss' | null}
+ */
+export function seatResultForGame(game, seat) {
+  if (!seatWasOccupied(game, seat)) return null;
+
+  const winner = explicitWinnerSeat(game);
+  if (winner) return winner === seat ? "win" : "loss";
+
+  const mySeat = game.mySeat ? Number(game.mySeat) : 0;
+  if (mySeat === seat) {
+    if (game.result === "Win") return "win";
+    if (game.result === "Loss") return "loss";
+  }
+
+  if (mySeat && game.result === "Win" && seat !== mySeat) {
+    return "loss";
+  }
+
+  return null;
 }
 
 /** @param {import('./store.js').Game[]} games */
@@ -45,13 +72,12 @@ export function computeSeatStats(games) {
   const seats = [1, 2, 3, 4].map((seat) => ({ seat, games: 0, wins: 0 }));
 
   for (const game of games) {
-    const winner = winnerSeatForGame(game);
-    if (!winner) continue;
-
     for (const seat of getOccupiedSeats(game)) {
+      const result = seatResultForGame(game, seat);
+      if (!result) continue;
       const slot = seats[seat - 1];
       slot.games += 1;
-      if (winner === seat) slot.wins += 1;
+      if (result === "win") slot.wins += 1;
     }
   }
 
@@ -77,12 +103,11 @@ export function gamesForSeatSeries(games, seat, startDate, endDate) {
     .filter((game) => {
       const date = normalizeDate(game.date) || game.date;
       if (date < start || date > end) return false;
-      if (!seatWasOccupied(game, seat)) return false;
-      return Boolean(winnerSeatForGame(game));
+      return seatResultForGame(game, seat) !== null;
     })
     .map((game) => ({
       date: game.date,
       deck: "",
-      result: winnerSeatForGame(game) === seat ? "Win" : "Loss",
+      result: seatResultForGame(game, seat) === "win" ? "Win" : "Loss",
     }));
 }
