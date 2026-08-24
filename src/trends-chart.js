@@ -177,13 +177,10 @@ function renderPointGroups(points, { seriesId = "", color = null } = {}) {
   const linePath = sortedPoints
     .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`)
     .join(" ");
-  const strokeAttr = color ? ` stroke="${escAttr(color)}"` : "";
-  const fillAttr = color ? ` fill="${escAttr(color)}"` : "";
 
   return {
     linePath,
-    strokeAttr,
-    fillAttr,
+    color,
     dots: sortedPoints
       .map(
         (p) => `
@@ -194,7 +191,7 @@ function renderPointGroups(points, { seriesId = "", color = null } = {}) {
         data-day-games="${p.dayGames}" data-day-wins="${p.dayWins}"
         data-date="${escAttr(p.date)}" data-index="${p.index}">
         <circle class="trends-point-hit" cx="${p.x}" cy="${p.y}" r="10" />
-        <circle class="${color ? "trends-point trends-point-series" : "trends-point"}" cx="${p.x}" cy="${p.y}" r="3"${fillAttr} />
+        <circle class="${color ? "trends-point trends-point-series" : "trends-point"}" cx="${p.x}" cy="${p.y}" r="3"${color ? ` style="fill: ${color}"` : ""} />
       </g>
     `
       )
@@ -278,7 +275,7 @@ export function renderMultiWinRateLineChart(seriesList, range, title = "") {
         ${renderedSeries
           .map(
             (entry) => `
-          <path class="trends-line-series" fill="none" stroke="${escAttr(entry.color)}" d="${entry.rendered.linePath}" />
+          <path class="trends-line-series" fill="none" style="stroke: ${entry.color}" d="${entry.rendered.linePath}" />
           ${entry.rendered.dots}`
           )
           .join("")}`,
