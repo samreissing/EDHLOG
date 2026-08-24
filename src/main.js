@@ -54,6 +54,8 @@ import {
   gamesForSeatSeries,
   getSeatDateBounds,
   SEAT_COLORS,
+  SEAT_VIEW_LABELS,
+  SEAT_VIEW_MODES,
 } from "./seats.js";
 
 const VIEWS = [
@@ -86,6 +88,7 @@ let matchupSearch = "";
 /** @type {{ kind: 'all' } | { kind: 'window', rangeStart: number, rangeEnd: number } | { kind: 'cumulative', rangeEnd: number } | { kind: 'year', year: string }} */
 let trendsFilter = { kind: "all" };
 let selectedSeats = [];
+let seatViewMode = "mine";
 let seatRange = { start: null, end: null, customized: false };
 let decksTab = "active";
 let gameModalOpen = false;
@@ -153,6 +156,7 @@ function bindEvents() {
       statsBracketFilter = "";
       trendsFilter = { kind: "all" };
       selectedSeats = [];
+      seatViewMode = "mine";
       seatRange = { start: null, end: null, customized: false };
     }
     if (currentView === "decks") {
@@ -290,6 +294,15 @@ function bindEvents() {
       } else {
         selectedSeats = [...selectedSeats, seat].sort((a, b) => a - b);
       }
+      render();
+      return;
+    }
+
+    const seatViewBtn = e.target.closest("[data-seat-view-cycle]");
+    if (seatViewBtn) {
+      const index = SEAT_VIEW_MODES.indexOf(seatViewMode);
+      seatViewMode = SEAT_VIEW_MODES[(index + 1) % SEAT_VIEW_MODES.length];
+      seatRange = { start: null, end: null, customized: false };
       render();
       return;
     }
@@ -598,7 +611,7 @@ function isTrendsYearActive(yearRow) {
 let lastMatchupDeckRows = [];
 
 function getEffectiveSeatRange(games) {
-  const bounds = getSeatDateBounds(games);
+  const bounds = getSeatDateBounds(games, seatViewMode);
   if (!seatRange.customized) {
     return { start: bounds.min, end: bounds.max, bounds };
   }
@@ -754,7 +767,7 @@ function renderPodium(podium) {
       <div class="podium-slot podium-${index + 1}">
         <span class="podium-rank">${labels[index]}</span>
         <strong class="podium-name">${escapeHtml(deck.name)}</strong>
-        <span class="podium-meta">${deck.wins}W · ${deck.games}G · ${pct(deck.winRate)}</span>
+        <span class="podium-meta">${deck.wins}W · ${deck.games}G · ${pct(deck.normalizedWr)} norm</span>
       </div>`
     )
     .join("")}</div>`;
@@ -985,9 +998,9 @@ function renderStats() {
         ${chart}`;
     }
   } else if (statsTab === "seats") {
-    const bounds = getSeatDateBounds(data.games);
+    const bounds = getSeatDateBounds(data.games, seatViewMode);
     const range = getEffectiveSeatRange(data.games);
-    const seatStats = computeSeatStats(data.games);
+    const seatStats = computeSeatStats(data.games, seatViewMode);
     const seatChart =
       selectedSeats.length && range.start <= range.end
         ? renderMultiWinRateLineChart(
@@ -996,7 +1009,7 @@ function renderStats() {
               label: `Seat ${seat}`,
               color: SEAT_COLORS[seat],
               series: computeWinRateSeries(
-                gamesForSeatSeries(data.games, seat, range.start, range.end)
+                gamesForSeatSeries(data.games, seat, range.start, range.end, seatViewMode)
               ),
             })),
             range
@@ -1005,6 +1018,9 @@ function renderStats() {
 
     body = `
       <div class="seat-toggle-row">
+        <button type="button" class="seat-toggle seat-view-toggle" data-seat-view-cycle title="Cycle seat perspective">
+          <strong>${SEAT_VIEW_LABELS[seatViewMode]}</strong>
+        </button>
         ${seatStats
           .map(
             (seat) => `
@@ -1024,17 +1040,27 @@ function renderStats() {
   } else if (statsTab === "matchups") {
     const isDeckTab = matchupTab === "decks";
     const query = matchupSearch.trim().toLowerCase();
-    const sorted = applySort(s.matchups[matchupTab] || [], tableSort.matchups, {
-      subject: (r) => r.subject,
-      opponent: (r) => r.opponent,
-      games: (r) => r.games,
-      wins: (r) => r.wins,
-      winRate: (r) => r.winRate,
-      matchupImpact: (r) => r.matchupImpact,
-      normalizedMatchupImpact: (r) => r.normalizedMatchupImpact,
-      opponentMatchupImpact: (r) => r.opponentMatchupImpact,
-      opponentNormalizedMatchupImpact: (r) => r.opponentNormalizedMatchupImpact,
-    });
+    const sorted = applySort(
+      s.matchups[matchupTab] || [],
+      tableSort.matchups,
+      {
+        subject: (r) => r.subject,
+        opponent: (r) => r.opponent,
+        games: (r) => r.games,
+        wins: (r) => r.wins,
+        winRate: (r) => r.winRate,
+        matchupImpact: (r) => r.matchupImpact,
+        normalizedMatchupImpact: (r) => r.normalizedMatchupImpact,
+        opponentMatchupImpact: (r) => r.opponentMatchupImpact,
+        opponentNormalizedMatchupImpact: (r) => r.opponentNormalizedMatchupImpact,
+      },
+      {
+        matchupImpact: "games",
+        normalizedMatchupImpact: "games",
+        opponentMatchupImpact: "games",
+        opponentNormalizedMatchupImpact: "games",
+      }
+    );
     const ranked = sorted.map((row, index) => ({ ...row, rank: index + 1 }));
     const rows = ranked.filter((row) => {
       if (!query) return true;

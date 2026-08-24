@@ -199,6 +199,9 @@ export function buildMyMatchupRows(games, tabId) {
       if (b.normalizedMatchupImpact !== a.normalizedMatchupImpact) {
         return b.normalizedMatchupImpact - a.normalizedMatchupImpact;
       }
+      if (b.games !== a.games) {
+        return b.games - a.games;
+      }
       if (b.matchupImpact !== a.matchupImpact) {
         return b.matchupImpact - a.matchupImpact;
       }

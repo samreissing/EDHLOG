@@ -112,7 +112,7 @@ export function computeBracketDetail(games, decks, bracketFilter = "") {
 
   const overview = computeOverview(filtered);
   const deckStats = computeDeckStats(decks, filtered).filter((d) => d.games > 0);
-  const podium = sortDeckList(deckStats, "wins", "desc").slice(0, 3);
+  const podium = sortDeckList(deckStats, "normWr", "desc").slice(0, 3);
 
   const winTurns = filtered
     .filter((g) => g.result === "Win" && Number(g.turn) > 0)
