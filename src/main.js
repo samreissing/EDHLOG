@@ -48,6 +48,11 @@ import {
   renderWinRateLineChart,
   bindWinRateLineCharts,
 } from "./trends-chart.js";
+import {
+  computeSeatStats,
+  gamesForSeatSeries,
+  getGameDateBounds,
+} from "./seats.js";
 
 const VIEWS = [
   { id: "stats", label: "Stats" },
@@ -60,6 +65,7 @@ const STATS_TABS = [
   { id: "colors", label: "Colors" },
   { id: "brackets", label: "Brackets" },
   { id: "trends", label: "Trends" },
+  { id: "seats", label: "Seats" },
   { id: "matchups", label: "Matchups" },
 ];
 
@@ -77,6 +83,8 @@ let matchupTab = "players";
 let matchupSearch = "";
 /** @type {{ kind: 'all' } | { kind: 'window', rangeStart: number, rangeEnd: number } | { kind: 'cumulative', rangeEnd: number } | { kind: 'year', year: string }} */
 let trendsFilter = { kind: "all" };
+let selectedSeat = null;
+let seatRange = { start: null, end: null, customized: false };
 let decksTab = "active";
 let gameModalOpen = false;
 let viewingGameId = null;
@@ -138,10 +146,24 @@ function bindEvents() {
     const btn = e.target.closest("[data-view]");
     if (!btn) return;
     currentView = btn.dataset.view;
+    if (currentView === "stats") {
+      statsTab = "overview";
+      statsBracketFilter = "";
+      trendsFilter = { kind: "all" };
+      selectedSeat = null;
+      seatRange = { start: null, end: null, customized: false };
+    }
+    if (currentView === "decks") {
+      decksTab = "active";
+      deckBracketFilter = "";
+      selectedDeckName = null;
+      editingDeckName = null;
+    }
     if (currentView === "games") {
       gameModalOpen = false;
       editingGameId = null;
       viewingGameId = null;
+      logFilters = { deck: "", result: "", year: "" };
     }
     if (currentView !== "decks") {
       selectedDeckName = null;
@@ -154,6 +176,11 @@ function bindEvents() {
   document.getElementById("main").addEventListener("input", (e) => {
     if (e.target.id === "matchup-search") {
       matchupSearch = e.target.value;
+      render();
+    } else if (e.target.id === "seat-range-start" || e.target.id === "seat-range-end") {
+      seatRange.customized = true;
+      seatRange.start = document.getElementById("seat-range-start")?.value || null;
+      seatRange.end = document.getElementById("seat-range-end")?.value || null;
       render();
     }
   });
@@ -242,6 +269,14 @@ function bindEvents() {
     const statsBtn = e.target.closest("[data-stats-tab]");
     if (statsBtn) {
       statsTab = statsBtn.getAttribute("data-stats-tab");
+      render();
+      return;
+    }
+
+    const seatToggleBtn = e.target.closest("[data-seat-toggle]");
+    if (seatToggleBtn) {
+      const seat = Number(seatToggleBtn.dataset.seatToggle);
+      selectedSeat = selectedSeat === seat ? null : seat;
       render();
       return;
     }
@@ -547,6 +582,47 @@ function isTrendsYearActive(yearRow) {
   return trendsFilter.kind === "year" && trendsFilter.year === yearRow.year;
 }
 
+function getEffectiveSeatRange(games) {
+  const bounds = getGameDateBounds(games);
+  if (!seatRange.customized) {
+    return { start: bounds.min, end: bounds.max, bounds };
+  }
+  const start = seatRange.start || bounds.min;
+  const end = seatRange.end || bounds.max;
+  return {
+    start: start < bounds.min ? bounds.min : start,
+    end: end > bounds.max ? bounds.max : end,
+    bounds,
+  };
+}
+
+function bindDeckOpponentTips() {
+  const tip = document.getElementById("deck-opponent-tip");
+  if (!tip) return;
+
+  const byName = new Map(getStats().deckStats.map((d) => [d.name, d]));
+
+  document.querySelectorAll(".deck-opponent-trigger").forEach((btn) => {
+    const deck = byName.get(btn.dataset.deckDetail);
+    if (!deck?.opponentBreakdown?.length) return;
+
+    const showTip = (e) => {
+      tip.hidden = false;
+      tip.innerHTML = deck.opponentBreakdown
+        .map((row) => `${escapeHtml(row.player)}: ${row.games}`)
+        .join("<br>");
+      tip.style.left = `${e.clientX + 12}px`;
+      tip.style.top = `${e.clientY + 12}px`;
+    };
+
+    btn.addEventListener("mouseenter", showTip);
+    btn.addEventListener("mousemove", showTip);
+    btn.addEventListener("mouseleave", () => {
+      tip.hidden = true;
+    });
+  });
+}
+
 function getStats() {
   const deckStats = computeDeckStats(data.decks, data.games);
   const overview = computeOverview(data.games);
@@ -577,7 +653,10 @@ function render() {
 
   if (currentView === "games") applyLogFilters();
   bindPieCharts();
-  if (currentView === "stats" && statsTab === "trends") bindWinRateLineCharts();
+  if (currentView === "stats" && (statsTab === "trends" || statsTab === "seats")) {
+    bindWinRateLineCharts();
+  }
+  if (currentView === "decks") bindDeckOpponentTips();
   if (gameModalOpen) {
     syncPodFormSeats();
     syncResultFromSeats();
@@ -861,6 +940,38 @@ function renderStats() {
         </div>
         ${chart}`;
     }
+  } else if (statsTab === "seats") {
+    const bounds = getGameDateBounds(data.games);
+    const range = getEffectiveSeatRange(data.games);
+    const seatStats = computeSeatStats(data.games);
+    const seatChart =
+      selectedSeat && range.start <= range.end
+        ? renderWinRateLineChart(
+            computeWinRateSeries(
+              gamesForSeatSeries(data.games, selectedSeat, range.start, range.end)
+            ),
+            `Seat ${selectedSeat} win rate`
+          )
+        : "";
+
+    body = `
+      <div class="seat-toggle-row">
+        ${seatStats
+          .map(
+            (seat) => `
+          <button type="button" class="seat-toggle ${selectedSeat === seat.seat ? "active" : ""}"
+            data-seat-toggle="${seat.seat}">
+            <strong>${seat.label}</strong>
+            <span>${seat.games}G · ${seat.wins}W · ${seat.games ? pctCell(seat.winRate) : "—"}</span>
+          </button>`
+          )
+          .join("")}
+      </div>
+      <div class="filters inline seat-range-filters">
+        <label>From <input type="date" id="seat-range-start" min="${bounds.min}" max="${bounds.max}" value="${range.start}" /></label>
+        <label>To <input type="date" id="seat-range-end" min="${bounds.min}" max="${bounds.max}" value="${range.end}" /></label>
+      </div>
+      ${seatChart}`;
   } else if (statsTab === "matchups") {
     const isDeckTab = matchupTab === "decks";
     const query = matchupSearch.trim().toLowerCase();
@@ -915,9 +1026,9 @@ function renderStats() {
               <td>${row.games}</td>
               <td>${row.wins}</td>
               <td>${pctCell(row.winRate)}</td>
-              <td>${impactCell(row.matchupImpact, `${row.games} games · ${row.wins} wins`)}</td>
+              <td>${impactCell(row.matchupImpact)}</td>
               <td>${impactCell(row.normalizedMatchupImpact)}</td>
-              <td>${impactCell(row.opponentMatchupImpact, `${row.games} games · ${row.opponentWins} wins`)}</td>
+              <td>${impactCell(row.opponentMatchupImpact)}</td>
               <td>${impactCell(row.opponentNormalizedMatchupImpact)}</td>
             </tr>`
             )
@@ -998,14 +1109,16 @@ function renderDecks() {
           ${sortHeader("decks-main", "bracket", "Bracket", sortState)}
           ${sortHeader("decks-main", "games", "Games", sortState)}
           ${sortHeader("decks-main", "wins", "Wins", sortState)}
+          ${sortHeader("decks-main", "opponentCount", "Opponents", sortState)}
           ${sortHeader("decks-main", "normWr", "Normalized Win Rate", sortState)}
           ${sortHeader("decks-main", "winRate", "Win Rate", sortState)}
           <th></th>
         </tr></thead>
         <tbody>
-          ${list.length ? list.map((d) => `<tr><td>${dateCell(d)}</td><td class="deck-name"><button type="button" class="link-btn deck-link" data-deck-detail="${escapeHtml(d.name)}">${escapeHtml(d.name)}</button></td><td>${colorBadge(d.colors)}</td><td>${d.bracket}</td><td>${d.games}</td><td>${d.wins}</td><td>${d.games ? pctCell(d.normalizedWr) : "—"}</td><td>${d.games ? pctCell(d.winRate) : "—"}</td><td class="row-actions"><button type="button" class="btn-icon edit-deck" data-name="${escapeHtml(d.name)}" title="Edit deck">✎</button><button type="button" class="btn-icon delete-deck" data-name="${escapeHtml(d.name)}" title="Delete deck">×</button></td></tr>`).join("") : '<tr><td colspan="9"></td></tr>'}
+          ${list.length ? list.map((d) => `<tr><td>${dateCell(d)}</td><td class="deck-name"><button type="button" class="link-btn deck-link deck-opponent-trigger" data-deck-detail="${escapeHtml(d.name)}">${escapeHtml(d.name)}</button></td><td>${colorBadge(d.colors)}</td><td>${d.bracket}</td><td>${d.games}</td><td>${d.wins}</td><td>${d.games ? d.opponentCount : "—"}</td><td>${d.games ? pctCell(d.normalizedWr) : "—"}</td><td>${d.games ? pctCell(d.winRate) : "—"}</td><td class="row-actions"><button type="button" class="btn-icon edit-deck" data-name="${escapeHtml(d.name)}" title="Edit deck">✎</button><button type="button" class="btn-icon delete-deck" data-name="${escapeHtml(d.name)}" title="Delete deck">×</button></td></tr>`).join("") : '<tr><td colspan="10"></td></tr>'}
         </tbody>
       </table>
+      <div id="deck-opponent-tip" class="deck-opponent-tip" hidden></div>
     </section>
     <div id="deck-modal" class="modal hidden">
       <div class="modal-content">
