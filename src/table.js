@@ -19,20 +19,17 @@ export function toggleSort(state, col) {
   return { col, dir: "desc" };
 }
 
-export function applySort(rows, state, getters) {
+export function applySort(rows, state, getters, tieBreakers = {}) {
   if (!state?.col || !getters[state.col]) return rows;
   const get = getters[state.col];
-  const dir = state.dir === "asc" ? 1 : -1;
   return [...rows].sort((a, b) => {
-    const av = get(a);
-    const bv = get(b);
-    if (av == null && bv == null) return 0;
-    if (av == null) return 1;
-    if (bv == null) return -1;
-    if (typeof av === "string" && typeof bv === "string") {
-      return dir * av.localeCompare(bv);
+    const primary = compareValues(get(a), get(b), state.dir);
+    if (primary !== 0) return primary;
+    const tieKey = tieBreakers[state.col];
+    if (tieKey && getters[tieKey]) {
+      return compareValues(getters[tieKey](a), getters[tieKey](b), state.dir);
     }
-    return dir * (av - bv);
+    return 0;
   });
 }
 
