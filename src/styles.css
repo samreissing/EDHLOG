@@ -679,6 +679,10 @@ button.year-chip.active,
   stroke-linecap: round;
 }
 
+.trends-line.trends-line-series {
+  stroke: var(--series-color, var(--accent));
+}
+
 .trends-point-group.active .trends-point-series {
   fill: var(--text);
 }

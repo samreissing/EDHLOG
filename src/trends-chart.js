@@ -92,7 +92,41 @@ function renderYGrid(plotH) {
     .join("");
 }
 
+function midpointDate(startDate, endDate) {
+  const start = normalizeDate(startDate);
+  const end = normalizeDate(endDate);
+  if (!start || !end || start === end) return start || end;
+  const startMs = new Date(`${start}T00:00:00`).getTime();
+  const endMs = new Date(`${end}T00:00:00`).getTime();
+  return new Date(Math.round((startMs + endMs) / 2)).toISOString().slice(0, 10);
+}
+
+function renderFixedRangeXLabels(range) {
+  const plotW = CHART_WIDTH - CHART_PAD.left - CHART_PAD.right;
+  const leftX = CHART_PAD.left;
+  const rightX = CHART_PAD.left + plotW;
+  const midX = CHART_PAD.left + plotW / 2;
+  const start = normalizeDate(range.start);
+  const end = normalizeDate(range.end);
+
+  if (!start || !end) return "";
+
+  if (start === end) {
+    return `<text class="trends-axis-label trends-x-label" x="${midX}" y="${CHART_HEIGHT - 10}" text-anchor="middle">${escAttr(formatDate(start))}</text>`;
+  }
+
+  const midDate = midpointDate(start, end);
+  return `
+    <text class="trends-axis-label trends-x-label" x="${leftX}" y="${CHART_HEIGHT - 10}" text-anchor="start">${escAttr(formatDate(start))}</text>
+    <text class="trends-axis-label trends-x-label" x="${midX}" y="${CHART_HEIGHT - 10}" text-anchor="middle">${escAttr(formatDate(midDate))}</text>
+    <text class="trends-axis-label trends-x-label" x="${rightX}" y="${CHART_HEIGHT - 10}" text-anchor="end">${escAttr(formatDate(end))}</text>`;
+}
+
 function renderXLabels(points, series, { startDate, endDate } = {}) {
+  if (startDate && endDate) {
+    return renderFixedRangeXLabels({ start: startDate, end: endDate });
+  }
+
   if (!points.length) return "";
 
   const indices =
@@ -139,24 +173,28 @@ function renderDateAlignedPoints(series, startDate, endDate) {
 }
 
 function renderPointGroups(points, { seriesId = "", color = null } = {}) {
-  const style = color ? ` style="--series-color:${color}"` : "";
-  const pointClass = color ? "trends-point trends-point-series" : "trends-point";
-  const lineClass = color ? "trends-line trends-line-series" : "trends-line";
-  const linePath = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
+  const sortedPoints = [...points].sort((a, b) => a.x - b.x);
+  const linePath = sortedPoints
+    .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`)
+    .join(" ");
+  const strokeAttr = color ? ` stroke="${escAttr(color)}"` : "";
+  const fillAttr = color ? ` fill="${escAttr(color)}"` : "";
 
   return {
-    lineClass,
     linePath,
-    dots: points
+    strokeAttr,
+    fillAttr,
+    dots: sortedPoints
       .map(
         (p) => `
-      <g class="trends-point-group${seriesId ? ` trends-point-group-${seriesId}` : ""}"${style}
+      <g class="trends-point-group${seriesId ? ` trends-point-group-${seriesId}` : ""}"
         data-series-id="${escAttr(seriesId)}"
+        data-series-color="${escAttr(color || "")}"
         data-wr="${p.winRate}" data-day-wr="${p.dayWinRate}" data-games="${p.games}" data-wins="${p.wins}"
         data-day-games="${p.dayGames}" data-day-wins="${p.dayWins}"
         data-date="${escAttr(p.date)}" data-index="${p.index}">
         <circle class="trends-point-hit" cx="${p.x}" cy="${p.y}" r="10" />
-        <circle class="${pointClass}" cx="${p.x}" cy="${p.y}" r="3" />
+        <circle class="${color ? "trends-point trends-point-series" : "trends-point"}" cx="${p.x}" cy="${p.y}" r="3"${fillAttr} />
       </g>
     `
       )
@@ -188,7 +226,7 @@ export function renderWinRateLineChart(series, title = "") {
     body: `
       ${renderYGrid(plotH)}
       <line class="trends-baseline" x1="${CHART_PAD.left}" y1="${baselineY}" x2="${CHART_WIDTH - CHART_PAD.right}" y2="${baselineY}" />
-      <path class="${rendered.lineClass}" d="${rendered.linePath}" />
+      <path class="trends-line" d="${rendered.linePath}" />
       ${rendered.dots}`,
   });
 }
@@ -214,11 +252,6 @@ export function renderMultiWinRateLineChart(seriesList, range, title = "") {
     return { ...entry, points, rendered };
   });
 
-  const labelSeries = renderedSeries.reduce(
-    (longest, entry) => (entry.points.length > longest.points.length ? entry : longest),
-    renderedSeries[0]
-  );
-
   const legend = `
     <div class="trends-chart-legend">
       ${renderedSeries
@@ -237,7 +270,7 @@ export function renderMultiWinRateLineChart(seriesList, range, title = "") {
       plotW,
       plotH,
       baselineY,
-      xLabels: renderXLabels(labelSeries.points, labelSeries.series, range),
+      xLabels: renderFixedRangeXLabels(range),
       title,
       body: `
         ${renderYGrid(plotH)}
@@ -245,7 +278,7 @@ export function renderMultiWinRateLineChart(seriesList, range, title = "") {
         ${renderedSeries
           .map(
             (entry) => `
-          <path class="${entry.rendered.lineClass}" d="${entry.rendered.linePath}" style="--series-color:${entry.color}" />
+          <path class="trends-line-series" fill="none" stroke="${escAttr(entry.color)}" d="${entry.rendered.linePath}" />
           ${entry.rendered.dots}`
           )
           .join("")}`,
@@ -275,9 +308,11 @@ export function bindWinRateLineCharts() {
         const dayGames = Number(group.dataset.dayGames);
         const dayWins = Number(group.dataset.dayWins);
         const seriesId = group.dataset.seriesId;
+        const seriesColor = group.dataset.seriesColor;
         tip.hidden = false;
         group.classList.add("active");
         point.setAttribute("r", "5");
+        if (seriesColor) point.setAttribute("fill", seriesColor);
 
         const dateLabel = formatDate(group.dataset.date);
         const dayLine =
@@ -302,6 +337,7 @@ export function bindWinRateLineCharts() {
         tip.hidden = true;
         group.classList.remove("active");
         point.setAttribute("r", "3");
+        if (group.dataset.seriesColor) point.setAttribute("fill", group.dataset.seriesColor);
       };
 
       group.addEventListener("mouseenter", showTip);
