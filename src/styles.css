@@ -649,6 +649,7 @@ button.year-chip.active,
   position: relative;
   width: 100%;
   margin-top: 1.75rem;
+  overflow: visible;
 }
 
 .trends-chart-title {
@@ -662,6 +663,47 @@ button.year-chip.active,
   max-width: none;
   height: auto;
   display: block;
+  overflow: visible;
+}
+
+.trends-line-series,
+.trends-point-series {
+  stroke: var(--series-color, var(--accent));
+  fill: var(--series-color, var(--accent));
+}
+
+.trends-line-series {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.trends-point-group.active .trends-point-series {
+  fill: var(--text);
+}
+
+.trends-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.trends-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.trends-legend-swatch {
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 999px;
+  background: var(--series-color, var(--accent));
 }
 
 .trends-grid-line {
@@ -758,7 +800,7 @@ button.year-chip.active,
 }
 
 .seat-toggle strong {
-  color: var(--accent);
+  color: var(--seat-color, var(--accent));
 }
 
 .seat-toggle span {
@@ -767,13 +809,13 @@ button.year-chip.active,
   font-family: var(--mono);
 }
 
-.seat-toggle:hover,
-.seat-toggle.active {
-  border-color: var(--accent);
+.seat-toggle:hover {
+  border-color: var(--seat-color, var(--accent));
 }
 
 .seat-toggle.active {
-  background: color-mix(in srgb, var(--accent) 12%, var(--surface-2));
+  border-color: var(--seat-color, var(--accent));
+  background: color-mix(in srgb, var(--seat-color, var(--accent)) 12%, var(--surface-2));
 }
 
 .seat-range-filters {
