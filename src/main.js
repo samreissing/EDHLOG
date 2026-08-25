@@ -59,7 +59,7 @@ import {
   gamesForTrendsWindowSeries,
   getEffectiveChartRange,
 } from "./chart-series.js";
-import { colorForRowIndex } from "./selection-colors.js";
+import { CHART_FILTER_ACCENT, colorForRowIndex } from "./selection-colors.js";
 import {
   computeSeatStats,
   gamesForSeatSeries,
@@ -369,6 +369,7 @@ function bindEvents() {
     const bracketFilterBtn = e.target.closest("[data-bracket-filter]");
     if (bracketFilterBtn) {
       statsBracketFilter = bracketFilterBtn.getAttribute("data-bracket-filter") || "";
+      bracketsChartSelection = new Set();
       render();
       return;
     }
@@ -457,7 +458,7 @@ function bindEvents() {
     if (bracketChartRow && statsTab === "brackets") {
       const bracket = Number(bracketChartRow.dataset.bracketChartRow);
       const id = String(bracket);
-      statsBracketFilter = id;
+      statsBracketFilter = "";
       if (bracketsChartSelection.has(id)) bracketsChartSelection.delete(id);
       else bracketsChartSelection.add(id);
       render();
@@ -1101,26 +1102,52 @@ function renderStats() {
       bracket: b.bracket,
     }));
     const chartRange = getEffectiveChartRange(statsGames, bracketsChartRange);
-    const bracketChart = renderMultiWinRateLineChart(
-      brackets
-        .map((b, index) => ({ b, index }))
-        .filter(({ b }) => bracketsChartSelection.has(String(b.bracket)))
-        .map(({ b, index }) => ({
-          id: b.bracket,
-          label: `Bracket ${b.bracket}`,
-          color: colorForRowIndex(index, brackets.length),
-          series: computeWinRateSeries(
-            gamesForBracketSeries(
-              statsGames,
-              statsDecks,
-              b.bracket,
-              chartRange.start,
-              chartRange.end
-            )
-          ),
-        })),
-      chartRange
-    );
+    let bracketChart = "";
+    if (statsBracketFilter) {
+      const filteredBracket = brackets.find((b) => String(b.bracket) === statsBracketFilter);
+      if (filteredBracket) {
+        bracketChart = renderMultiWinRateLineChart(
+          [
+            {
+              id: filteredBracket.bracket,
+              label: `Bracket ${filteredBracket.bracket}`,
+              color: CHART_FILTER_ACCENT,
+              series: computeWinRateSeries(
+                gamesForBracketSeries(
+                  statsGames,
+                  statsDecks,
+                  filteredBracket.bracket,
+                  chartRange.start,
+                  chartRange.end
+                )
+              ),
+            },
+          ],
+          chartRange
+        );
+      }
+    } else if (bracketsChartSelection.size) {
+      bracketChart = renderMultiWinRateLineChart(
+        brackets
+          .map((b, index) => ({ b, index }))
+          .filter(({ b }) => bracketsChartSelection.has(String(b.bracket)))
+          .map(({ b, index }) => ({
+            id: b.bracket,
+            label: `Bracket ${b.bracket}`,
+            color: colorForRowIndex(index, brackets.length),
+            series: computeWinRateSeries(
+              gamesForBracketSeries(
+                statsGames,
+                statsDecks,
+                b.bracket,
+                chartRange.start,
+                chartRange.end
+              )
+            ),
+          })),
+        chartRange
+      );
+    }
 
     body = `
       ${renderDateRangeFilters("brackets", chartRange.bounds, chartRange)}
@@ -1152,9 +1179,8 @@ function renderStats() {
                 .map((b, index) => {
                   const selected = bracketsChartSelection.has(String(b.bracket));
                   const seriesColor = selected ? colorForRowIndex(index, brackets.length) : null;
-                  const filterActive = statsBracketFilter === String(b.bracket);
                   return `
-                <tr class="chart-series-selectable${seriesColor ? " active" : ""}${filterActive ? " chart-series-filtered" : ""}" data-bracket-chart-row="${b.bracket}"${chartSeriesRowStyle(seriesColor)}>
+                <tr class="chart-series-selectable${seriesColor ? " active" : ""}" data-bracket-chart-row="${b.bracket}"${chartSeriesRowStyle(seriesColor)}>
                   <td><span class="bracket-pill" style="background:${getBracketColor(b.bracket)}">${b.bracket}</span></td><td>${b.games}</td><td>${b.wins}</td>
                   <td>${pctCell(b.winRate)}</td>
                 </tr>`;
