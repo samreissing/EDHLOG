@@ -342,7 +342,6 @@ function bindEvents() {
         if (col === "lastPlayed") deckSort = "recent";
         else if (col === "createdAt") deckSort = "newest";
       }
-      if (tableId === "color-stats" || tableId === "bracket-stats") pieAnimKey++;
       render();
       return;
     }
@@ -475,10 +474,9 @@ function bindEvents() {
     if (bracketChartRow && statsTab === "brackets") {
       const bracket = Number(bracketChartRow.dataset.bracketChartRow);
       const id = String(bracket);
-      const rowCount = getStats().bracketStats.filter((b) => b.games > 0).length;
       statsBracketFilter = "";
       bracketsChartMode = "table";
-      toggleChartSelection(bracketsChartSelection, id, rowCount);
+      toggleChartSelection(bracketsChartSelection, id);
       if (!bracketsChartSelection.size) bracketsChartMode = null;
       render();
       return;
@@ -489,13 +487,12 @@ function bindEvents() {
       const rangeStart = Number(trendsWindowToggle.dataset.rangeStart);
       const rangeEnd = Number(trendsWindowToggle.dataset.rangeEnd);
       const id = `${rangeStart}-${rangeEnd}`;
-      const rowCount = getStats().rolling.windows.length;
       trendsFilter = { kind: "all" };
       if (trendsWindowSelection.has(id)) {
         trendsWindowSelection.delete(id);
         trendsWindowMeta.delete(id);
       } else {
-        toggleChartSelection(trendsWindowSelection, id, rowCount);
+        toggleChartSelection(trendsWindowSelection, id);
         trendsWindowMeta.set(id, {
           rangeStart,
           rangeEnd,
@@ -1172,51 +1169,46 @@ function renderStats() {
         ? computeBracketDetail(statsGames, scopeDecks, "", [...bracketsChartSelection.keys()].map(Number))
         : computeBracketDetail(statsGames, scopeDecks, statsBracketFilter);
 
-    let bracketChart = "";
+    let bracketSeries = [];
     if (bracketsChartMode === "filter" && statsBracketFilter) {
       const filteredBracket = brackets.find((b) => String(b.bracket) === statsBracketFilter);
       if (filteredBracket) {
-        bracketChart = renderMultiWinRateLineChart(
-          [
-            {
-              id: filteredBracket.bracket,
-              label: `Bracket ${filteredBracket.bracket}`,
-              color: CHART_FILTER_ACCENT,
-              series: computeWinRateSeries(
-                gamesForBracketSeries(
-                  statsGames,
-                  statsDecks,
-                  filteredBracket.bracket,
-                  chartRange.start,
-                  chartRange.end
-                )
-              ),
-            },
-          ],
-          chartRange
-        );
-      }
-    } else if (bracketsChartMode === "table" && bracketsChartSelection.size) {
-      bracketChart = renderMultiWinRateLineChart(
-        brackets
-          .filter((b) => bracketsChartSelection.has(String(b.bracket)))
-          .map((b) => ({
-            id: b.bracket,
-            label: `Bracket ${b.bracket}`,
-            color: colorForChartSelection(bracketsChartSelection, b.bracket, brackets.length),
+        bracketSeries = [
+          {
+            id: filteredBracket.bracket,
+            label: `Bracket ${filteredBracket.bracket}`,
+            color: CHART_FILTER_ACCENT,
             series: computeWinRateSeries(
               gamesForBracketSeries(
                 statsGames,
                 statsDecks,
-                b.bracket,
+                filteredBracket.bracket,
                 chartRange.start,
                 chartRange.end
               )
             ),
-          })),
-        chartRange
-      );
+          },
+        ];
+      }
+    } else if (bracketsChartMode === "table" && bracketsChartSelection.size) {
+      bracketSeries = brackets
+        .filter((b) => bracketsChartSelection.has(String(b.bracket)))
+        .map((b) => ({
+          id: b.bracket,
+          label: `Bracket ${b.bracket}`,
+          color: colorForChartSelection(bracketsChartSelection, b.bracket, brackets.length),
+          series: computeWinRateSeries(
+            gamesForBracketSeries(
+              statsGames,
+              statsDecks,
+              b.bracket,
+              chartRange.start,
+              chartRange.end
+            )
+          ),
+        }));
     }
+    const bracketChart = renderMultiWinRateLineChart(bracketSeries, chartRange);
 
     body = `
       ${renderDateRangeFilters("brackets", chartRange.bounds, chartRange)}

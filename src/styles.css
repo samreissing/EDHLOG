@@ -475,6 +475,10 @@ th.sortable.sorted {
   cursor: pointer;
 }
 
+.pie-panel--static {
+  animation: none;
+}
+
 .pie-slice--static {
   opacity: 1;
   animation: none;

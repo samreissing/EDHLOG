@@ -81,8 +81,9 @@ function sliceFill(slice, index) {
 export function renderPieChart(slices, animKey = 0, { animate = true } = {}) {
   const filtered = slices.filter((s) => s.value > 0);
   const total = filtered.reduce((sum, s) => sum + s.value, 0);
+  const panelClass = animate ? "pie-panel" : "pie-panel pie-panel--static";
   if (!total) {
-    return `<div class="pie-panel pie-panel--empty" data-pie-key="${animKey}"></div>`;
+    return `<div class="${panelClass} pie-panel--empty" data-pie-key="${animKey}"></div>`;
   }
 
   let angle = 0;
@@ -100,7 +101,7 @@ export function renderPieChart(slices, animKey = 0, { animate = true } = {}) {
   });
 
   return `
-    <div class="pie-panel" data-pie-key="${animKey}">
+    <div class="${panelClass}" data-pie-key="${animKey}">
       <svg class="pie-svg" viewBox="0 0 100 100" aria-hidden="true">${defs.length ? `<defs>${defs.join("")}</defs>` : ""}${paths.join("")}</svg>
       <div class="pie-tooltip" hidden></div>
     </div>`;
