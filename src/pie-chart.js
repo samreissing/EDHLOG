@@ -76,8 +76,9 @@ function sliceFill(slice, index) {
 
 /**
  * @param {Array<{ value: number, hover?: string, color?: string, colors?: string[], bracket?: number }>} slices
+ * @param {{ animate?: boolean }} [options]
  */
-export function renderPieChart(slices, animKey = 0) {
+export function renderPieChart(slices, animKey = 0, { animate = true } = {}) {
   const filtered = slices.filter((s) => s.value > 0);
   const total = filtered.reduce((sum, s) => sum + s.value, 0);
   if (!total) {
@@ -86,6 +87,7 @@ export function renderPieChart(slices, animKey = 0) {
 
   let angle = 0;
   const defs = [];
+  const sliceClass = animate ? "pie-slice" : "pie-slice pie-slice--static";
   const paths = filtered.map((slice, i) => {
     const sweep = (slice.value / total) * 360;
     const d = donutArc(50, 50, 44, 28, angle, angle + sweep);
@@ -93,7 +95,8 @@ export function renderPieChart(slices, animKey = 0) {
     if (def) defs.push(def);
     const hover = slice.hover || String(slice.value);
     angle += sweep;
-    return `<path class="pie-slice" d="${d}" fill="${fill}" data-hover="${escAttr(hover)}" style="animation-delay:${i * 0.045}s" />`;
+    const delayStyle = animate ? ` style="animation-delay:${i * 0.045}s"` : "";
+    return `<path class="${sliceClass}" d="${d}" fill="${fill}" data-hover="${escAttr(hover)}"${delayStyle} />`;
   });
 
   return `

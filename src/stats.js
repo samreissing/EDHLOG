@@ -80,14 +80,19 @@ export function computeOverview(games) {
   };
 }
 
-/** @param {import('./store.js').Game[]} games @param {import('./store.js').Deck[]} decks @param {string} bracketFilter "" for all, else "1"-"5" */
-export function computeBracketDetail(games, decks, bracketFilter = "") {
+/** @param {import('./store.js').Game[]} games @param {import('./store.js').Deck[]} decks @param {string} bracketFilter "" for all, else "1"-"5" @param {string[]|null} [selectedBrackets] */
+export function computeBracketDetail(games, decks, bracketFilter = "", selectedBrackets = null) {
   const deckMap = new Map(decks.map((d) => [d.name, d]));
+  const allowed = selectedBrackets?.length
+    ? new Set(selectedBrackets.map(String))
+    : bracketFilter
+      ? new Set([String(bracketFilter)])
+      : null;
   const filtered = games.filter((game) => {
-    if (!bracketFilter) return true;
+    if (!allowed) return true;
     const deck = deckMap.get(game.deck);
     const bracket = String(game.bracket ?? deck?.bracket ?? 4);
-    return bracket === bracketFilter;
+    return allowed.has(bracket);
   });
 
   const overview = computeOverview(filtered);

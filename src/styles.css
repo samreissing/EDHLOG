@@ -475,6 +475,12 @@ th.sortable.sorted {
   cursor: pointer;
 }
 
+.pie-slice--static {
+  opacity: 1;
+  animation: none;
+  transform: none;
+}
+
 .pie-slice:hover {
   filter: brightness(1.12);
 }
