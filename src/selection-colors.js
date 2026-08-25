@@ -1,12 +1,12 @@
 /** Broken rainbow path: R → V → O → I → G → B → Y */
 const BROKEN_RAINBOW_HEX = [
-  "#df3a3a", // red
-  "#a855c7", // violet
-  "#e07a1f", // orange
-  "#4f46b8", // indigo
-  "#2a9d5c", // green
-  "#3b82b4", // blue
-  "#e5b822", // yellow
+  "#ef4444", // red
+  "#7c3aed", // violet
+  "#f97316", // orange
+  "#4338ca", // indigo
+  "#22c55e", // green
+  "#3b82f6", // blue
+  "#eab308", // yellow
 ];
 
 const [RED, VIOLET, ORANGE, INDIGO, GREEN, BLUE, YELLOW] = BROKEN_RAINBOW_HEX;
