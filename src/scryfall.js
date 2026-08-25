@@ -1,4 +1,5 @@
 const imageCache = new Map();
+const metadataCache = new Map();
 let lastRequestAt = 0;
 
 async function throttle() {
@@ -14,6 +15,30 @@ export function commanderNames(deckName) {
 function cardImage(card) {
   if (!card) return null;
   return card.image_uris?.normal || card.card_faces?.[0]?.image_uris?.normal || null;
+}
+
+/** @param {string} name */
+export async function fetchCardMetadata(name) {
+  const key = String(name || "").trim();
+  if (!key) return null;
+  if (metadataCache.has(key)) return metadataCache.get(key);
+
+  await throttle();
+  const res = await fetch(
+    `https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(key)}`
+  );
+  if (!res.ok) {
+    metadataCache.set(key, null);
+    return null;
+  }
+
+  const card = await res.json();
+  const meta = {
+    layout: card.layout,
+    faceNames: (card.card_faces || []).map((face) => face.name),
+  };
+  metadataCache.set(key, meta);
+  return meta;
 }
 
 /** @param {string} name */

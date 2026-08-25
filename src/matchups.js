@@ -1,5 +1,6 @@
 import { MY_PLAYER_NAME } from "./opponent-search.js";
 import { winRate } from "./stats.js";
+import { getCommanderMatchupKeys } from "./commander-names.js";
 
 /** Commander pod baseline (30CCSTAT). */
 export const MATCHUP_BASELINE = 0.25;
@@ -65,6 +66,26 @@ function winnerSeatForGame(game) {
   if (game.winnerSeat) return Number(game.winnerSeat);
   if (game.mySeat && game.result === "Win") return Number(game.mySeat);
   return 0;
+}
+
+/** @param {GameSeat} mySeat @param {GameSeat} opponentSeat @param {'players' | 'decks'} tabId */
+function matchupPairs(mySeat, opponentSeat, tabId) {
+  if (tabId === "players") {
+    return [matchupPairKeys(mySeat, opponentSeat, tabId)];
+  }
+
+  const pairs = [];
+  for (const subject of getCommanderMatchupKeys(mySeat.deck)) {
+    for (const opponent of getCommanderMatchupKeys(opponentSeat.commander)) {
+      pairs.push({
+        subjectKey: `d:${normalizeKey(subject)}`,
+        subjectLabel: subject,
+        opponentKey: `dc:${normalizeKey(opponent)}`,
+        opponentLabel: opponent,
+      });
+    }
+  }
+  return pairs;
 }
 
 /** @param {GameSeat} mySeat @param {GameSeat} opponentSeat @param {'players' | 'decks'} tabId */
@@ -155,41 +176,42 @@ export function buildMyMatchupRows(games, tabId) {
       if (opponentSeat === mySeat) continue;
       if (tabId === "players" && !opponentSeat.player) continue;
 
-      const { subjectKey, subjectLabel, opponentKey, opponentLabel } = matchupPairKeys(
+      for (const { subjectKey, subjectLabel, opponentKey, opponentLabel } of matchupPairs(
         mySeat,
         opponentSeat,
         tabId
-      );
-      if (subjectKey === opponentKey) continue;
+      )) {
+        if (subjectKey === opponentKey) continue;
 
-      const mapKey = `${subjectKey}__${opponentKey}`;
-      const row =
-        rows.get(mapKey) ??
-        ({
-          subjectKey,
-          opponentKey,
-          subject: subjectLabel,
-          opponent: opponentLabel,
-          games: 0,
-          wins: 0,
-          losses: 0,
-          sharedLosses: 0,
-          opponentPlayers: tabId === "decks" ? new Map() : undefined,
-        });
+        const mapKey = `${subjectKey}__${opponentKey}`;
+        const row =
+          rows.get(mapKey) ??
+          ({
+            subjectKey,
+            opponentKey,
+            subject: subjectLabel,
+            opponent: opponentLabel,
+            games: 0,
+            wins: 0,
+            losses: 0,
+            sharedLosses: 0,
+            opponentPlayers: tabId === "decks" ? new Map() : undefined,
+          });
 
-      row.games += 1;
-      if (mySeat.didWin) row.wins += 1;
-      else if (opponentSeat.didWin) row.losses += 1;
-      else row.sharedLosses += 1;
+        row.games += 1;
+        if (mySeat.didWin) row.wins += 1;
+        else if (opponentSeat.didWin) row.losses += 1;
+        else row.sharedLosses += 1;
 
-      if (tabId === "decks" && opponentSeat.player && row.opponentPlayers) {
-        row.opponentPlayers.set(
-          opponentSeat.player,
-          (row.opponentPlayers.get(opponentSeat.player) || 0) + 1
-        );
+        if (tabId === "decks" && opponentSeat.player && row.opponentPlayers) {
+          row.opponentPlayers.set(
+            opponentSeat.player,
+            (row.opponentPlayers.get(opponentSeat.player) || 0) + 1
+          );
+        }
+
+        rows.set(mapKey, row);
       }
-
-      rows.set(mapKey, row);
     }
   }
 
