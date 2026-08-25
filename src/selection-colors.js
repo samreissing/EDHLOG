@@ -40,48 +40,104 @@ function mixHex(fromHex, toHex, t) {
   );
 }
 
+function colorAtPathPosition(pathPos) {
+  const stops = BROKEN_RAINBOW_STOPS;
+  if (pathPos <= 0) return stops[0];
+  if (pathPos >= stops.length - 1) return stops[stops.length - 1];
+  const seg = Math.floor(pathPos);
+  const t = pathPos - seg;
+  return mixHex(stops[seg], stops[seg + 1], t);
+}
+
 /**
- * Build N distinct colors along the RVYBOIY path.
- * - N <= 7: first N anchor stops exactly (no repeats).
- * - N > 7: keep all 7 anchors, insert averaged in-between colors on the path segments.
+ * Palette index assignment order for N rows (0-based).
+ * e.g. 10 rows → 0,9,2,7,4,5,1,8,3,6 (1,10,3,8,5,6,2,9,4,7 in 1-based terms).
+ * First pick = index 0 (red), second = index N-1 (violet), then spreads inward.
+ */
+export function buildSpreadSelectionOrder(count) {
+  if (count <= 0) return [];
+  if (count === 1) return [0];
+
+  const order = [];
+  const used = new Set();
+  let low = 0;
+  let high = count - 1;
+
+  while (true) {
+    if (!used.has(low)) {
+      order.push(low);
+      used.add(low);
+    }
+    if (low === high) break;
+    if (!used.has(high)) {
+      order.push(high);
+      used.add(high);
+    }
+    if (used.size >= count) break;
+    const nextLow = low + 2;
+    const nextHigh = high - 2;
+    if (nextLow > nextHigh) break;
+    low = nextLow;
+    high = nextHigh;
+  }
+
+  low = 0;
+  high = count - 1;
+  while (low <= high) {
+    if (!used.has(low)) {
+      order.push(low);
+      used.add(low);
+    }
+    if (low !== high && !used.has(high)) {
+      order.push(high);
+      used.add(high);
+    }
+    low += 1;
+    high -= 1;
+  }
+
+  return order;
+}
+
+/**
+ * N colors stretched along the rainbow.
+ * Index 0 is always red; index N-1 is always violet (first two picks).
+ * Middle slots fill the rest of the RVYBOIY path with averaged blends.
  */
 export function buildBrokenRainbowPalette(count) {
   const stops = BROKEN_RAINBOW_STOPS;
   if (count <= 0) return [];
   if (count === 1) return [stops[0]];
-  if (count <= stops.length) return stops.slice(0, count);
+  if (count === 2) return [stops[0], stops[1]];
 
-  const segmentCount = stops.length - 1;
-  const extras = count - stops.length;
-  const segmentExtras = Array.from({ length: segmentCount }, (_, index) =>
-    Math.floor(extras / segmentCount) + (index < extras % segmentCount ? 1 : 0)
-  );
+  const palette = new Array(count);
+  palette[0] = stops[0];
+  palette[count - 1] = stops[1];
 
-  const palette = [];
-  for (let seg = 0; seg < segmentCount; seg += 1) {
-    const from = stops[seg];
-    const to = stops[seg + 1];
-    palette.push(from);
-    const internal = segmentExtras[seg];
-    for (let step = 1; step <= internal; step += 1) {
-      palette.push(mixHex(from, to, step / (internal + 1)));
-    }
+  const middle = count - 2;
+  if (middle === 1) {
+    palette[1] = colorAtPathPosition((stops.length - 1) / 2);
+    return palette;
   }
-  palette.push(stops[stops.length - 1]);
 
-  return palette.slice(0, count);
+  for (let i = 0; i < middle; i += 1) {
+    const pathPos = 2 + (i / (middle - 1)) * (stops.length - 1 - 2);
+    palette[i + 1] = colorAtPathPosition(pathPos);
+  }
+  return palette;
 }
 
-/** Color for selection slot index; palette always sized to totalRows. */
+/** Color at a palette index for a table with totalRows. */
 export function colorForSlotIndex(slotIndex, totalRows) {
   const palette = buildBrokenRainbowPalette(totalRows);
   return palette[slotIndex] ?? palette[palette.length - 1] ?? BROKEN_RAINBOW_STOPS[0];
 }
 
-function lowestAvailableSlot(usedSlots) {
-  let slot = 0;
-  while (usedSlots.has(slot)) slot += 1;
-  return slot;
+function nextSpreadSlot(usedSlots, totalRows) {
+  for (const slot of buildSpreadSelectionOrder(totalRows)) {
+    if (!usedSlots.has(slot)) return slot;
+  }
+  return 0;
 }
 
 /** @returns {Map<string, number>} id -> palette slot index */
@@ -89,14 +145,14 @@ export function newChartSelection() {
   return new Map();
 }
 
-export function toggleChartSelection(selectionMap, id) {
+export function toggleChartSelection(selectionMap, id, totalRows) {
   const key = String(id);
   if (selectionMap.has(key)) {
     selectionMap.delete(key);
     return false;
   }
   const usedSlots = new Set(selectionMap.values());
-  selectionMap.set(key, lowestAvailableSlot(usedSlots));
+  selectionMap.set(key, nextSpreadSlot(usedSlots, totalRows));
   return true;
 }
 
