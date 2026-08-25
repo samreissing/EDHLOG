@@ -754,8 +754,18 @@ button.year-chip.active,
 .trends-chart-wrap {
   position: relative;
   width: 100%;
-  margin-top: 1.75rem;
+  margin-top: 0.5rem;
   overflow: visible;
+}
+
+.chart-section {
+  margin-top: 1.25rem;
+}
+
+.chart-clear-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.5rem;
 }
 
 .trends-chart-title {
