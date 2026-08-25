@@ -233,11 +233,11 @@ main {
 }
 
 .decks-table col.decks-col-colors {
-  width: 7.5rem;
+  width: 9.75rem;
 }
 
 .decks-table col.decks-col-bracket {
-  width: 4.5rem;
+  width: 5rem;
 }
 
 .decks-table col.decks-col-games {
@@ -271,6 +271,11 @@ main {
 .decks-table .deck-colors,
 .decks-table .deck-colors-col {
   white-space: nowrap;
+  overflow: visible;
+}
+
+.decks-table td.deck-colors {
+  overflow: visible;
 }
 
 .decks-table .deck-tight,
@@ -297,11 +302,13 @@ main {
 
 .decks-table th.deck-date-col,
 .decks-table th.deck-tight-col,
-.decks-table th.deck-stat-col {
+.decks-table th.deck-stat-col,
+.decks-table th.deck-colors-col {
   font-size: 0.68rem;
   line-height: 1.15;
   padding-left: 0.35rem;
   padding-right: 0.35rem;
+  overflow: visible;
 }
 
 .decks-table td {
@@ -310,8 +317,7 @@ main {
 }
 
 .decks-table th {
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
 }
 
 .decks-table .deck-name .link-btn {
