@@ -883,7 +883,24 @@ button.year-chip.active,
   cursor: pointer;
 }
 
-.trends-table tbody tr.trends-selectable td {
+.chart-series-selectable {
+  cursor: pointer;
+}
+
+.chart-series-selectable:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.chart-series-selectable.active {
+  background: color-mix(in srgb, var(--series-color, var(--accent)) 16%, var(--surface-2));
+  box-shadow: inset 3px 0 0 var(--series-color, var(--accent));
+}
+
+.chart-series-selectable.chart-series-filtered {
+  outline: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.trends-table tbody tr.chart-series-selectable td {
   user-select: none;
 }
 

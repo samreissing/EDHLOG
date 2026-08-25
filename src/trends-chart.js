@@ -172,7 +172,7 @@ function renderDateAlignedPoints(series, startDate, endDate) {
   });
 }
 
-function renderPointGroups(points, { seriesId = "", color = null } = {}) {
+function renderPointGroups(points, { seriesId = "", color = null, label = "" } = {}) {
   const sortedPoints = [...points].sort((a, b) => a.x - b.x);
   const linePath = sortedPoints
     .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`)
@@ -186,6 +186,7 @@ function renderPointGroups(points, { seriesId = "", color = null } = {}) {
         (p) => `
       <g class="trends-point-group${seriesId ? ` trends-point-group-${seriesId}` : ""}"
         data-series-id="${escAttr(seriesId)}"
+        data-series-label="${escAttr(label || seriesId)}"
         data-series-color="${escAttr(color || "")}"
         data-wr="${p.winRate}" data-day-wr="${p.dayWinRate}" data-games="${p.games}" data-wins="${p.wins}"
         data-day-games="${p.dayGames}" data-day-wins="${p.dayWins}"
@@ -245,7 +246,7 @@ export function renderMultiWinRateLineChart(seriesList, range, title = "") {
 
   const renderedSeries = nonEmpty.map((entry) => {
     const points = renderDateAlignedPoints(entry.series, range.start, range.end);
-    const rendered = renderPointGroups(points, { seriesId: String(entry.id), color: entry.color });
+    const rendered = renderPointGroups(points, { seriesId: String(entry.id), color: entry.color, label: entry.label });
     return { ...entry, points, rendered };
   });
 
@@ -304,8 +305,9 @@ export function bindWinRateLineCharts() {
         const dayWr = Number(group.dataset.dayWr);
         const dayGames = Number(group.dataset.dayGames);
         const dayWins = Number(group.dataset.dayWins);
-        const seriesId = group.dataset.seriesId;
         const seriesColor = group.dataset.seriesColor;
+        const seriesLabel = group.dataset.seriesLabel;
+        const prefix = seriesLabel ? `${seriesLabel}<br>` : "";
         tip.hidden = false;
         group.classList.add("active");
         point.setAttribute("r", "5");
@@ -316,7 +318,6 @@ export function bindWinRateLineCharts() {
           dayGames > 1
             ? `${dayWins}W / ${dayGames}G · ${pct(dayWr)} that day`
             : `${dayWins === 1 ? "Win" : "Loss"} that day`;
-        const prefix = seriesId ? `Seat ${seriesId}<br>` : "";
         tip.innerHTML = `${prefix}${dateLabel}<br>${dayLine}<br>Overall ${pct(wr)} (${group.dataset.wins}/${group.dataset.games})`;
 
         const cx = Number(point.getAttribute("cx"));

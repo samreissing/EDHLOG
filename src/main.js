@@ -54,6 +54,19 @@ import {
   bindWinRateLineCharts,
 } from "./trends-chart.js";
 import {
+  gamesForColorSeries,
+  gamesForBracketSeries,
+  gamesForTrendsWindowSeries,
+  getEffectiveChartRange,
+  lineColorForColorKey,
+} from "./chart-series.js";
+import {
+  createColorPool,
+  togglePoolSelection,
+  getPoolColor,
+  resetColorPool,
+} from "./selection-colors.js";
+import {
   computeSeatStats,
   gamesForSeatSeries,
   getSeatDateBounds,
@@ -109,6 +122,15 @@ let colorAgg = "inclusive";
 let colorSortOrder = "wubrgc";
 /** @type {"all" | "active" | "retired"} */
 let statsDeckFilter = "all";
+/** @type {Map<string, string>} */
+let colorsChartSelection = new Map();
+let colorsChartRange = { start: null, end: null, customized: false };
+let bracketsChartPool = createColorPool();
+let bracketsChartRange = { start: null, end: null, customized: false };
+let trendsWindowPool = createColorPool();
+/** @type {Map<string, { rangeStart: number, rangeEnd: number, label: string }>} */
+let trendsWindowMeta = new Map();
+let trendsChartRange = { start: null, end: null, customized: false };
 let pieAnimKey = 0;
 let tableSort = {
   "color-stats": { col: "colorOrder", dir: "asc" },
@@ -119,6 +141,85 @@ let tableSort = {
   "game-log": { col: "date", dir: "desc" },
   matchups: { col: "normalizedMatchupImpact", dir: "desc" },
 };
+
+function resetStatsTabState(tab) {
+  if (tab === "colors") {
+    statsDeckFilter = "all";
+    colorView = "wubrgc";
+    colorAgg = "inclusive";
+    colorSortOrder = "wubrgc";
+    colorsChartSelection = new Map();
+    colorsChartRange = { start: null, end: null, customized: false };
+    tableSort["color-stats"] = { col: "colorOrder", dir: "asc" };
+    pieAnimKey++;
+  } else if (tab === "brackets") {
+    statsDeckFilter = "all";
+    statsBracketFilter = "";
+    resetColorPool(bracketsChartPool);
+    bracketsChartRange = { start: null, end: null, customized: false };
+    tableSort["bracket-stats"] = { col: "bracket", dir: "asc" };
+    pieAnimKey++;
+  } else if (tab === "trends") {
+    trendsFilter = { kind: "all" };
+    resetColorPool(trendsWindowPool);
+    trendsWindowMeta = new Map();
+    trendsChartRange = { start: null, end: null, customized: false };
+    tableSort["trends-windows"] = { col: "rangeStart", dir: "asc" };
+    tableSort["trends-cumulative"] = { col: "games", dir: "asc" };
+  } else if (tab === "seats") {
+    selectedSeats = [];
+    seatViewMode = "mine";
+    seatRange = { start: null, end: null, customized: false };
+  } else if (tab === "matchups") {
+    matchupTab = "players";
+    matchupSearch = "";
+    tableSort.matchups = { col: "normalizedMatchupImpact", dir: "desc" };
+  }
+}
+
+function resetAllStatsTabStates() {
+  STATS_TABS.forEach((tab) => resetStatsTabState(tab.id));
+}
+
+function resetDecksViewState() {
+  decksTab = "active";
+  deckBracketFilter = "";
+  deckSort = "normWr";
+  deckSortDir = "desc";
+  selectedDeckName = null;
+  editingDeckName = null;
+  tableSort["decks-main"] = { col: "normWr", dir: "desc" };
+}
+
+function resetGamesViewState() {
+  gameModalOpen = false;
+  editingGameId = null;
+  viewingGameId = null;
+  logFilters = { deck: "", result: "", year: "" };
+  tableSort["game-log"] = { col: "date", dir: "desc" };
+}
+
+function getStatsScope() {
+  const statsDecks = filterDecksForStats(data.decks, statsDeckFilter);
+  const statsGames = filterGamesForStats(data.games, data.decks, statsDeckFilter);
+  const filteredDeckStats = computeDeckStats(
+    statsDeckFilter === "all" ? data.decks : statsDecks,
+    statsGames
+  );
+  return { statsDecks, statsGames, filteredDeckStats };
+}
+
+function renderDateRangeFilters(idPrefix, bounds, range) {
+  return `
+    <div class="filters inline seat-range-filters">
+      <label>From <input type="date" id="${idPrefix}-range-start" min="${bounds.min}" max="${bounds.max}" value="${range.start}" /></label>
+      <label>To <input type="date" id="${idPrefix}-range-end" min="${bounds.min}" max="${bounds.max}" value="${range.end}" /></label>
+    </div>`;
+}
+
+function chartSeriesRowStyle(color) {
+  return color ? ` style="--series-color:${color}"` : "";
+}
 
 async function boot() {
   data = await initData();
@@ -159,26 +260,20 @@ function bindEvents() {
   document.getElementById("nav").addEventListener("click", (e) => {
     const btn = e.target.closest("[data-view]");
     if (!btn) return;
+    const prevView = currentView;
     currentView = btn.dataset.view;
+    if (prevView === "stats" && currentView !== "stats") {
+      resetStatsTabState(statsTab);
+    }
     if (currentView === "stats") {
       statsTab = "overview";
-      statsBracketFilter = "";
-      trendsFilter = { kind: "all" };
-      selectedSeats = [];
-      seatViewMode = "mine";
-      seatRange = { start: null, end: null, customized: false };
+      resetAllStatsTabStates();
     }
     if (currentView === "decks") {
-      decksTab = "active";
-      deckBracketFilter = "";
-      selectedDeckName = null;
-      editingDeckName = null;
+      resetDecksViewState();
     }
     if (currentView === "games") {
-      gameModalOpen = false;
-      editingGameId = null;
-      viewingGameId = null;
-      logFilters = { deck: "", result: "", year: "" };
+      resetGamesViewState();
     }
     if (currentView !== "decks") {
       selectedDeckName = null;
@@ -196,6 +291,21 @@ function bindEvents() {
       seatRange.customized = true;
       seatRange.start = document.getElementById("seat-range-start")?.value || null;
       seatRange.end = document.getElementById("seat-range-end")?.value || null;
+      render();
+    } else if (e.target.id === "colors-range-start" || e.target.id === "colors-range-end") {
+      colorsChartRange.customized = true;
+      colorsChartRange.start = document.getElementById("colors-range-start")?.value || null;
+      colorsChartRange.end = document.getElementById("colors-range-end")?.value || null;
+      render();
+    } else if (e.target.id === "brackets-range-start" || e.target.id === "brackets-range-end") {
+      bracketsChartRange.customized = true;
+      bracketsChartRange.start = document.getElementById("brackets-range-start")?.value || null;
+      bracketsChartRange.end = document.getElementById("brackets-range-end")?.value || null;
+      render();
+    } else if (e.target.id === "trends-range-start" || e.target.id === "trends-range-end") {
+      trendsChartRange.customized = true;
+      trendsChartRange.start = document.getElementById("trends-range-start")?.value || null;
+      trendsChartRange.end = document.getElementById("trends-range-end")?.value || null;
       render();
     }
   });
@@ -220,6 +330,8 @@ function bindEvents() {
     if (e.target.id === "stats-deck-filter-toggle") {
       statsDeckFilter =
         statsDeckFilter === "all" ? "active" : statsDeckFilter === "active" ? "retired" : "all";
+      if (statsTab === "colors") colorsChartSelection = new Map();
+      if (statsTab === "brackets") resetColorPool(bracketsChartPool);
       pieAnimKey++;
       render();
       return;
@@ -235,6 +347,7 @@ function bindEvents() {
 
     if (e.target.id === "color-view-toggle") {
       colorView = colorView === "wubrgc" ? "all" : "wubrgc";
+      colorsChartSelection = new Map();
       pieAnimKey++;
       render();
       return;
@@ -242,6 +355,7 @@ function bindEvents() {
 
     if (e.target.id === "color-agg-toggle") {
       colorAgg = colorAgg === "inclusive" ? "exclusive" : "inclusive";
+      colorsChartSelection = new Map();
       pieAnimKey++;
       render();
       return;
@@ -254,19 +368,10 @@ function bindEvents() {
       return;
     }
 
-    const trendsWindowBtn = e.target.closest("[data-trends-window]");
-    if (trendsWindowBtn) {
-      trendsFilter = {
-        kind: "window",
-        rangeStart: Number(trendsWindowBtn.dataset.rangeStart),
-        rangeEnd: Number(trendsWindowBtn.dataset.rangeEnd),
-      };
-      render();
-      return;
-    }
-
     const trendsCumulativeBtn = e.target.closest("[data-trends-cumulative]");
     if (trendsCumulativeBtn) {
+      resetColorPool(trendsWindowPool);
+      trendsWindowMeta = new Map();
       trendsFilter = {
         kind: "cumulative",
         rangeEnd: Number(trendsCumulativeBtn.dataset.rangeEnd),
@@ -277,6 +382,8 @@ function bindEvents() {
 
     const trendsYearBtn = e.target.closest("[data-trends-year]");
     if (trendsYearBtn) {
+      resetColorPool(trendsWindowPool);
+      trendsWindowMeta = new Map();
       trendsFilter = { kind: "year", year: trendsYearBtn.dataset.trendsYear };
       render();
       return;
@@ -284,6 +391,8 @@ function bindEvents() {
 
     const trendsAllBtn = e.target.closest("[data-trends-all]");
     if (trendsAllBtn) {
+      resetColorPool(trendsWindowPool);
+      trendsWindowMeta = new Map();
       trendsFilter = { kind: "all" };
       render();
       return;
@@ -298,7 +407,46 @@ function bindEvents() {
 
     const statsBtn = e.target.closest("[data-stats-tab]");
     if (statsBtn) {
-      statsTab = statsBtn.getAttribute("data-stats-tab");
+      const nextTab = statsBtn.getAttribute("data-stats-tab");
+      if (nextTab !== statsTab) resetStatsTabState(statsTab);
+      statsTab = nextTab;
+      render();
+      return;
+    }
+
+    const colorChartRow = e.target.closest("[data-color-chart-row]");
+    if (colorChartRow && statsTab === "colors") {
+      const key = colorChartRow.dataset.colorChartRow;
+      if (colorsChartSelection.has(key)) colorsChartSelection.delete(key);
+      else colorsChartSelection.set(key, lineColorForColorKey(key));
+      render();
+      return;
+    }
+
+    const bracketChartRow = e.target.closest("[data-bracket-chart-row]");
+    if (bracketChartRow && statsTab === "brackets") {
+      const bracket = Number(bracketChartRow.dataset.bracketChartRow);
+      statsBracketFilter = String(bracket);
+      togglePoolSelection(bracketsChartPool, String(bracket));
+      render();
+      return;
+    }
+
+    const trendsWindowToggle = e.target.closest("[data-trends-window-toggle]");
+    if (trendsWindowToggle) {
+      const rangeStart = Number(trendsWindowToggle.dataset.rangeStart);
+      const rangeEnd = Number(trendsWindowToggle.dataset.rangeEnd);
+      const id = `${rangeStart}-${rangeEnd}`;
+      const color = togglePoolSelection(trendsWindowPool, id);
+      if (color) {
+        trendsWindowMeta.set(id, {
+          rangeStart,
+          rangeEnd,
+          label: trendsWindowToggle.dataset.label || `${rangeStart}-${rangeEnd}`,
+        });
+      } else {
+        trendsWindowMeta.delete(id);
+      }
       render();
       return;
     }
@@ -592,14 +740,6 @@ function trendsChartTitle() {
   return "";
 }
 
-function isTrendsWindowActive(windowRow) {
-  return (
-    trendsFilter.kind === "window" &&
-    trendsFilter.rangeStart === windowRow.rangeStart &&
-    trendsFilter.rangeEnd === windowRow.rangeEnd
-  );
-}
-
 function isTrendsCumulativeActive(cumulativeRow) {
   return trendsFilter.kind === "cumulative" && trendsFilter.rangeEnd === cumulativeRow.games;
 }
@@ -724,7 +864,7 @@ function render() {
 
   if (currentView === "games") applyLogFilters();
   bindPieCharts();
-  if (currentView === "stats" && (statsTab === "trends" || statsTab === "seats")) {
+  if (currentView === "stats" && (statsTab === "trends" || statsTab === "seats" || statsTab === "colors" || statsTab === "brackets")) {
     bindWinRateLineCharts();
   }
   if (currentView === "stats" && statsTab === "matchups" && matchupTab === "decks") {
@@ -830,6 +970,7 @@ function renderStats() {
       </div>
       `;
   } else if (statsTab === "colors") {
+    const { statsDecks, statsGames } = getStatsScope();
     const sortCol = tableSort["color-stats"]?.col || "colorOrder";
     const colors = applySort(s.colorStats, tableSort["color-stats"], {
       colorOrder: (c) => c.colorOrder,
@@ -848,6 +989,28 @@ function renderStats() {
     const avgGames = colorStatAverage(colors, "games");
     const avgWins = colorStatAverage(colors, "wins");
     const avgDecks = colorStatAverage(colors, "decks");
+    const chartRange = getEffectiveChartRange(statsGames, colorsChartRange);
+    const colorChart =
+      colorsChartSelection.size && chartRange.start <= chartRange.end
+        ? renderMultiWinRateLineChart(
+            [...colorsChartSelection.entries()].map(([key, color]) => ({
+              id: key,
+              label: key === "C" ? "Colorless" : key,
+              color,
+              series: computeWinRateSeries(
+                gamesForColorSeries(
+                  statsGames,
+                  statsDecks,
+                  key,
+                  colorAgg,
+                  chartRange.start,
+                  chartRange.end
+                )
+              ),
+            })),
+            chartRange
+          )
+        : "";
 
     body = `
       <div class="filters inline color-mode-filters">
@@ -855,6 +1018,8 @@ function renderStats() {
         <button type="button" class="btn btn-ghost btn-sm" id="color-view-toggle">${colorViewLabel(colorView)}</button>
         <button type="button" class="btn btn-ghost btn-sm" id="color-agg-toggle">${colorAgg === "inclusive" ? "Inclusive" : "Exclusive"}</button>
       </div>
+      ${renderDateRangeFilters("colors", chartRange.bounds, chartRange)}
+      ${colorChart}
       <div class="chart-table-row">
         <div class="chart-table-grow">
           <table class="table compact sortable-table">
@@ -867,16 +1032,17 @@ function renderStats() {
             </tr></thead>
             <tbody>
               ${colors
-                .map(
-                  (c) => `
-                <tr>
+                .map((c) => {
+                  const seriesColor = colorsChartSelection.get(c.key);
+                  return `
+                <tr class="chart-series-selectable${seriesColor ? " active" : ""}" data-color-chart-row="${c.key}"${chartSeriesRowStyle(seriesColor)}>
                   <td><span class="color-label">${colorBadge(c.displayColors)}</span></td>
                   <td>${c.key === "C" ? c.decks : valueCell(c.decks, avgDecks)}</td>
                   <td>${c.key === "C" ? c.games : valueCell(c.games, avgGames)}</td>
                   <td>${c.key === "C" ? c.wins : valueCell(c.wins, avgWins)}</td>
                   <td>${c.games ? pctCell(c.winRate) : "—"}</td>
-                </tr>`
-                )
+                </tr>`;
+                })
                 .join("")}
             </tbody>
           </table>
@@ -884,6 +1050,7 @@ function renderStats() {
         ${renderPieChart(pieSlices, pieAnimKey)}
       </div>`;
   } else if (statsTab === "brackets") {
+    const { statsDecks, statsGames } = getStatsScope();
     const sortCol = tableSort["bracket-stats"]?.col || "bracket";
     const brackets = applySort(
       s.bracketStats.filter((b) => b.games > 0),
@@ -898,11 +1065,35 @@ function renderStats() {
     const pieSlices = pieSlicesFromRows(brackets, sortCol, (b) => ({
       bracket: b.bracket,
     }));
+    const chartRange = getEffectiveChartRange(statsGames, bracketsChartRange);
+    const selectedBrackets = [...bracketsChartPool.assigned.keys()].map(Number).sort((a, b) => a - b);
+    const bracketChart =
+      selectedBrackets.length && chartRange.start <= chartRange.end
+        ? renderMultiWinRateLineChart(
+            selectedBrackets.map((bracket) => ({
+              id: bracket,
+              label: `Bracket ${bracket}`,
+              color: getPoolColor(bracketsChartPool, String(bracket)),
+              series: computeWinRateSeries(
+                gamesForBracketSeries(
+                  statsGames,
+                  statsDecks,
+                  bracket,
+                  chartRange.start,
+                  chartRange.end
+                )
+              ),
+            })),
+            chartRange
+          )
+        : "";
 
     body = `
       <div class="filters inline color-mode-filters">
         <button type="button" class="btn btn-ghost btn-sm" id="stats-deck-filter-toggle">${statsDeckFilterLabel(statsDeckFilter)}</button>
       </div>
+      ${renderDateRangeFilters("brackets", chartRange.bounds, chartRange)}
+      ${bracketChart}
       <div class="chart-table-row">
         <div class="chart-table-grow">
           <table class="table compact sortable-table">
@@ -914,13 +1105,15 @@ function renderStats() {
             </tr></thead>
             <tbody>
               ${brackets
-                .map(
-                  (b) => `
-                <tr>
+                .map((b) => {
+                  const seriesColor = getPoolColor(bracketsChartPool, String(b.bracket));
+                  const filterActive = statsBracketFilter === String(b.bracket);
+                  return `
+                <tr class="chart-series-selectable${seriesColor ? " active" : ""}${filterActive ? " chart-series-filtered" : ""}" data-bracket-chart-row="${b.bracket}"${chartSeriesRowStyle(seriesColor)}>
                   <td><span class="bracket-pill" style="background:${getBracketColor(b.bracket)}">${b.bracket}</span></td><td>${b.games}</td><td>${b.wins}</td>
                   <td>${pctCell(b.winRate)}</td>
-                </tr>`
-                )
+                </tr>`;
+                })
                 .join("")}
             </tbody>
           </table>
@@ -939,11 +1132,40 @@ function renderStats() {
       </div>
       ${renderBracketDetail(s.bracketDetail)}`;
   } else if (statsTab === "trends") {
-    const chartGames = gamesForTrendsFilter(data.games);
-    const chart = renderWinRateLineChart(computeWinRateSeries(chartGames), trendsChartTitle());
+    const chartRange = getEffectiveChartRange(data.games, trendsChartRange);
+    const selectedWindows = [...trendsWindowPool.assigned.keys()]
+      .map((id) => trendsWindowMeta.get(id))
+      .filter(Boolean);
+
+    let chart = "";
+    if (selectedWindows.length && chartRange.start <= chartRange.end) {
+      chart = renderMultiWinRateLineChart(
+        selectedWindows.map((window) => {
+          const id = `${window.rangeStart}-${window.rangeEnd}`;
+          return {
+            id,
+            label: window.label,
+            color: getPoolColor(trendsWindowPool, id),
+            series: computeWinRateSeries(
+              gamesForTrendsWindowSeries(
+                data.games,
+                window.rangeStart,
+                window.rangeEnd,
+                chartRange.start,
+                chartRange.end
+              )
+            ),
+          };
+        }),
+        chartRange
+      );
+    } else {
+      const chartGames = gamesForTrendsFilter(data.games);
+      chart = renderWinRateLineChart(computeWinRateSeries(chartGames), trendsChartTitle());
+    }
 
     if (!s.rolling.windows.length) {
-      body = chart;
+      body = `${renderDateRangeFilters("trends", chartRange.bounds, chartRange)}${chart}`;
     } else {
       const windows = applySort(s.rolling.windows, tableSort["trends-windows"], {
         label: (w) => w.label,
@@ -958,6 +1180,8 @@ function renderStats() {
       });
 
       body = `
+        ${renderDateRangeFilters("trends", chartRange.bounds, chartRange)}
+        ${chart}
         <h3 class="section-sub">By Year</h3>
         <div class="year-row">
           <button type="button" class="year-chip trends-selectable ${trendsFilter.kind === "all" ? "active" : ""}" data-trends-all>
@@ -985,14 +1209,17 @@ function renderStats() {
               </tr></thead>
               <tbody>
                 ${windows
-                  .map(
-                    (w) => `
-                  <tr class="trends-selectable ${isTrendsWindowActive(w) ? "active" : ""}"
-                    data-trends-window data-range-start="${w.rangeStart}" data-range-end="${w.rangeEnd}">
+                  .map((w) => {
+                    const id = `${w.rangeStart}-${w.rangeEnd}`;
+                    const seriesColor = getPoolColor(trendsWindowPool, id);
+                    return `
+                  <tr class="chart-series-selectable trends-selectable${seriesColor ? " active" : ""}"
+                    data-trends-window-toggle data-label="${escapeHtml(w.label)}"
+                    data-range-start="${w.rangeStart}" data-range-end="${w.rangeEnd}"${chartSeriesRowStyle(seriesColor)}>
                     <td>${w.label}</td>
                     <td>${pctCell(w.winRate)}</td>
-                  </tr>`
-                  )
+                  </tr>`;
+                  })
                   .join("")}
               </tbody>
             </table>
@@ -1018,8 +1245,7 @@ function renderStats() {
               </tbody>
             </table>
           </div>
-        </div>
-        ${chart}`;
+        </div>`;
     }
   } else if (statsTab === "seats") {
     const bounds = getSeatDateBounds(data.games, seatViewMode);
