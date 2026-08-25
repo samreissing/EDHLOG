@@ -36,6 +36,10 @@ import { renderDeckDetail } from "./deck-detail.js";
 import { importDeckFromUrl } from "./deck-import.js";
 import { loadImagesIntoDeckDetail } from "./scryfall.js";
 import { bindPodAutocomplete, MY_PLAYER_NAME } from "./opponent-search.js";
+import {
+  warmCommanderMatchupCache,
+  collectPartnerCommanderNames,
+} from "./commander-names.js";
 import { bindModalBackdropDismiss } from "./modals.js";
 import {
   computeAllMatchups,
@@ -118,6 +122,9 @@ async function boot() {
   data = await initData();
   const sync = getLastSeedSync();
   bindEvents();
+  void warmCommanderMatchupCache(collectPartnerCommanderNames(data.games)).then(() => {
+    if (currentView === "stats" && statsTab === "matchups") render();
+  });
   bindModalBackdropDismiss({
     deck: () => {
       editingDeckName = null;
@@ -651,18 +658,6 @@ function formatPlayerBreakdownTip(breakdown) {
   return breakdown.map((row) => `${escapeHtml(row.player)}: ${row.games}`).join("<br>");
 }
 
-function bindDeckOpponentTips() {
-  const tip = document.getElementById("deck-opponent-tip");
-  if (!tip) return;
-
-  const byName = new Map(getStats().deckStats.map((d) => [d.name, d]));
-
-  bindHoverTip(tip, document.querySelectorAll(".deck-opponent-trigger"), (btn) => {
-    const deck = byName.get(btn.dataset.deckDetail);
-    return formatPlayerBreakdownTip(deck?.opponentBreakdown);
-  });
-}
-
 function bindMatchupDeckTips() {
   const tip = document.getElementById("matchup-deck-tip");
   if (!tip) return;
@@ -706,7 +701,6 @@ function render() {
   if (currentView === "stats" && (statsTab === "trends" || statsTab === "seats")) {
     bindWinRateLineCharts();
   }
-  if (currentView === "decks") bindDeckOpponentTips();
   if (currentView === "stats" && statsTab === "matchups" && matchupTab === "decks") {
     bindMatchupDeckTips();
   }
@@ -1178,29 +1172,29 @@ function renderDecks() {
         </div>
         <button type="button" class="btn btn-primary" id="add-deck-btn">+ Deck</button>
       </div>
-      <table class="table sortable-table">
-        <thead><tr>
-          ${sortHeader("decks-main", dateSortCol, dateColLabel, sortState)}
-          ${sortHeader("decks-main", "name", "Deck", sortState)}
-          ${sortHeader("decks-main", "colors", "Color Identity", sortState)}
-          ${sortHeader("decks-main", "bracket", "Bracket", sortState)}
-          ${sortHeader("decks-main", "games", "Games", sortState)}
-          ${sortHeader("decks-main", "wins", "Wins", sortState)}
-          ${sortHeader("decks-main", "opponentCount", "Opponents", sortState)}
-          ${sortHeader("decks-main", "normWr", "Normalized Win Rate", sortState)}
-          ${sortHeader("decks-main", "winRate", "Win Rate", sortState)}
-          <th></th>
-        </tr></thead>
-        <tbody>
-          ${list.length ? list.map((d) => `<tr><td>${dateCell(d)}</td><td class="deck-name"><button type="button" class="link-btn deck-link deck-opponent-trigger" data-deck-detail="${escapeHtml(d.name)}">${escapeHtml(d.name)}</button></td><td>${colorBadge(d.colors)}</td><td>${d.bracket}</td><td>${d.games}</td><td>${d.wins}</td><td>${d.games ? d.opponentCount : "—"}</td><td>${d.games ? pctCell(d.normalizedWr) : "—"}</td><td>${d.games ? pctCell(d.winRate) : "—"}</td><td class="row-actions"><button type="button" class="btn-icon edit-deck" data-name="${escapeHtml(d.name)}" title="Edit deck">✎</button><button type="button" class="btn-icon delete-deck" data-name="${escapeHtml(d.name)}" title="Delete deck">×</button></td></tr>`).join("") : '<tr><td colspan="10"></td></tr>'}
-        </tbody>
-      </table>
-      <div id="deck-opponent-tip" class="deck-opponent-tip" hidden></div>
+      <div class="table-wrap">
+        <table class="table sortable-table decks-table">
+          <thead><tr>
+            ${sortHeader("decks-main", dateSortCol, dateColLabel, sortState)}
+            ${sortHeader("decks-main", "name", "Deck", sortState)}
+            ${sortHeader("decks-main", "colors", "Color Identity", sortState)}
+            ${sortHeader("decks-main", "bracket", "Bracket", sortState)}
+            ${sortHeader("decks-main", "games", "Games", sortState)}
+            ${sortHeader("decks-main", "wins", "Wins", sortState)}
+            ${sortHeader("decks-main", "normWr", "Norm WR", sortState)}
+            ${sortHeader("decks-main", "winRate", "Win Rate", sortState)}
+            <th class="row-actions-col"></th>
+          </tr></thead>
+          <tbody>
+            ${list.length ? list.map((d) => `<tr><td class="deck-date">${dateCell(d)}</td><td class="deck-name"><button type="button" class="link-btn deck-link" data-deck-detail="${escapeHtml(d.name)}">${escapeHtml(d.name)}</button></td><td class="deck-colors">${colorBadge(d.colors)}</td><td class="deck-num">${d.bracket}</td><td class="deck-num">${d.games}</td><td class="deck-num">${d.wins}</td><td class="deck-num">${d.games ? pctCell(d.normalizedWr) : "—"}</td><td class="deck-num">${d.games ? pctCell(d.winRate) : "—"}</td><td class="row-actions"><button type="button" class="btn-icon edit-deck" data-name="${escapeHtml(d.name)}" title="Edit deck">✎</button><button type="button" class="btn-icon delete-deck" data-name="${escapeHtml(d.name)}" title="Delete deck">×</button></td></tr>`).join("") : '<tr><td colspan="9"></td></tr>'}
+          </tbody>
+        </table>
+      </div>
     </section>
     <div id="deck-modal" class="modal hidden">
       <div class="modal-content">
         <h3>${editingDeck ? "Edit Deck" : "Add Deck"}</h3>
-        <form id="deck-form">
+        <form id="deck-form" class="deck-form">
           ${editingDeck ? `<input type="hidden" name="originalName" value="${escapeHtml(editingDeck.name)}" />` : ""}
           <label>Name<input name="name" required value="${editingDeck ? escapeHtml(editingDeck.name) : ""}" /></label>
           <label>Created<input type="date" name="createdAt" value="${editingDeck?.createdAt || todayISO()}" required /></label>

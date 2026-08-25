@@ -32,17 +32,6 @@ export function normalizedWinRate(wins, games) {
 }
 
 export function computeDeckStats(decks, games) {
-  const opponentMaps = new Map();
-  for (const game of games) {
-    if (!opponentMaps.has(game.deck)) opponentMaps.set(game.deck, new Map());
-    const oppMap = opponentMaps.get(game.deck);
-    for (const opp of game.opponents || []) {
-      const player = String(opp.player || "").trim();
-      if (!player) continue;
-      oppMap.set(player, (oppMap.get(player) || 0) + 1);
-    }
-  }
-
   const map = new Map();
   for (const deck of decks) {
     map.set(deck.name, {
@@ -73,20 +62,11 @@ export function computeDeckStats(decks, games) {
     else d.losses += 1;
     if (!d.lastPlayed || game.date > d.lastPlayed) d.lastPlayed = game.date;
   }
-  return [...map.values()].map((d) => {
-    const breakdown = opponentMaps.has(d.name)
-      ? [...opponentMaps.get(d.name).entries()]
-          .map(([player, gamesPlayed]) => ({ player, games: gamesPlayed }))
-          .sort((a, b) => b.games - a.games || a.player.localeCompare(b.player))
-      : [];
-    return {
-      ...d,
-      winRate: winRate(d.wins, d.games),
-      normalizedWr: normalizedWinRate(d.wins, d.games),
-      opponentCount: breakdown.length,
-      opponentBreakdown: breakdown,
-    };
-  });
+  return [...map.values()].map((d) => ({
+    ...d,
+    winRate: winRate(d.wins, d.games),
+    normalizedWr: normalizedWinRate(d.wins, d.games),
+  }));
 }
 
 export function computeOverview(games) {
@@ -315,9 +295,6 @@ export function sortDeckList(list, sortKey, dir) {
         mul * (colorIdentitySortIndex(a.colors) - colorIdentitySortIndex(b.colors)) ||
         a.name.localeCompare(b.name)
       );
-    }
-    if (sortKey === "opponentCount") {
-      return comparePlayedDecks(a, b, () => mul * (a.opponentCount - b.opponentCount));
     }
     return 0;
   });
