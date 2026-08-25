@@ -1147,7 +1147,7 @@ function renderDecks() {
 
   const showLastPlayed = deckSort === "recent" || sortState.col === "lastPlayed";
   const dateSortCol = showLastPlayed ? "lastPlayed" : "createdAt";
-  const dateColLabel = showLastPlayed ? "Last Played" : "Added";
+  const dateColLabel = showLastPlayed ? "Played" : "Added";
   const dateCell = (d) =>
     showLastPlayed ? (d.lastPlayed ? formatDate(d.lastPlayed) : "—") : formatDate(d.createdAt);
 
@@ -1174,9 +1174,20 @@ function renderDecks() {
       </div>
       <div class="table-wrap">
         <table class="table sortable-table decks-table">
+          <colgroup>
+            <col class="decks-col-date" />
+            <col class="decks-col-name" />
+            <col class="decks-col-colors" />
+            <col class="decks-col-bracket" />
+            <col class="decks-col-games" />
+            <col class="decks-col-wins" />
+            <col class="decks-col-stat" />
+            <col class="decks-col-stat" />
+            <col class="decks-col-actions" />
+          </colgroup>
           <thead><tr>
-            ${sortHeader("decks-main", dateSortCol, dateColLabel, sortState)}
-            ${sortHeader("decks-main", "name", "Deck", sortState)}
+            ${sortHeader("decks-main", dateSortCol, dateColLabel, sortState, "deck-date-col")}
+            ${sortHeader("decks-main", "name", "Deck", sortState, "deck-name-col")}
             ${sortHeader("decks-main", "colors", "Color Identity", sortState, "deck-colors-col")}
             ${sortHeader("decks-main", "bracket", "Bracket", sortState, "deck-tight-col")}
             ${sortHeader("decks-main", "games", "Games", sortState, "deck-tight-col")}
