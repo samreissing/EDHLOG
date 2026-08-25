@@ -107,6 +107,8 @@ let logFilters = { deck: "", result: "", year: "" };
 let colorView = "wubrgc";
 let colorAgg = "inclusive";
 let colorSortOrder = "wubrgc";
+/** @type {"all" | "active" | "retired"} */
+let statsDeckFilter = "all";
 let pieAnimKey = 0;
 let tableSort = {
   "color-stats": { col: "colorOrder", dir: "asc" },
@@ -211,6 +213,14 @@ function bindEvents() {
         else if (col === "createdAt") deckSort = "newest";
       }
       if (tableId === "color-stats" || tableId === "bracket-stats") pieAnimKey++;
+      render();
+      return;
+    }
+
+    if (e.target.id === "stats-deck-filter-toggle") {
+      statsDeckFilter =
+        statsDeckFilter === "all" ? "active" : statsDeckFilter === "active" ? "retired" : "all";
+      pieAnimKey++;
       render();
       return;
     }
@@ -651,19 +661,52 @@ function bindMatchupDeckTips() {
   });
 }
 
+function statsDeckFilterLabel(filter) {
+  if (filter === "active") return "Active";
+  if (filter === "retired") return "Retired";
+  return "All Decks";
+}
+
+/** @param {import('./store.js').Deck[]} decks @param {"all" | "active" | "retired"} filter */
+function filterDecksForStats(decks, filter) {
+  if (filter === "active") return decks.filter((d) => !d.retired);
+  if (filter === "retired") return decks.filter((d) => d.retired);
+  return decks;
+}
+
+/** @param {import('./store.js').Game[]} games @param {import('./store.js').Deck[]} decks @param {"all" | "active" | "retired"} filter */
+function filterGamesForStats(games, decks, filter) {
+  if (filter === "all") return games;
+  const deckMap = new Map(decks.map((d) => [d.name, d]));
+  return games.filter((game) => {
+    const retired = deckMap.get(game.deck)?.retired ?? false;
+    return filter === "retired" ? retired : !retired;
+  });
+}
+
 function getStats() {
   const deckStats = computeDeckStats(data.decks, data.games);
+  const statsDecks = filterDecksForStats(data.decks, statsDeckFilter);
+  const statsGames = filterGamesForStats(data.games, data.decks, statsDeckFilter);
+  const filteredDeckStats = computeDeckStats(
+    statsDeckFilter === "all" ? data.decks : statsDecks,
+    statsGames
+  );
   const overview = computeOverview(data.games);
   return {
     deckStats,
     overview,
-    colorStats: computeColorStatsAdvanced(deckStats, {
+    colorStats: computeColorStatsAdvanced(filteredDeckStats, {
       view: colorView,
       agg: colorAgg,
       sortOrder: colorSortOrder,
     }),
-    bracketStats: computeBracketStats(data.games, deckStats),
-    bracketDetail: computeBracketDetail(data.games, data.decks, statsBracketFilter),
+    bracketStats: computeBracketStats(statsGames, filteredDeckStats),
+    bracketDetail: computeBracketDetail(
+      statsGames,
+      statsDeckFilter === "all" ? data.decks : statsDecks,
+      statsBracketFilter
+    ),
     yearStats: computeYearStats(data.games),
     rolling: computeRolling100Stats(data.games),
     matchups: computeAllMatchups(data.games),
@@ -808,6 +851,7 @@ function renderStats() {
 
     body = `
       <div class="filters inline color-mode-filters">
+        <button type="button" class="btn btn-ghost btn-sm" id="stats-deck-filter-toggle">${statsDeckFilterLabel(statsDeckFilter)}</button>
         <button type="button" class="btn btn-ghost btn-sm" id="color-view-toggle">${colorViewLabel(colorView)}</button>
         <button type="button" class="btn btn-ghost btn-sm" id="color-agg-toggle">${colorAgg === "inclusive" ? "Inclusive" : "Exclusive"}</button>
       </div>
@@ -856,6 +900,9 @@ function renderStats() {
     }));
 
     body = `
+      <div class="filters inline color-mode-filters">
+        <button type="button" class="btn btn-ghost btn-sm" id="stats-deck-filter-toggle">${statsDeckFilterLabel(statsDeckFilter)}</button>
+      </div>
       <div class="chart-table-row">
         <div class="chart-table-grow">
           <table class="table compact sortable-table">
