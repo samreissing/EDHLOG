@@ -1249,11 +1249,11 @@ function renderStats() {
                   .map((w, index) => {
                     const id = `${w.rangeStart}-${w.rangeEnd}`;
                     const selected = trendsWindowSelection.has(id);
-                    const seriesColor = selected ? colorForRowIndex(index, windows.length) : null;
+                    const rowColor = colorForRowIndex(index, windows.length);
                     return `
-                  <tr class="chart-series-selectable trends-selectable${seriesColor ? " active" : ""}"
+                  <tr class="chart-series-selectable trends-selectable${selected ? " active" : ""}"
                     data-trends-window-toggle data-label="${escapeHtml(w.label)}"
-                    data-range-start="${w.rangeStart}" data-range-end="${w.rangeEnd}"${chartSeriesRowStyle(seriesColor)}>
+                    data-range-start="${w.rangeStart}" data-range-end="${w.rangeEnd}"${chartSeriesRowStyle(rowColor)}>
                     <td>${w.label}</td>
                     <td>${pctCell(w.winRate)}</td>
                   </tr>`;

@@ -914,6 +914,10 @@ button.year-chip.active,
   user-select: none;
 }
 
+.trends-table tbody tr.chart-series-selectable:not(.active) {
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--series-color) 35%, transparent);
+}
+
 .seat-toggle-row {
   display: grid;
   grid-template-columns: minmax(4.5rem, 0.55fr) repeat(4, minmax(0, 1fr));

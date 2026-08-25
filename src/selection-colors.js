@@ -9,15 +9,18 @@ const BROKEN_RAINBOW_STOPS = [
   { h: 48, s: 90, l: 52 },
 ];
 
+/** Follow the broken path in stop order — not the shortest hue arc (which clusters pinks). */
+const SEGMENT_HUE_DELTAS = [
+  275, // R → V
+  -247, // V → O
+  220, // O → I
+  -108, // I → G
+  70, // G → B
+  -162, // B → Y
+];
+
 function lerp(a, b, t) {
   return a + (b - a) * t;
-}
-
-function lerpHue(a, b, t) {
-  let diff = b - a;
-  if (diff > 180) diff -= 360;
-  if (diff < -180) diff += 360;
-  return (a + diff * t + 360) % 360;
 }
 
 function hslColor(h, s, l) {
@@ -33,7 +36,7 @@ function interpolateStop(index) {
   const a = stops[seg];
   const b = stops[seg + 1];
   return {
-    h: lerpHue(a.h, b.h, t),
+    h: (a.h + SEGMENT_HUE_DELTAS[seg] * t + 360) % 360,
     s: lerp(a.s, b.s, t),
     l: lerp(a.l, b.l, t),
   };
