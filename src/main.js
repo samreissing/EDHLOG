@@ -475,9 +475,10 @@ function bindEvents() {
     if (bracketChartRow && statsTab === "brackets") {
       const bracket = Number(bracketChartRow.dataset.bracketChartRow);
       const id = String(bracket);
+      const rowCount = getStats().bracketStats.filter((b) => b.games > 0).length;
       statsBracketFilter = "";
       bracketsChartMode = "table";
-      toggleChartSelection(bracketsChartSelection, id);
+      toggleChartSelection(bracketsChartSelection, id, rowCount);
       if (!bracketsChartSelection.size) bracketsChartMode = null;
       render();
       return;
@@ -488,12 +489,13 @@ function bindEvents() {
       const rangeStart = Number(trendsWindowToggle.dataset.rangeStart);
       const rangeEnd = Number(trendsWindowToggle.dataset.rangeEnd);
       const id = `${rangeStart}-${rangeEnd}`;
+      const rowCount = getStats().rolling.windows.length;
       trendsFilter = { kind: "all" };
       if (trendsWindowSelection.has(id)) {
         trendsWindowSelection.delete(id);
         trendsWindowMeta.delete(id);
       } else {
-        toggleChartSelection(trendsWindowSelection, id);
+        toggleChartSelection(trendsWindowSelection, id, rowCount);
         trendsWindowMeta.set(id, {
           rangeStart,
           rangeEnd,
