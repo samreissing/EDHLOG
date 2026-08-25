@@ -59,12 +59,44 @@ export function buildBrokenRainbowPalette(count) {
   });
 }
 
-/** Color for the Nth selected row (0-based selection order). */
-export function colorForSelectionIndex(selectionIndex, selectionCount) {
-  return buildBrokenRainbowPalette(selectionCount)[selectionIndex] ?? BROKEN_RAINBOW_STOPS[0];
+/** Color at a fixed palette slot; palette is stretched to totalRows. */
+export function colorForSlotIndex(slotIndex, totalRows) {
+  return buildBrokenRainbowPalette(totalRows)[slotIndex] ?? BROKEN_RAINBOW_STOPS[0];
 }
 
-/** @deprecated use colorForSelectionIndex */
+function lowestAvailableSlot(usedSlots) {
+  let slot = 0;
+  while (usedSlots.has(slot)) slot += 1;
+  return slot;
+}
+
+/** @returns {Map<string, number>} id -> palette slot index */
+export function newChartSelection() {
+  return new Map();
+}
+
+export function toggleChartSelection(selectionMap, id, totalRows) {
+  const key = String(id);
+  if (selectionMap.has(key)) {
+    selectionMap.delete(key);
+    return false;
+  }
+  const usedSlots = new Set(selectionMap.values());
+  selectionMap.set(key, lowestAvailableSlot(usedSlots));
+  return true;
+}
+
+export function colorForChartSelection(selectionMap, id, totalRows) {
+  const slot = selectionMap.get(String(id));
+  return slot == null ? null : colorForSlotIndex(slot, totalRows);
+}
+
+/** @deprecated use colorForSlotIndex */
+export function colorForSelectionIndex(selectionIndex, selectionCount) {
+  return colorForSlotIndex(selectionIndex, selectionCount);
+}
+
+/** @deprecated use colorForSlotIndex */
 export function colorForRowIndex(index, totalRows) {
-  return colorForSelectionIndex(index, totalRows);
+  return colorForSlotIndex(index, totalRows);
 }
