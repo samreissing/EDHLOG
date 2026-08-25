@@ -1177,16 +1177,16 @@ function renderDecks() {
           <thead><tr>
             ${sortHeader("decks-main", dateSortCol, dateColLabel, sortState)}
             ${sortHeader("decks-main", "name", "Deck", sortState)}
-            ${sortHeader("decks-main", "colors", "Color Identity", sortState)}
-            ${sortHeader("decks-main", "bracket", "Bracket", sortState)}
-            ${sortHeader("decks-main", "games", "Games", sortState)}
-            ${sortHeader("decks-main", "wins", "Wins", sortState)}
-            ${sortHeader("decks-main", "normWr", "Norm WR", sortState)}
-            ${sortHeader("decks-main", "winRate", "Win Rate", sortState)}
+            ${sortHeader("decks-main", "colors", "Color Identity", sortState, "deck-colors-col")}
+            ${sortHeader("decks-main", "bracket", "Bracket", sortState, "deck-tight-col")}
+            ${sortHeader("decks-main", "games", "Games", sortState, "deck-tight-col")}
+            ${sortHeader("decks-main", "wins", "Wins", sortState, "deck-tight-col")}
+            ${sortHeader("decks-main", "normWr", "Norm WR", sortState, "deck-stat-col")}
+            ${sortHeader("decks-main", "winRate", "Win Rate", sortState, "deck-stat-col")}
             <th class="row-actions-col"></th>
           </tr></thead>
           <tbody>
-            ${list.length ? list.map((d) => `<tr><td class="deck-date">${dateCell(d)}</td><td class="deck-name"><button type="button" class="link-btn deck-link" data-deck-detail="${escapeHtml(d.name)}">${escapeHtml(d.name)}</button></td><td class="deck-colors">${colorBadge(d.colors)}</td><td class="deck-num">${d.bracket}</td><td class="deck-num">${d.games}</td><td class="deck-num">${d.wins}</td><td class="deck-num">${d.games ? pctCell(d.normalizedWr) : "—"}</td><td class="deck-num">${d.games ? pctCell(d.winRate) : "—"}</td><td class="row-actions"><button type="button" class="btn-icon edit-deck" data-name="${escapeHtml(d.name)}" title="Edit deck">✎</button><button type="button" class="btn-icon delete-deck" data-name="${escapeHtml(d.name)}" title="Delete deck">×</button></td></tr>`).join("") : '<tr><td colspan="9"></td></tr>'}
+            ${list.length ? list.map((d) => `<tr><td class="deck-date">${dateCell(d)}</td><td class="deck-name"><button type="button" class="link-btn deck-link" data-deck-detail="${escapeHtml(d.name)}">${escapeHtml(d.name)}</button></td><td class="deck-colors">${colorBadge(d.colors)}</td><td class="deck-tight">${d.bracket}</td><td class="deck-tight">${d.games}</td><td class="deck-tight">${d.wins}</td><td class="deck-stat">${d.games ? pctCell(d.normalizedWr) : "—"}</td><td class="deck-stat">${d.games ? pctCell(d.winRate) : "—"}</td><td class="row-actions"><button type="button" class="btn-icon edit-deck" data-name="${escapeHtml(d.name)}" title="Edit deck">✎</button><button type="button" class="btn-icon delete-deck" data-name="${escapeHtml(d.name)}" title="Delete deck">×</button></td></tr>`).join("") : '<tr><td colspan="9"></td></tr>'}
           </tbody>
         </table>
       </div>
