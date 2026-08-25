@@ -1,40 +1,56 @@
-/** Broken rainbow order for multi-select chart lines: R, V, O, I, G, B, Y */
-export const RAINBOW_SELECTION = [
-  "#e05c5c",
-  "#9b7ad4",
-  "#e08a4a",
-  "#6366f1",
-  "#3dba7a",
-  "#5b9fd4",
-  "#c9a227",
+/** Broken rainbow path: R → V → O → I → G → B → Y */
+const BROKEN_RAINBOW_STOPS = [
+  { h: 0, s: 72, l: 52 },
+  { h: 275, s: 55, l: 58 },
+  { h: 28, s: 78, l: 52 },
+  { h: 248, s: 52, l: 48 },
+  { h: 140, s: 62, l: 42 },
+  { h: 210, s: 58, l: 52 },
+  { h: 48, s: 90, l: 52 },
 ];
 
-/** @returns {{ available: string[], assigned: Map<string, string> }} */
-export function createColorPool() {
-  return { available: [...RAINBOW_SELECTION], assigned: new Map() };
+function lerp(a, b, t) {
+  return a + (b - a) * t;
 }
 
-/** @param {{ available: string[], assigned: Map<string, string> }} pool @param {string} id */
-export function togglePoolSelection(pool, id) {
-  if (pool.assigned.has(id)) {
-    const color = pool.assigned.get(id);
-    pool.assigned.delete(id);
-    pool.available.unshift(color);
-    return null;
+function lerpHue(a, b, t) {
+  let diff = b - a;
+  if (diff > 180) diff -= 360;
+  if (diff < -180) diff += 360;
+  return (a + diff * t + 360) % 360;
+}
+
+function hslColor(h, s, l) {
+  return `hsl(${Math.round(h)} ${Math.round(s)}% ${Math.round(l)}%)`;
+}
+
+function interpolateStop(index) {
+  const stops = BROKEN_RAINBOW_STOPS;
+  if (index <= 0) return stops[0];
+  if (index >= stops.length - 1) return stops[stops.length - 1];
+  const seg = Math.floor(index);
+  const t = index - seg;
+  const a = stops[seg];
+  const b = stops[seg + 1];
+  return {
+    h: lerpHue(a.h, b.h, t),
+    s: lerp(a.s, b.s, t),
+    l: lerp(a.l, b.l, t),
+  };
+}
+
+/** Evenly divide the broken rainbow across table rows — no wrap/reuse. */
+export function colorForRowIndex(index, totalRows) {
+  if (totalRows <= 0) return hslColor(0, 0, 50);
+  if (totalRows === 1) {
+    const stop = BROKEN_RAINBOW_STOPS[0];
+    return hslColor(stop.h, stop.s, stop.l);
   }
-  const color =
-    pool.available.shift() ?? RAINBOW_SELECTION[pool.assigned.size % RAINBOW_SELECTION.length];
-  pool.assigned.set(id, color);
-  return color;
+  const pathPos = (index / (totalRows - 1)) * (BROKEN_RAINBOW_STOPS.length - 1);
+  const stop = interpolateStop(pathPos);
+  return hslColor(stop.h, stop.s, stop.l);
 }
 
-/** @param {{ assigned: Map<string, string> }} pool @param {string} id */
-export function getPoolColor(pool, id) {
-  return pool.assigned.get(id) ?? null;
-}
-
-/** @param {{ available: string[], assigned: Map<string, string> }} pool */
-export function resetColorPool(pool) {
-  pool.available = [...RAINBOW_SELECTION];
-  pool.assigned.clear();
+export function buildBrokenRainbowPalette(totalRows) {
+  return Array.from({ length: totalRows }, (_, index) => colorForRowIndex(index, totalRows));
 }

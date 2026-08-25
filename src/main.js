@@ -60,12 +60,7 @@ import {
   getEffectiveChartRange,
   lineColorForColorKey,
 } from "./chart-series.js";
-import {
-  createColorPool,
-  togglePoolSelection,
-  getPoolColor,
-  resetColorPool,
-} from "./selection-colors.js";
+import { colorForRowIndex } from "./selection-colors.js";
 import {
   computeSeatStats,
   gamesForSeatSeries,
@@ -125,9 +120,10 @@ let statsDeckFilter = "all";
 /** @type {Map<string, string>} */
 let colorsChartSelection = new Map();
 let colorsChartRange = { start: null, end: null, customized: false };
-let bracketsChartPool = createColorPool();
+let bracketsChartSelection = new Set();
 let bracketsChartRange = { start: null, end: null, customized: false };
-let trendsWindowPool = createColorPool();
+/** @type {Set<string>} */
+let trendsWindowSelection = new Set();
 /** @type {Map<string, { rangeStart: number, rangeEnd: number, label: string }>} */
 let trendsWindowMeta = new Map();
 let trendsChartRange = { start: null, end: null, customized: false };
@@ -155,13 +151,13 @@ function resetStatsTabState(tab) {
   } else if (tab === "brackets") {
     statsDeckFilter = "all";
     statsBracketFilter = "";
-    resetColorPool(bracketsChartPool);
+    bracketsChartSelection = new Set();
     bracketsChartRange = { start: null, end: null, customized: false };
     tableSort["bracket-stats"] = { col: "bracket", dir: "asc" };
     pieAnimKey++;
   } else if (tab === "trends") {
     trendsFilter = { kind: "all" };
-    resetColorPool(trendsWindowPool);
+    trendsWindowSelection = new Set();
     trendsWindowMeta = new Map();
     trendsChartRange = { start: null, end: null, customized: false };
     tableSort["trends-windows"] = { col: "rangeStart", dir: "asc" };
@@ -331,7 +327,7 @@ function bindEvents() {
       statsDeckFilter =
         statsDeckFilter === "all" ? "active" : statsDeckFilter === "active" ? "retired" : "all";
       if (statsTab === "colors") colorsChartSelection = new Map();
-      if (statsTab === "brackets") resetColorPool(bracketsChartPool);
+      if (statsTab === "brackets") bracketsChartSelection = new Set();
       pieAnimKey++;
       render();
       return;
@@ -370,7 +366,7 @@ function bindEvents() {
 
     const trendsCumulativeBtn = e.target.closest("[data-trends-cumulative]");
     if (trendsCumulativeBtn) {
-      resetColorPool(trendsWindowPool);
+      trendsWindowSelection = new Set();
       trendsWindowMeta = new Map();
       trendsFilter = {
         kind: "cumulative",
@@ -382,7 +378,7 @@ function bindEvents() {
 
     const trendsYearBtn = e.target.closest("[data-trends-year]");
     if (trendsYearBtn) {
-      resetColorPool(trendsWindowPool);
+      trendsWindowSelection = new Set();
       trendsWindowMeta = new Map();
       trendsFilter = { kind: "year", year: trendsYearBtn.dataset.trendsYear };
       render();
@@ -391,7 +387,7 @@ function bindEvents() {
 
     const trendsAllBtn = e.target.closest("[data-trends-all]");
     if (trendsAllBtn) {
-      resetColorPool(trendsWindowPool);
+      trendsWindowSelection = new Set();
       trendsWindowMeta = new Map();
       trendsFilter = { kind: "all" };
       render();
@@ -426,8 +422,10 @@ function bindEvents() {
     const bracketChartRow = e.target.closest("[data-bracket-chart-row]");
     if (bracketChartRow && statsTab === "brackets") {
       const bracket = Number(bracketChartRow.dataset.bracketChartRow);
-      statsBracketFilter = String(bracket);
-      togglePoolSelection(bracketsChartPool, String(bracket));
+      const id = String(bracket);
+      statsBracketFilter = id;
+      if (bracketsChartSelection.has(id)) bracketsChartSelection.delete(id);
+      else bracketsChartSelection.add(id);
       render();
       return;
     }
@@ -437,15 +435,16 @@ function bindEvents() {
       const rangeStart = Number(trendsWindowToggle.dataset.rangeStart);
       const rangeEnd = Number(trendsWindowToggle.dataset.rangeEnd);
       const id = `${rangeStart}-${rangeEnd}`;
-      const color = togglePoolSelection(trendsWindowPool, id);
-      if (color) {
+      if (trendsWindowSelection.has(id)) {
+        trendsWindowSelection.delete(id);
+        trendsWindowMeta.delete(id);
+      } else {
+        trendsWindowSelection.add(id);
         trendsWindowMeta.set(id, {
           rangeStart,
           rangeEnd,
           label: trendsWindowToggle.dataset.label || `${rangeStart}-${rangeEnd}`,
         });
-      } else {
-        trendsWindowMeta.delete(id);
       }
       render();
       return;
@@ -990,27 +989,24 @@ function renderStats() {
     const avgWins = colorStatAverage(colors, "wins");
     const avgDecks = colorStatAverage(colors, "decks");
     const chartRange = getEffectiveChartRange(statsGames, colorsChartRange);
-    const colorChart =
-      colorsChartSelection.size && chartRange.start <= chartRange.end
-        ? renderMultiWinRateLineChart(
-            [...colorsChartSelection.entries()].map(([key, color]) => ({
-              id: key,
-              label: key === "C" ? "Colorless" : key,
-              color,
-              series: computeWinRateSeries(
-                gamesForColorSeries(
-                  statsGames,
-                  statsDecks,
-                  key,
-                  colorAgg,
-                  chartRange.start,
-                  chartRange.end
-                )
-              ),
-            })),
-            chartRange
+    const colorChart = renderMultiWinRateLineChart(
+      [...colorsChartSelection.entries()].map(([key, color]) => ({
+        id: key,
+        label: key === "C" ? "Colorless" : key,
+        color,
+        series: computeWinRateSeries(
+          gamesForColorSeries(
+            statsGames,
+            statsDecks,
+            key,
+            colorAgg,
+            chartRange.start,
+            chartRange.end
           )
-        : "";
+        ),
+      })),
+      chartRange
+    );
 
     body = `
       <div class="filters inline color-mode-filters">
@@ -1019,7 +1015,6 @@ function renderStats() {
         <button type="button" class="btn btn-ghost btn-sm" id="color-agg-toggle">${colorAgg === "inclusive" ? "Inclusive" : "Exclusive"}</button>
       </div>
       ${renderDateRangeFilters("colors", chartRange.bounds, chartRange)}
-      ${colorChart}
       <div class="chart-table-row">
         <div class="chart-table-grow">
           <table class="table compact sortable-table">
@@ -1048,7 +1043,8 @@ function renderStats() {
           </table>
         </div>
         ${renderPieChart(pieSlices, pieAnimKey)}
-      </div>`;
+      </div>
+      ${colorChart}`;
   } else if (statsTab === "brackets") {
     const { statsDecks, statsGames } = getStatsScope();
     const sortCol = tableSort["bracket-stats"]?.col || "bracket";
@@ -1066,34 +1062,32 @@ function renderStats() {
       bracket: b.bracket,
     }));
     const chartRange = getEffectiveChartRange(statsGames, bracketsChartRange);
-    const selectedBrackets = [...bracketsChartPool.assigned.keys()].map(Number).sort((a, b) => a - b);
-    const bracketChart =
-      selectedBrackets.length && chartRange.start <= chartRange.end
-        ? renderMultiWinRateLineChart(
-            selectedBrackets.map((bracket) => ({
-              id: bracket,
-              label: `Bracket ${bracket}`,
-              color: getPoolColor(bracketsChartPool, String(bracket)),
-              series: computeWinRateSeries(
-                gamesForBracketSeries(
-                  statsGames,
-                  statsDecks,
-                  bracket,
-                  chartRange.start,
-                  chartRange.end
-                )
-              ),
-            })),
-            chartRange
-          )
-        : "";
+    const bracketChart = renderMultiWinRateLineChart(
+      brackets
+        .map((b, index) => ({ b, index }))
+        .filter(({ b }) => bracketsChartSelection.has(String(b.bracket)))
+        .map(({ b, index }) => ({
+          id: b.bracket,
+          label: `Bracket ${b.bracket}`,
+          color: colorForRowIndex(index, brackets.length),
+          series: computeWinRateSeries(
+            gamesForBracketSeries(
+              statsGames,
+              statsDecks,
+              b.bracket,
+              chartRange.start,
+              chartRange.end
+            )
+          ),
+        })),
+      chartRange
+    );
 
     body = `
       <div class="filters inline color-mode-filters">
         <button type="button" class="btn btn-ghost btn-sm" id="stats-deck-filter-toggle">${statsDeckFilterLabel(statsDeckFilter)}</button>
       </div>
       ${renderDateRangeFilters("brackets", chartRange.bounds, chartRange)}
-      ${bracketChart}
       <div class="chart-table-row">
         <div class="chart-table-grow">
           <table class="table compact sortable-table">
@@ -1105,8 +1099,9 @@ function renderStats() {
             </tr></thead>
             <tbody>
               ${brackets
-                .map((b) => {
-                  const seriesColor = getPoolColor(bracketsChartPool, String(b.bracket));
+                .map((b, index) => {
+                  const selected = bracketsChartSelection.has(String(b.bracket));
+                  const seriesColor = selected ? colorForRowIndex(index, brackets.length) : null;
                   const filterActive = statsBracketFilter === String(b.bracket);
                   return `
                 <tr class="chart-series-selectable${seriesColor ? " active" : ""}${filterActive ? " chart-series-filtered" : ""}" data-bracket-chart-row="${b.bracket}"${chartSeriesRowStyle(seriesColor)}>
@@ -1130,49 +1125,57 @@ function renderStats() {
           )
           .join("")}
       </div>
-      ${renderBracketDetail(s.bracketDetail)}`;
+      ${renderBracketDetail(s.bracketDetail)}
+      ${bracketChart}`;
   } else if (statsTab === "trends") {
     const chartRange = getEffectiveChartRange(data.games, trendsChartRange);
-    const selectedWindows = [...trendsWindowPool.assigned.keys()]
-      .map((id) => trendsWindowMeta.get(id))
-      .filter(Boolean);
+    const windowsForChart = s.rolling.windows.length
+      ? applySort(s.rolling.windows, tableSort["trends-windows"], {
+          label: (w) => w.label,
+          rangeStart: (w) => w.rangeStart,
+          games: (w) => w.games,
+          winRate: (w) => w.winRate,
+        })
+      : [];
 
     let chart = "";
-    if (selectedWindows.length && chartRange.start <= chartRange.end) {
+    if (trendsWindowSelection.size && windowsForChart.length) {
       chart = renderMultiWinRateLineChart(
-        selectedWindows.map((window) => {
-          const id = `${window.rangeStart}-${window.rangeEnd}`;
-          return {
-            id,
-            label: window.label,
-            color: getPoolColor(trendsWindowPool, id),
-            series: computeWinRateSeries(
-              gamesForTrendsWindowSeries(
-                data.games,
-                window.rangeStart,
-                window.rangeEnd,
-                chartRange.start,
-                chartRange.end
-              )
-            ),
-          };
-        }),
+        windowsForChart
+          .map((window, index) => ({ window, index }))
+          .filter(({ window }) => trendsWindowSelection.has(`${window.rangeStart}-${window.rangeEnd}`))
+          .map(({ window, index }) => {
+            const id = `${window.rangeStart}-${window.rangeEnd}`;
+            return {
+              id,
+              label: window.label,
+              color: colorForRowIndex(index, windowsForChart.length),
+              series: computeWinRateSeries(
+                gamesForTrendsWindowSeries(
+                  data.games,
+                  window.rangeStart,
+                  window.rangeEnd,
+                  chartRange.start,
+                  chartRange.end
+                )
+              ),
+            };
+          }),
         chartRange
       );
     } else {
       const chartGames = gamesForTrendsFilter(data.games);
-      chart = renderWinRateLineChart(computeWinRateSeries(chartGames), trendsChartTitle());
+      chart = renderWinRateLineChart(
+        computeWinRateSeries(chartGames),
+        trendsChartTitle(),
+        chartRange
+      );
     }
 
     if (!s.rolling.windows.length) {
       body = `${renderDateRangeFilters("trends", chartRange.bounds, chartRange)}${chart}`;
     } else {
-      const windows = applySort(s.rolling.windows, tableSort["trends-windows"], {
-        label: (w) => w.label,
-        rangeStart: (w) => w.rangeStart,
-        games: (w) => w.games,
-        winRate: (w) => w.winRate,
-      });
+      const windows = windowsForChart;
       const cumulative = applySort(s.rolling.cumulative, tableSort["trends-cumulative"], {
         label: (w) => w.label,
         games: (w) => w.games,
@@ -1181,7 +1184,6 @@ function renderStats() {
 
       body = `
         ${renderDateRangeFilters("trends", chartRange.bounds, chartRange)}
-        ${chart}
         <h3 class="section-sub">By Year</h3>
         <div class="year-row">
           <button type="button" class="year-chip trends-selectable ${trendsFilter.kind === "all" ? "active" : ""}" data-trends-all>
@@ -1209,9 +1211,10 @@ function renderStats() {
               </tr></thead>
               <tbody>
                 ${windows
-                  .map((w) => {
+                  .map((w, index) => {
                     const id = `${w.rangeStart}-${w.rangeEnd}`;
-                    const seriesColor = getPoolColor(trendsWindowPool, id);
+                    const selected = trendsWindowSelection.has(id);
+                    const seriesColor = selected ? colorForRowIndex(index, windows.length) : null;
                     return `
                   <tr class="chart-series-selectable trends-selectable${seriesColor ? " active" : ""}"
                     data-trends-window-toggle data-label="${escapeHtml(w.label)}"
@@ -1245,26 +1248,24 @@ function renderStats() {
               </tbody>
             </table>
           </div>
-        </div>`;
+        </div>
+        ${chart}`;
     }
   } else if (statsTab === "seats") {
     const bounds = getSeatDateBounds(data.games, seatViewMode);
     const range = getEffectiveSeatRange(data.games);
     const seatStats = computeSeatStats(data.games, seatViewMode);
-    const seatChart =
-      selectedSeats.length && range.start <= range.end
-        ? renderMultiWinRateLineChart(
-            selectedSeats.map((seat) => ({
-              id: seat,
-              label: `Seat ${seat}`,
-              color: SEAT_COLORS[seat],
-              series: computeWinRateSeries(
-                gamesForSeatSeries(data.games, seat, range.start, range.end, seatViewMode)
-              ),
-            })),
-            range
-          )
-        : "";
+    const seatChart = renderMultiWinRateLineChart(
+      selectedSeats.map((seat) => ({
+        id: seat,
+        label: `Seat ${seat}`,
+        color: SEAT_COLORS[seat],
+        series: computeWinRateSeries(
+          gamesForSeatSeries(data.games, seat, range.start, range.end, seatViewMode)
+        ),
+      })),
+      range
+    );
 
     body = `
       <div class="seat-toggle-row">
