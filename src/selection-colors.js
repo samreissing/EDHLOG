@@ -29,7 +29,7 @@ function rgbToHex(r, g, b) {
   return `#${channel(r)}${channel(g)}${channel(b)}`;
 }
 
-/** RGB average between two anchor stops. */
+/** RGB average between two adjacent anchor stops only. */
 function mixHex(fromHex, toHex, t) {
   const a = hexToRgb(fromHex);
   const b = hexToRgb(toHex);
@@ -40,6 +40,7 @@ function mixHex(fromHex, toHex, t) {
   );
 }
 
+/** Sample along RVYBOIY; only mixes each pair of neighboring stops. */
 function colorAtPathPosition(pathPos) {
   const stops = BROKEN_RAINBOW_STOPS;
   if (pathPos <= 0) return stops[0];
@@ -49,10 +50,13 @@ function colorAtPathPosition(pathPos) {
   return mixHex(stops[seg], stops[seg + 1], t);
 }
 
+const yellowGreen = () => mixHex(BROKEN_RAINBOW_STOPS[2], BROKEN_RAINBOW_STOPS[3], 0.25);
+const blueGreen = () => mixHex(BROKEN_RAINBOW_STOPS[2], BROKEN_RAINBOW_STOPS[3], 0.75);
+const green = () => mixHex(BROKEN_RAINBOW_STOPS[2], BROKEN_RAINBOW_STOPS[3], 0.5);
+
 /**
  * Palette index assignment order for N rows (0-based).
  * e.g. 10 rows → 0,9,2,7,4,5,1,8,3,6 (1,10,3,8,5,6,2,9,4,7 in 1-based terms).
- * First pick = index 0 (red), second = index N-1 (violet), then spreads inward.
  */
 export function buildSpreadSelectionOrder(count) {
   if (count <= 0) return [];
@@ -100,30 +104,56 @@ export function buildSpreadSelectionOrder(count) {
 }
 
 /**
- * N colors stretched along the rainbow.
- * Index 0 is always red; index N-1 is always violet (first two picks).
- * Middle slots fill the rest of the RVYBOIY path with averaged blends.
+ * N colors for N table rows.
+ * - <=7 rows: exact RVYBOIY anchor stops (no repeats).
+ * - >7 rows: first pick red, second violet, last 1–2 picks land on green
+ *   (Y–B mixes only); gaps filled by stepping along adjacent path segments.
  */
 export function buildBrokenRainbowPalette(count) {
   const stops = BROKEN_RAINBOW_STOPS;
   if (count <= 0) return [];
   if (count === 1) return [stops[0]];
   if (count === 2) return [stops[0], stops[1]];
+  if (count <= stops.length) return stops.slice(0, count);
 
-  const palette = new Array(count);
-  palette[0] = stops[0];
-  palette[count - 1] = stops[1];
+  const spread = buildSpreadSelectionOrder(count);
+  const palette = new Array(count).fill(null);
+  const pathPos = new Array(count).fill(null);
 
-  const middle = count - 2;
-  if (middle === 1) {
-    palette[1] = colorAtPathPosition((stops.length - 1) / 2);
-    return palette;
+  palette[spread[0]] = stops[0];
+  pathPos[spread[0]] = 0;
+  palette[spread[1]] = stops[1];
+  pathPos[spread[1]] = 1;
+
+  if (count % 2 === 0) {
+    palette[spread[spread.length - 2]] = yellowGreen();
+    pathPos[spread[spread.length - 2]] = 2.25;
+    palette[spread[spread.length - 1]] = blueGreen();
+    pathPos[spread[spread.length - 1]] = 2.75;
+  } else {
+    palette[spread[spread.length - 1]] = green();
+    pathPos[spread[spread.length - 1]] = 2.5;
   }
 
-  for (let i = 0; i < middle; i += 1) {
-    const pathPos = 2 + (i / (middle - 1)) * (stops.length - 1 - 2);
-    palette[i + 1] = colorAtPathPosition(pathPos);
+  const anchored = [];
+  for (let i = 0; i < count; i += 1) {
+    if (pathPos[i] != null) anchored.push(i);
   }
+
+  for (let a = 0; a < anchored.length - 1; a += 1) {
+    const left = anchored[a];
+    const right = anchored[a + 1];
+    const leftPos = pathPos[left];
+    const rightPos = pathPos[right];
+    const gap = right - left - 1;
+    for (let g = 1; g <= gap; g += 1) {
+      const idx = left + g;
+      const t = g / (gap + 1);
+      const pos = leftPos + (rightPos - leftPos) * t;
+      palette[idx] = colorAtPathPosition(pos);
+    }
+  }
+
   return palette;
 }
 
