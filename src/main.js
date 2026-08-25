@@ -60,7 +60,7 @@ import {
   getEffectiveChartRange,
   lineColorForColorKey,
 } from "./chart-series.js";
-import { colorForRowIndex } from "./selection-colors.js";
+import { buildBrokenRainbowPalette, colorForRowIndex } from "./selection-colors.js";
 import {
   computeSeatStats,
   gamesForSeatSeries,
@@ -1172,6 +1172,7 @@ function renderStats() {
           winRate: (w) => w.winRate,
         })
       : [];
+    const trendsRowColors = buildBrokenRainbowPalette(windowsForChart.length);
 
     let chart = "";
     if (trendsWindowSelection.size && windowsForChart.length) {
@@ -1184,7 +1185,7 @@ function renderStats() {
             return {
               id,
               label: window.label,
-              color: colorForRowIndex(index, windowsForChart.length),
+              color: trendsRowColors[index],
               series: computeWinRateSeries(
                 gamesForTrendsWindowSeries(
                   data.games,
@@ -1249,7 +1250,7 @@ function renderStats() {
                   .map((w, index) => {
                     const id = `${w.rangeStart}-${w.rangeEnd}`;
                     const selected = trendsWindowSelection.has(id);
-                    const rowColor = colorForRowIndex(index, windows.length);
+                    const rowColor = trendsRowColors[index];
                     return `
                   <tr class="chart-series-selectable trends-selectable${selected ? " active" : ""}"
                     data-trends-window-toggle data-label="${escapeHtml(w.label)}"
