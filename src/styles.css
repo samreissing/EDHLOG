@@ -918,20 +918,6 @@ button.year-chip.active,
   user-select: none;
 }
 
-.trends-table tbody tr.chart-series-selectable:not(.active) {
-  box-shadow: inset 3px 0 0 var(--series-color);
-}
-
-.trends-row-swatch {
-  display: inline-block;
-  width: 0.65rem;
-  height: 0.65rem;
-  border-radius: 999px;
-  margin-right: 0.45rem;
-  vertical-align: middle;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18);
-}
-
 .seat-toggle-row {
   display: grid;
   grid-template-columns: minmax(4.5rem, 0.55fr) repeat(4, minmax(0, 1fr));

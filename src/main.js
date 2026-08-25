@@ -58,9 +58,8 @@ import {
   gamesForBracketSeries,
   gamesForTrendsWindowSeries,
   getEffectiveChartRange,
-  lineColorForColorKey,
 } from "./chart-series.js";
-import { buildTrendsRainbowPalette, colorForRowIndex } from "./selection-colors.js";
+import { colorForRowIndex } from "./selection-colors.js";
 import {
   computeSeatStats,
   gamesForSeatSeries,
@@ -118,7 +117,7 @@ let colorSortOrder = "wubrgc";
 /** @type {"all" | "active" | "retired"} */
 let statsDeckFilter = "all";
 /** @type {Map<string, string>} */
-let colorsChartSelection = new Map();
+let colorsChartSelection = new Set();
 let colorsChartRange = { start: null, end: null, customized: false };
 let bracketsChartSelection = new Set();
 let bracketsChartRange = { start: null, end: null, customized: false };
@@ -144,7 +143,7 @@ function resetStatsTabState(tab) {
     colorView = "wubrgc";
     colorAgg = "inclusive";
     colorSortOrder = "wubrgc";
-    colorsChartSelection = new Map();
+    colorsChartSelection = new Set();
     colorsChartRange = { start: null, end: null, customized: false };
     tableSort["color-stats"] = { col: "colorOrder", dir: "asc" };
     pieAnimKey++;
@@ -336,7 +335,7 @@ function bindEvents() {
     if (e.target.id === "stats-deck-filter-toggle") {
       statsDeckFilter =
         statsDeckFilter === "all" ? "active" : statsDeckFilter === "active" ? "retired" : "all";
-      if (statsTab === "colors") colorsChartSelection = new Map();
+      if (statsTab === "colors") colorsChartSelection = new Set();
       if (statsTab === "brackets") bracketsChartSelection = new Set();
       pieAnimKey++;
       render();
@@ -353,7 +352,7 @@ function bindEvents() {
 
     if (e.target.id === "color-view-toggle") {
       colorView = colorView === "wubrgc" ? "all" : "wubrgc";
-      colorsChartSelection = new Map();
+      colorsChartSelection = new Set();
       pieAnimKey++;
       render();
       return;
@@ -361,7 +360,7 @@ function bindEvents() {
 
     if (e.target.id === "color-agg-toggle") {
       colorAgg = colorAgg === "inclusive" ? "exclusive" : "inclusive";
-      colorsChartSelection = new Map();
+      colorsChartSelection = new Set();
       pieAnimKey++;
       render();
       return;
@@ -421,7 +420,7 @@ function bindEvents() {
     }
 
     if (e.target.id === "clear-colors-chart") {
-      colorsChartSelection = new Map();
+      colorsChartSelection = new Set();
       render();
       return;
     }
@@ -449,7 +448,7 @@ function bindEvents() {
     if (colorChartRow && statsTab === "colors") {
       const key = colorChartRow.dataset.colorChartRow;
       if (colorsChartSelection.has(key)) colorsChartSelection.delete(key);
-      else colorsChartSelection.set(key, lineColorForColorKey(key));
+      else colorsChartSelection.add(key);
       render();
       return;
     }
@@ -1025,21 +1024,24 @@ function renderStats() {
     const avgDecks = colorStatAverage(colors, "decks");
     const chartRange = getEffectiveChartRange(statsGames, colorsChartRange);
     const colorChart = renderMultiWinRateLineChart(
-      [...colorsChartSelection.entries()].map(([key, color]) => ({
-        id: key,
-        label: key === "C" ? "Colorless" : key,
-        color,
-        series: computeWinRateSeries(
-          gamesForColorSeries(
-            statsGames,
-            statsDecks,
-            key,
-            colorAgg,
-            chartRange.start,
-            chartRange.end
-          )
-        ),
-      })),
+      colors
+        .map((c, index) => ({ c, index }))
+        .filter(({ c }) => colorsChartSelection.has(c.key))
+        .map(({ c, index }) => ({
+          id: c.key,
+          label: c.key === "C" ? "Colorless" : c.key,
+          color: colorForRowIndex(index, colors.length),
+          series: computeWinRateSeries(
+            gamesForColorSeries(
+              statsGames,
+              statsDecks,
+              c.key,
+              colorAgg,
+              chartRange.start,
+              chartRange.end
+            )
+          ),
+        })),
       chartRange
     );
 
@@ -1062,8 +1064,10 @@ function renderStats() {
             </tr></thead>
             <tbody>
               ${colors
-                .map((c) => {
-                  const seriesColor = colorsChartSelection.get(c.key);
+                .map((c, index) => {
+                  const seriesColor = colorsChartSelection.has(c.key)
+                    ? colorForRowIndex(index, colors.length)
+                    : null;
                   return `
                 <tr class="chart-series-selectable${seriesColor ? " active" : ""}" data-color-chart-row="${c.key}"${chartSeriesRowStyle(seriesColor)}>
                   <td><span class="color-label">${colorBadge(c.displayColors)}</span></td>
@@ -1172,7 +1176,6 @@ function renderStats() {
           winRate: (w) => w.winRate,
         })
       : [];
-    const trendsRowColors = buildTrendsRainbowPalette(windowsForChart.length);
 
     let chart = "";
     if (trendsWindowSelection.size && windowsForChart.length) {
@@ -1185,7 +1188,7 @@ function renderStats() {
             return {
               id,
               label: window.label,
-              color: trendsRowColors[index],
+              color: colorForRowIndex(index, windowsForChart.length),
               series: computeWinRateSeries(
                 gamesForTrendsWindowSeries(
                   data.games,
@@ -1250,12 +1253,12 @@ function renderStats() {
                   .map((w, index) => {
                     const id = `${w.rangeStart}-${w.rangeEnd}`;
                     const selected = trendsWindowSelection.has(id);
-                    const rowColor = trendsRowColors[index];
+                    const seriesColor = selected ? colorForRowIndex(index, windows.length) : null;
                     return `
-                  <tr class="chart-series-selectable trends-selectable${selected ? " active" : ""}"
+                  <tr class="chart-series-selectable trends-selectable${seriesColor ? " active" : ""}"
                     data-trends-window-toggle data-label="${escapeHtml(w.label)}"
-                    data-range-start="${w.rangeStart}" data-range-end="${w.rangeEnd}"${chartSeriesRowStyle(rowColor)}>
-                    <td><span class="trends-row-swatch" style="background:${rowColor}"></span>${w.label}</td>
+                    data-range-start="${w.rangeStart}" data-range-end="${w.rangeEnd}"${chartSeriesRowStyle(seriesColor)}>
+                    <td>${w.label}</td>
                     <td>${pctCell(w.winRate)}</td>
                   </tr>`;
                   })
