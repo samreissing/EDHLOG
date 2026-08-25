@@ -29,6 +29,7 @@ function rgbToHex(r, g, b) {
   return `#${channel(r)}${channel(g)}${channel(b)}`;
 }
 
+/** RGB average between two anchor stops. */
 function mixHex(fromHex, toHex, t) {
   const a = hexToRgb(fromHex);
   const b = hexToRgb(toHex);
@@ -39,19 +40,10 @@ function mixHex(fromHex, toHex, t) {
   );
 }
 
-function colorAtPathPosition(pathPos) {
-  const stops = BROKEN_RAINBOW_STOPS;
-  if (pathPos <= 0) return stops[0];
-  if (pathPos >= stops.length - 1) return stops[stops.length - 1];
-  const seg = Math.floor(pathPos);
-  const t = pathPos - seg;
-  return mixHex(stops[seg], stops[seg + 1], t);
-}
-
 /**
- * Full table palette stretched to row count.
- * Up to 7 rows: exact RVYBOIY anchor stops.
- * 8+ rows: subdivide the anchor path so extra rows shift slightly along the rainbow.
+ * Build N distinct colors along the RVYBOIY path.
+ * - N <= 7: first N anchor stops exactly (no repeats).
+ * - N > 7: keep all 7 anchors, insert averaged in-between colors on the path segments.
  */
 export function buildBrokenRainbowPalette(count) {
   const stops = BROKEN_RAINBOW_STOPS;
@@ -59,21 +51,31 @@ export function buildBrokenRainbowPalette(count) {
   if (count === 1) return [stops[0]];
   if (count <= stops.length) return stops.slice(0, count);
 
-  return Array.from({ length: count }, (_, index) => {
-    const pathPos = (index / (count - 1)) * (stops.length - 1);
-    return colorAtPathPosition(pathPos);
-  });
+  const segmentCount = stops.length - 1;
+  const extras = count - stops.length;
+  const segmentExtras = Array.from({ length: segmentCount }, (_, index) =>
+    Math.floor(extras / segmentCount) + (index < extras % segmentCount ? 1 : 0)
+  );
+
+  const palette = [];
+  for (let seg = 0; seg < segmentCount; seg += 1) {
+    const from = stops[seg];
+    const to = stops[seg + 1];
+    palette.push(from);
+    const internal = segmentExtras[seg];
+    for (let step = 1; step <= internal; step += 1) {
+      palette.push(mixHex(from, to, step / (internal + 1)));
+    }
+  }
+  palette.push(stops[stops.length - 1]);
+
+  return palette.slice(0, count);
 }
 
-/**
- * Color for a selection slot (0 = first pick, 1 = second, …).
- * Slots 0–6 always use the RVYBOIY anchor stops directly (red, violet, yellow, …).
- * Slot 7+ uses the extended palette when the table has more rows than anchors.
- */
+/** Color for selection slot index; palette always sized to totalRows. */
 export function colorForSlotIndex(slotIndex, totalRows) {
-  const stops = BROKEN_RAINBOW_STOPS;
-  if (slotIndex < stops.length) return stops[slotIndex];
-  return buildBrokenRainbowPalette(totalRows)[slotIndex] ?? stops[stops.length - 1];
+  const palette = buildBrokenRainbowPalette(totalRows);
+  return palette[slotIndex] ?? palette[palette.length - 1] ?? BROKEN_RAINBOW_STOPS[0];
 }
 
 function lowestAvailableSlot(usedSlots) {

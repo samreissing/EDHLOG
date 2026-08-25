@@ -20,13 +20,23 @@ export function getBracketColor(bracket) {
 }
 
 export function pickSliceColor(slice, index) {
-  if (slice.colors?.length === 1) return MANA_HEX[slice.colors[0]] || SLICE_PALETTE[index % SLICE_PALETTE.length];
-  if (slice.color && MANA_HEX[slice.color]) return MANA_HEX[slice.color];
   if (slice.bracket != null) return getBracketColor(slice.bracket);
-  if (slice.colors?.length > 1) {
-    return MANA_HEX[slice.colors[0]] || SLICE_PALETTE[index % SLICE_PALETTE.length];
-  }
+
+  const manaColors = (slice.colors || (slice.color ? [slice.color] : [])).filter((c) => MANA_HEX[c]);
+  if (manaColors.length > 1) return mixManaColors(manaColors);
+  if (manaColors.length === 1) return MANA_HEX[manaColors[0]];
+
+  if (slice.color && MANA_HEX[slice.color]) return MANA_HEX[slice.color];
   return SLICE_PALETTE[index % SLICE_PALETTE.length];
+}
+
+/** Slice descriptor for a color-stats table row (matches pie chart fills). */
+export function colorStatSlice(row) {
+  return {
+    colors: row.displayColors,
+    color: row.key !== "C" && row.displayColors.length === 1 ? row.displayColors[0] : undefined,
+    key: row.key,
+  };
 }
 
 function polar(cx, cy, r, deg) {
