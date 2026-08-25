@@ -48,20 +48,32 @@ function colorAtPathPosition(pathPos) {
   return mixHex(stops[seg], stops[seg + 1], t);
 }
 
-/** Stretch the broken rainbow into N distinct hex colors. */
+/**
+ * Full table palette stretched to row count.
+ * Up to 7 rows: exact RVYBOIY anchor stops.
+ * 8+ rows: subdivide the anchor path so extra rows shift slightly along the rainbow.
+ */
 export function buildBrokenRainbowPalette(count) {
+  const stops = BROKEN_RAINBOW_STOPS;
   if (count <= 0) return [];
-  if (count === 1) return [BROKEN_RAINBOW_STOPS[0]];
+  if (count === 1) return [stops[0]];
+  if (count <= stops.length) return stops.slice(0, count);
 
   return Array.from({ length: count }, (_, index) => {
-    const pathPos = (index / (count - 1)) * (BROKEN_RAINBOW_STOPS.length - 1);
+    const pathPos = (index / (count - 1)) * (stops.length - 1);
     return colorAtPathPosition(pathPos);
   });
 }
 
-/** Color at a fixed palette slot; palette is stretched to totalRows. */
+/**
+ * Color for a selection slot (0 = first pick, 1 = second, …).
+ * Slots 0–6 always use the RVYBOIY anchor stops directly (red, violet, yellow, …).
+ * Slot 7+ uses the extended palette when the table has more rows than anchors.
+ */
 export function colorForSlotIndex(slotIndex, totalRows) {
-  return buildBrokenRainbowPalette(totalRows)[slotIndex] ?? BROKEN_RAINBOW_STOPS[0];
+  const stops = BROKEN_RAINBOW_STOPS;
+  if (slotIndex < stops.length) return stops[slotIndex];
+  return buildBrokenRainbowPalette(totalRows)[slotIndex] ?? stops[stops.length - 1];
 }
 
 function lowestAvailableSlot(usedSlots) {
@@ -75,7 +87,7 @@ export function newChartSelection() {
   return new Map();
 }
 
-export function toggleChartSelection(selectionMap, id, totalRows) {
+export function toggleChartSelection(selectionMap, id) {
   const key = String(id);
   if (selectionMap.has(key)) {
     selectionMap.delete(key);
