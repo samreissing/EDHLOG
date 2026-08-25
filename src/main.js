@@ -25,6 +25,7 @@ import {
   getBracketColor,
   renderPieChart,
   pieSlicesFromRows,
+  pickSliceColor,
   bindPieCharts,
 } from "./pie-chart.js";
 import {
@@ -470,6 +471,7 @@ function bindEvents() {
       const rangeStart = Number(trendsWindowToggle.dataset.rangeStart);
       const rangeEnd = Number(trendsWindowToggle.dataset.rangeEnd);
       const id = `${rangeStart}-${rangeEnd}`;
+      trendsFilter = { kind: "all" };
       if (trendsWindowSelection.has(id)) {
         trendsWindowSelection.delete(id);
         trendsWindowMeta.delete(id);
@@ -1031,7 +1033,14 @@ function renderStats() {
         .map(({ c, index }) => ({
           id: c.key,
           label: c.key === "C" ? "Colorless" : c.key,
-          color: colorForRowIndex(index, colors.length),
+          color: pickSliceColor(
+            {
+              colors: c.displayColors,
+              color: c.key !== "C" && c.displayColors.length === 1 ? c.displayColors[0] : undefined,
+              key: c.key,
+            },
+            index
+          ),
           series: computeWinRateSeries(
             gamesForColorSeries(
               statsGames,
@@ -1067,7 +1076,14 @@ function renderStats() {
               ${colors
                 .map((c, index) => {
                   const seriesColor = colorsChartSelection.has(c.key)
-                    ? colorForRowIndex(index, colors.length)
+                    ? pickSliceColor(
+                        {
+                          colors: c.displayColors,
+                          color: c.key !== "C" && c.displayColors.length === 1 ? c.displayColors[0] : undefined,
+                          key: c.key,
+                        },
+                        index
+                      )
                     : null;
                   return `
                 <tr class="chart-series-selectable${seriesColor ? " active" : ""}" data-color-chart-row="${c.key}"${chartSeriesRowStyle(seriesColor)}>

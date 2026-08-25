@@ -16,13 +16,15 @@ export const CHART_FILTER_ACCENT = "#5b9fd4";
 export function buildBrokenRainbowPalette(totalRows) {
   if (totalRows <= 0) return [];
   if (totalRows === 1) return [BROKEN_RAINBOW_HEX[0]];
-  if (totalRows <= BROKEN_RAINBOW_HEX.length) {
-    return BROKEN_RAINBOW_HEX.slice(0, totalRows);
-  }
 
   return Array.from({ length: totalRows }, (_, index) => {
+    if (index < BROKEN_RAINBOW_HEX.length) {
+      return BROKEN_RAINBOW_HEX[index];
+    }
+    const tailIndex = index - BROKEN_RAINBOW_HEX.length;
+    const tailTotal = totalRows - BROKEN_RAINBOW_HEX.length;
     const pathIndex = Math.round(
-      (index * (BROKEN_RAINBOW_HEX.length - 1)) / (totalRows - 1)
+      (tailIndex * (BROKEN_RAINBOW_HEX.length - 1)) / Math.max(tailTotal - 1, 1)
     );
     return BROKEN_RAINBOW_HEX[pathIndex];
   });
