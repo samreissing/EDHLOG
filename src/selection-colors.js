@@ -9,6 +9,8 @@ const BROKEN_RAINBOW_HEX = [
   "#e5b822", // yellow
 ];
 
+const [RED, VIOLET, ORANGE, INDIGO, GREEN, BLUE, YELLOW] = BROKEN_RAINBOW_HEX;
+
 function hexToRgb(hex) {
   const value = hex.replace("#", "");
   return {
@@ -36,39 +38,58 @@ function mixHex(fromHex, toHex, t) {
   return rgbToHex(lerp(a.r, b.r, t), lerp(a.g, b.g, t), lerp(a.b, b.b, t));
 }
 
-/** R→V is a hard jump; other segments include midpoints for smoother steps. */
-function buildExpandedRainbowHex() {
-  const palette = [BROKEN_RAINBOW_HEX[0], BROKEN_RAINBOW_HEX[1]];
-  for (let index = 2; index < BROKEN_RAINBOW_HEX.length; index += 1) {
-    palette.push(mixHex(BROKEN_RAINBOW_HEX[index - 1], BROKEN_RAINBOW_HEX[index], 0.5));
-    palette.push(BROKEN_RAINBOW_HEX[index]);
-  }
-  return palette;
-}
+/** Trends path: primary stops plus warm/cool bridges (never V↔O — that reads as pink). */
+const TRENDS_RAINBOW_ANCHORS = [
+  RED,
+  VIOLET,
+  mixHex(RED, ORANGE, 0.5),
+  mixHex(VIOLET, INDIGO, 0.5),
+  ORANGE,
+  INDIGO,
+  GREEN,
+  BLUE,
+  YELLOW,
+];
 
-const EXPANDED_RAINBOW_HEX = buildExpandedRainbowHex();
-
-function samplePalette(source, index, totalRows) {
-  if (totalRows <= 1) return source[0];
-  const pathPos = (index / (totalRows - 1)) * (source.length - 1);
+function samplePalette(source, pathPos) {
+  if (pathPos <= 0) return source[0];
+  if (pathPos >= source.length - 1) return source[source.length - 1];
   const lo = Math.floor(pathPos);
   const hi = Math.ceil(pathPos);
   if (lo === hi) return source[lo];
   return mixHex(source[lo], source[hi], pathPos - lo);
 }
 
-/** One hex per trends/brackets row, evenly spaced across the broken rainbow. */
+/** Trends Per 100 Games rows: N hex colors evenly spaced along the broken rainbow. */
+export function buildTrendsRainbowPalette(totalRows) {
+  if (totalRows <= 0) return [];
+  if (totalRows === 1) return [RED];
+  if (totalRows === BROKEN_RAINBOW_HEX.length) return [...BROKEN_RAINBOW_HEX];
+
+  return Array.from({ length: totalRows }, (_, index) => {
+    const anchorIndex = Math.round(
+      (index * (TRENDS_RAINBOW_ANCHORS.length - 1)) / (totalRows - 1)
+    );
+    return TRENDS_RAINBOW_ANCHORS[anchorIndex];
+  });
+}
+
+/** Brackets and other tables: evenly sample the seven stop hex values. */
 export function buildBrokenRainbowPalette(totalRows) {
   if (totalRows <= 0) return [];
-  if (totalRows === 1) return [BROKEN_RAINBOW_HEX[0]];
+  if (totalRows === 1) return [RED];
   if (totalRows === BROKEN_RAINBOW_HEX.length) return [...BROKEN_RAINBOW_HEX];
-  if (totalRows === EXPANDED_RAINBOW_HEX.length) return [...EXPANDED_RAINBOW_HEX];
 
-  return Array.from({ length: totalRows }, (_, index) =>
-    samplePalette(EXPANDED_RAINBOW_HEX, index, totalRows)
-  );
+  return Array.from({ length: totalRows }, (_, index) => {
+    const pathPos = (index / (totalRows - 1)) * (BROKEN_RAINBOW_HEX.length - 1);
+    return samplePalette(BROKEN_RAINBOW_HEX, pathPos);
+  });
 }
 
 export function colorForRowIndex(index, totalRows) {
-  return buildBrokenRainbowPalette(totalRows)[index] ?? BROKEN_RAINBOW_HEX[0];
+  return buildBrokenRainbowPalette(totalRows)[index] ?? RED;
+}
+
+export function trendsColorForRowIndex(index, totalRows) {
+  return buildTrendsRainbowPalette(totalRows)[index] ?? RED;
 }

@@ -746,7 +746,7 @@ button.year-chip:hover,
 }
 
 button.year-chip.active,
-.trends-table tbody tr.trends-selectable.active {
+.trends-table tbody tr.trends-selectable.active:not(.chart-series-selectable) {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 12%, var(--surface-2));
 }
@@ -906,6 +906,10 @@ button.year-chip.active,
   box-shadow: inset 3px 0 0 var(--series-color, var(--accent));
 }
 
+.trends-table tbody tr.chart-series-selectable.active {
+  border-color: color-mix(in srgb, var(--series-color) 55%, transparent);
+}
+
 .chart-series-selectable.chart-series-filtered {
   outline: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
 }
@@ -915,7 +919,17 @@ button.year-chip.active,
 }
 
 .trends-table tbody tr.chart-series-selectable:not(.active) {
-  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--series-color) 35%, transparent);
+  box-shadow: inset 3px 0 0 var(--series-color);
+}
+
+.trends-row-swatch {
+  display: inline-block;
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 999px;
+  margin-right: 0.45rem;
+  vertical-align: middle;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18);
 }
 
 .seat-toggle-row {
