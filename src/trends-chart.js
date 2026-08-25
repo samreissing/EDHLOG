@@ -200,18 +200,38 @@ function renderPointGroups(points, { seriesId = "", color = null, label = "" } =
   };
 }
 
+function renderBaselineAndGrid(plotH) {
+  const baselineY = CHART_PAD.top + plotH - 0.25 * plotH;
+  return {
+    baselineY,
+    markup: `
+      ${renderYGrid(plotH)}
+      <line class="trends-baseline" x1="${CHART_PAD.left}" y1="${baselineY}" x2="${CHART_WIDTH - CHART_PAD.right}" y2="${baselineY}" />`,
+  };
+}
+
 /**
  * @param {ReturnType<typeof computeWinRateSeries>} series
  * @param {string} title
+ * @param {{ start: string, end: string }|null} [range]
  */
-export function renderWinRateLineChart(series, title = "") {
-  if (!series.length) {
-    return `<div class="trends-chart-empty"></div>`;
-  }
-
+export function renderWinRateLineChart(series, title = "", range = null) {
   const plotW = CHART_WIDTH - CHART_PAD.left - CHART_PAD.right;
   const plotH = CHART_HEIGHT - CHART_PAD.top - CHART_PAD.bottom;
-  const baselineY = CHART_PAD.top + plotH - 0.25 * plotH;
+  const { baselineY, markup: gridMarkup } = renderBaselineAndGrid(plotH);
+
+  if (!series.length) {
+    const xLabels = range ? renderFixedRangeXLabels(range) : "";
+    return renderChartFrame({
+      plotW,
+      plotH,
+      baselineY,
+      xLabels,
+      title,
+      body: gridMarkup,
+    });
+  }
+
   const points = renderIndexedPoints(series);
   const rendered = renderPointGroups(points);
 
@@ -222,8 +242,7 @@ export function renderWinRateLineChart(series, title = "") {
     xLabels: renderXLabels(points, series),
     title,
     body: `
-      ${renderYGrid(plotH)}
-      <line class="trends-baseline" x1="${CHART_PAD.left}" y1="${baselineY}" x2="${CHART_WIDTH - CHART_PAD.right}" y2="${baselineY}" />
+      ${gridMarkup}
       <path class="trends-line" d="${rendered.linePath}" />
       ${rendered.dots}`,
   });
@@ -235,22 +254,25 @@ export function renderWinRateLineChart(series, title = "") {
  * @param {string} title
  */
 export function renderMultiWinRateLineChart(seriesList, range, title = "") {
-  const nonEmpty = seriesList.filter((entry) => entry.series.length);
-  if (!nonEmpty.length) {
-    return `<div class="trends-chart-empty"></div>`;
-  }
-
   const plotW = CHART_WIDTH - CHART_PAD.left - CHART_PAD.right;
   const plotH = CHART_HEIGHT - CHART_PAD.top - CHART_PAD.bottom;
-  const baselineY = CHART_PAD.top + plotH - 0.25 * plotH;
+  const { baselineY, markup: gridMarkup } = renderBaselineAndGrid(plotH);
 
-  const renderedSeries = nonEmpty.map((entry) => {
-    const points = renderDateAlignedPoints(entry.series, range.start, range.end);
-    const rendered = renderPointGroups(points, { seriesId: String(entry.id), color: entry.color, label: entry.label });
-    return { ...entry, points, rendered };
-  });
+  const renderedSeries = (seriesList || [])
+    .filter((entry) => entry.series?.length)
+    .map((entry) => {
+      const points = renderDateAlignedPoints(entry.series, range.start, range.end);
+      const rendered = renderPointGroups(points, {
+        seriesId: String(entry.id),
+        color: entry.color,
+        label: entry.label,
+      });
+      return { ...entry, points, rendered };
+    });
 
-  const legend = `
+  const legend =
+    renderedSeries.length > 0
+      ? `
     <div class="trends-chart-legend">
       ${renderedSeries
         .map(
@@ -260,7 +282,8 @@ export function renderMultiWinRateLineChart(seriesList, range, title = "") {
         </span>`
         )
         .join("")}
-    </div>`;
+    </div>`
+      : "";
 
   return `
     ${legend}
@@ -271,8 +294,7 @@ export function renderMultiWinRateLineChart(seriesList, range, title = "") {
       xLabels: renderFixedRangeXLabels(range),
       title,
       body: `
-        ${renderYGrid(plotH)}
-        <line class="trends-baseline" x1="${CHART_PAD.left}" y1="${baselineY}" x2="${CHART_WIDTH - CHART_PAD.right}" y2="${baselineY}" />
+        ${gridMarkup}
         ${renderedSeries
           .map(
             (entry) => `
