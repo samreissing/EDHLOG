@@ -1201,15 +1201,13 @@ function renderStats() {
 
     body = `
       ${renderDateRangeFilters("brackets", chartRange.bounds, chartRange)}
-      <div class="filters inline color-mode-filters">
-        <button type="button" class="btn btn-ghost btn-sm" id="stats-deck-filter-toggle">${statsDeckFilterLabel(statsDeckFilter)}</button>
-      </div>
       <div class="bracket-filter-row">
+        <button type="button" class="btn btn-ghost btn-sm" id="stats-deck-filter-toggle">${statsDeckFilterLabel(statsDeckFilter)}</button>
         ${["", "1", "2", "3", "4", "5"]
           .map(
             (b) => `
           <button type="button" class="btn btn-ghost btn-sm bracket-filter-btn ${bracketsChartMode === "filter" && statsBracketFilter === b ? "active" : ""}" data-bracket-filter="${b}">
-            ${b ? `Bracket ${b}` : "All"}
+            ${b ? `Bracket ${b}` : "All Brackets"}
           </button>`
           )
           .join("")}
