@@ -322,10 +322,15 @@ function bindEvents() {
       return;
     }
 
-    if (e.target.id === "cancel-game") {
+    if (e.target.id === "delete-game-modal") {
+      if (!editingGameId) return;
+      if (!confirm("Delete this game?")) return;
+      data.games = data.games.filter((g) => g.id !== editingGameId);
       editingGameId = null;
       gameModalOpen = false;
+      saveData(data);
       render();
+      toast("Deleted");
       return;
     }
 
@@ -365,9 +370,17 @@ function bindEvents() {
       document.getElementById("deck-modal")?.classList.remove("hidden");
       return;
     }
-    if (e.target.id === "cancel-deck") {
+    if (e.target.id === "delete-deck-modal") {
+      if (!editingDeckName) return;
+      if (!confirm("Delete this deck?")) return;
+      const name = editingDeckName;
+      data.decks = data.decks.filter((d) => d.name !== name);
+      if (selectedDeckName === name) selectedDeckName = null;
       editingDeckName = null;
       document.getElementById("deck-modal")?.classList.add("hidden");
+      saveData(data);
+      render();
+      toast("Deleted");
       return;
     }
 
@@ -379,42 +392,12 @@ function bindEvents() {
       return;
     }
 
-    const deleteDeckBtn = e.target.closest(".delete-deck");
-    if (deleteDeckBtn) {
-      if (!confirm("Delete this deck?")) return;
-      const name = deleteDeckBtn.dataset.name;
-      data.decks = data.decks.filter((d) => d.name !== name);
-      if (editingDeckName === name) editingDeckName = null;
-      if (selectedDeckName === name) selectedDeckName = null;
-      saveData(data);
-      render();
-      toast("Deleted");
-      return;
-    }
-
     const editBtn = e.target.closest(".edit-game");
     if (editBtn) {
       editingGameId = editBtn.dataset.id;
       viewingGameId = null;
       gameModalOpen = true;
       render();
-      return;
-    }
-
-    const deleteBtn = e.target.closest(".delete-game");
-    if (deleteBtn) {
-      if (!confirm("Delete this game?")) return;
-      data.games = data.games.filter((g) => g.id !== deleteBtn.dataset.id);
-      if (editingGameId === deleteBtn.dataset.id) {
-        editingGameId = null;
-        gameModalOpen = false;
-      }
-      if (viewingGameId === deleteBtn.dataset.id) {
-        viewingGameId = null;
-      }
-      saveData(data);
-      render();
-      toast("Deleted");
       return;
     }
 
@@ -1197,7 +1180,7 @@ function renderDecks() {
             <th class="row-actions-col"></th>
           </tr></thead>
           <tbody>
-            ${list.length ? list.map((d) => `<tr><td class="deck-date">${dateCell(d)}</td><td class="deck-name"><button type="button" class="link-btn deck-link" data-deck-detail="${escapeHtml(d.name)}">${escapeHtml(d.name)}</button></td><td class="deck-colors">${colorBadge(d.colors)}</td><td class="deck-tight">${d.bracket}</td><td class="deck-tight">${d.games}</td><td class="deck-tight">${d.wins}</td><td class="deck-stat">${d.games ? pctCell(d.normalizedWr) : "—"}</td><td class="deck-stat">${d.games ? pctCell(d.winRate) : "—"}</td><td class="row-actions"><button type="button" class="btn-icon edit-deck" data-name="${escapeHtml(d.name)}" title="Edit deck">✎</button><button type="button" class="btn-icon delete-deck" data-name="${escapeHtml(d.name)}" title="Delete deck">×</button></td></tr>`).join("") : '<tr><td colspan="9"></td></tr>'}
+            ${list.length ? list.map((d) => `<tr><td class="deck-date">${dateCell(d)}</td><td class="deck-name"><button type="button" class="link-btn deck-link" data-deck-detail="${escapeHtml(d.name)}">${escapeHtml(d.name)}</button></td><td class="deck-colors">${colorBadge(d.colors)}</td><td class="deck-tight">${d.bracket}</td><td class="deck-tight">${d.games}</td><td class="deck-tight">${d.wins}</td><td class="deck-stat">${d.games ? pctCell(d.normalizedWr) : "—"}</td><td class="deck-stat">${d.games ? pctCell(d.winRate) : "—"}</td><td class="row-actions"><button type="button" class="btn-icon edit-deck" data-name="${escapeHtml(d.name)}" title="Edit deck">✎</button></td></tr>`).join("") : '<tr><td colspan="9"></td></tr>'}
           </tbody>
         </table>
       </div>
@@ -1215,7 +1198,7 @@ function renderDecks() {
           </fieldset>
           <label class="checkbox"><input type="checkbox" name="retired" ${editingDeck?.retired ? "checked" : ""} /> Retired</label>
           <div class="form-actions${editingDeck ? " form-actions--split" : ""}">
-            <button type="button" class="btn btn-ghost" id="cancel-deck">Cancel</button>
+            ${editingDeck ? `<button type="button" class="btn btn-danger" id="delete-deck-modal">Delete</button>` : ""}
             <button type="submit" class="btn btn-primary">${editingDeck ? "Save" : "Add Deck"}</button>
           </div>
         </form>
@@ -1442,8 +1425,8 @@ function renderLogForm() {
           <label class="radio-card loss"><input type="radio" name="result" value="Loss" ${resultLoss ? "checked" : ""} /><span>Loss</span></label>
         </div>
       </label>
-      <div class="form-actions form-actions--split">
-        <button type="button" class="btn btn-ghost" id="cancel-game">Cancel</button>
+      <div class="form-actions${editing ? " form-actions--split" : ""}">
+        ${editing ? `<button type="button" class="btn btn-danger" id="delete-game-modal">Delete</button>` : ""}
         <button type="submit" class="btn btn-primary btn-lg">${editing ? "Save" : "Save Game"}</button>
       </div>
     </form>
@@ -1472,7 +1455,6 @@ function gameRow(g) {
     <td><span class="result-pill ${cls}">${g.result}</span></td>
     <td class="row-actions">
       <button type="button" class="btn-icon edit-game" data-id="${g.id}" title="Edit game">✎</button>
-      <button type="button" class="btn-icon delete-game" data-id="${g.id}" title="Delete game">×</button>
     </td></tr>`;
 }
 

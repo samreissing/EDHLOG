@@ -1409,7 +1409,15 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   border-color: var(--muted);
 }
 
+.btn-danger {
+  background: rgba(224, 92, 92, 0.15);
+  color: var(--red);
+  border: 1px solid rgba(224, 92, 92, 0.45);
+  font-weight: 600;
+}
+
 .btn-danger:hover {
+  background: rgba(224, 92, 92, 0.25);
   border-color: var(--red);
   color: var(--red);
 }
