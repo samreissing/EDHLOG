@@ -111,21 +111,24 @@ export function pieValue(row, sortCol) {
   return row.games || 0;
 }
 
-export function pieHoverText(row, sortCol) {
+export function pieHoverText(row, sortCol, total) {
   const label = sliceLabel(row);
-  if (sortCol === "wins") return `${label}: ${row.wins || 0} Wins`;
-  if (sortCol === "decks") return `${label}: ${row.decks || 0} Decks`;
-  if (sortCol === "winRate" || sortCol === "bracket") return `${label}: ${row.games || 0} Games`;
-  return `${label}: ${row.games || 0} Games`;
+  const value = pieValue(row, sortCol);
+  const pct = total > 0 ? ((value / total) * 100).toFixed(1) : "0.0";
+
+  if (sortCol === "wins") return `${label}: ${pct}%`;
+  if (sortCol === "decks") return `${label}: ${pct}%`;
+  return `${label}: ${pct}%`;
 }
 
 export function pieSlicesFromRows(rows, sortCol, mapSlice) {
+  const total = rows.reduce((sum, row) => sum + pieValue(row, sortCol), 0);
   return rows.map((row) => {
     const slice = mapSlice(row);
     return {
       ...slice,
       value: pieValue(row, sortCol),
-      hover: slice.hover ?? pieHoverText(row, sortCol),
+      hover: slice.hover ?? pieHoverText(row, sortCol, total),
     };
   });
 }

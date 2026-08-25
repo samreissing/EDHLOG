@@ -149,9 +149,13 @@ export function valueCell(value, average, formatted = String(value)) {
   return `<span class="wr-cell" style="background:${bg};color:${fg}">${formatted}</span>`;
 }
 
-/** Average games/wins/decks for color rows excluding C. */
+/** Average for color rows vs peers in the current visible set (excludes C). */
 export function colorStatAverage(rows, field) {
-  const peers = rows.filter((r) => r.key !== "C");
+  const peers = rows.filter((r) => {
+    if (r.key === "C") return false;
+    if (field === "decks") return (r.decks || 0) > 0;
+    return (r.games || 0) > 0;
+  });
   if (!peers.length) return 0;
   return peers.reduce((sum, r) => sum + (r[field] || 0), 0) / peers.length;
 }
