@@ -79,11 +79,8 @@ export function gamesForBracketSeries(games, decks, bracket, startDate, endDate)
  * @param {import('./store.js').Game[]} games
  * @param {number} rangeStart
  * @param {number} rangeEnd
- * @param {string} startDate
- * @param {string} endDate
  */
-export function gamesForTrendsWindowSeries(games, rangeStart, rangeEnd, startDate, endDate) {
+export function gamesForTrendsWindowSeries(games, rangeStart, rangeEnd) {
   const sorted = [...games].sort(compareGamesChronologically);
-  const windowGames = sorted.slice(rangeStart - 1, rangeEnd);
-  return gamesInDateRange(windowGames, startDate, endDate);
+  return sorted.slice(rangeStart - 1, rangeEnd);
 }

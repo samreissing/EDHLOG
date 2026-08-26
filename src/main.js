@@ -481,6 +481,7 @@ function bindEvents() {
     if (trendsCumulativeBtn) {
       trendsWindowSelection = newChartSelection();
       trendsWindowMeta = new Map();
+      resetTrendsChartRange();
       trendsFilter = {
         kind: "cumulative",
         rangeEnd: Number(trendsCumulativeBtn.dataset.rangeEnd),
@@ -493,6 +494,7 @@ function bindEvents() {
     if (trendsYearBtn) {
       trendsWindowSelection = newChartSelection();
       trendsWindowMeta = new Map();
+      resetTrendsChartRange();
       trendsFilter = { kind: "year", year: trendsYearBtn.dataset.trendsYear };
       render();
       return;
@@ -502,6 +504,7 @@ function bindEvents() {
     if (trendsAllBtn) {
       trendsWindowSelection = newChartSelection();
       trendsWindowMeta = new Map();
+      resetTrendsChartRange();
       trendsFilter = { kind: "all" };
       render();
       return;
@@ -548,6 +551,7 @@ function bindEvents() {
     if (e.target.id === "clear-trends-chart") {
       trendsWindowSelection = newChartSelection();
       trendsWindowMeta = new Map();
+      resetTrendsChartRange();
       render();
       return;
     }
@@ -587,6 +591,7 @@ function bindEvents() {
       const id = `${rangeStart}-${rangeEnd}`;
       const rowCount = getStats().rolling.windows.length;
       trendsFilter = { kind: "all" };
+      resetTrendsChartRange();
       if (trendsWindowSelection.has(id)) {
         trendsWindowSelection.delete(id);
         trendsWindowMeta.delete(id);
@@ -888,6 +893,27 @@ function subTabs(tabs, active, attr) {
         `<button type="button" role="tab" aria-selected="${t.id === active}" class="sub-tab ${t.id === active ? "active" : ""}" data-${attr}="${t.id}">${t.label}</button>`
     )
     .join("")}</div>`;
+}
+
+function resetTrendsChartRange() {
+  trendsChartRange = { start: null, end: null, customized: false };
+}
+
+function getTrendsChartGames(games, windows, windowSelection) {
+  const sorted = [...games].sort(compareGamesChronologically);
+
+  if (windowSelection.size && windows?.length) {
+    const selectedWindows = windows.filter((window) =>
+      windowSelection.has(`${window.rangeStart}-${window.rangeEnd}`)
+    );
+    if (selectedWindows.length) {
+      return selectedWindows.flatMap((window) =>
+        sorted.slice(window.rangeStart - 1, window.rangeEnd)
+      );
+    }
+  }
+
+  return gamesForTrendsFilter(games);
 }
 
 function gamesForTrendsFilter(games) {
@@ -1372,7 +1398,6 @@ function renderStats() {
       </div>
       ${renderChartSection(bracketChart, "clear-brackets-chart")}`;
   } else if (statsTab === "trends") {
-    const chartRange = getEffectiveChartRange(data.games, trendsChartRange);
     const windowsForChart = s.rolling.windows.length
       ? applySort(s.rolling.windows, tableSort["trends-windows"], {
           label: (w) => w.label,
@@ -1381,6 +1406,11 @@ function renderStats() {
           winRate: (w) => w.winRate,
         })
       : [];
+    const chartGames = getTrendsChartGames(data.games, windowsForChart, trendsWindowSelection);
+    const chartRange = getEffectiveChartRange(
+      chartGames.length ? chartGames : data.games,
+      trendsChartRange
+    );
 
     let chart = "";
     if (trendsWindowSelection.size && windowsForChart.length) {
@@ -1394,20 +1424,13 @@ function renderStats() {
               label: window.label,
               color: colorForChartSelection(trendsWindowSelection, id, windowsForChart.length),
               series: computeWinRateSeries(
-                gamesForTrendsWindowSeries(
-                  data.games,
-                  window.rangeStart,
-                  window.rangeEnd,
-                  chartRange.start,
-                  chartRange.end
-                )
+                gamesForTrendsWindowSeries(data.games, window.rangeStart, window.rangeEnd)
               ),
             };
           }),
         chartRange
       );
     } else {
-      const chartGames = gamesForTrendsFilter(data.games);
       chart = renderWinRateLineChart(
         computeWinRateSeries(chartGames),
         trendsChartTitle(),
