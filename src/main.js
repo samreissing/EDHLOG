@@ -1443,10 +1443,11 @@ function renderStats() {
         normalizedMatchupImpact: (r) => r.normalizedMatchupImpact,
         opponentMatchupImpact: (r) => r.opponentMatchupImpact,
         opponentNormalizedMatchupImpact: (r) => r.opponentNormalizedMatchupImpact,
+        outcomeTieRank: (r) => r.sharedLosses - r.losses,
       },
       {
-        matchupImpact: "games",
-        normalizedMatchupImpact: "games",
+        matchupImpact: ["outcomeTieRank", "games"],
+        normalizedMatchupImpact: ["outcomeTieRank", "games"],
         opponentMatchupImpact: "games",
         opponentNormalizedMatchupImpact: "games",
       }
