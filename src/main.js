@@ -35,6 +35,15 @@ import {
   colorViewLabel,
 } from "./color-stats.js";
 import { renderDeckDetail } from "./deck-detail.js";
+import {
+  renderCommanderDetail,
+  computeOpponentCommanderStats,
+} from "./commander-detail.js";
+import {
+  getCommanderColorIdentity,
+  warmCommanderColorCache,
+  collectOpponentCommanderNames,
+} from "./commander-colors.js";
 import { importDeckFromUrl } from "./deck-import.js";
 import { loadImagesIntoDeckDetail } from "./scryfall.js";
 import { bindPodAutocomplete, MY_PLAYER_NAME } from "./opponent-search.js";
@@ -105,6 +114,10 @@ let statsBracketFilter = "";
 let bracketsChartMode = null;
 let matchupTab = "players";
 let matchupSearch = "";
+let matchupDeckFilter = "all";
+let matchupColorView = "wubrgc";
+let matchupColorAgg = "inclusive";
+let matchupBracketFilter = "";
 /** @type {{ kind: 'all' } | { kind: 'window', rangeStart: number, rangeEnd: number } | { kind: 'cumulative', rangeEnd: number } | { kind: 'year', year: string }} */
 let trendsFilter = { kind: "all" };
 let selectedSeats = [];
@@ -118,6 +131,9 @@ let editingDeckName = null;
 let selectedDeckName = null;
 /** @type {null | 'decks' | 'matchups'} */
 let deckDetailReturn = null;
+let selectedOpponentCommander = null;
+/** @type {null | 'matchups'} */
+let opponentDetailReturn = null;
 let deckSort = "normWr";
 let deckSortDir = "desc";
 let deckBracketFilter = "";
@@ -186,10 +202,18 @@ function resetStatsTabState(tab) {
   } else if (tab === "matchups") {
     matchupTab = "players";
     matchupSearch = "";
+    matchupDeckFilter = "all";
+    matchupColorView = "wubrgc";
+    matchupColorAgg = "inclusive";
+    matchupBracketFilter = "";
     tableSort.matchups = { col: "normalizedMatchupImpact", dir: "desc" };
     if (deckDetailReturn === "matchups") {
       selectedDeckName = null;
       deckDetailReturn = null;
+    }
+    if (opponentDetailReturn === "matchups") {
+      selectedOpponentCommander = null;
+      opponentDetailReturn = null;
     }
   }
 }
@@ -252,7 +276,10 @@ async function boot() {
   data = await initData();
   const sync = getLastSeedSync();
   bindEvents();
-  void warmCommanderMatchupCache(collectPartnerCommanderNames(data.games)).then(() => {
+  void Promise.all([
+    warmCommanderMatchupCache(collectPartnerCommanderNames(data.games)),
+    warmCommanderColorCache(collectOpponentCommanderNames(data.games)),
+  ]).then(() => {
     if (currentView === "stats" && statsTab === "matchups") render();
   });
   bindModalBackdropDismiss({
@@ -363,6 +390,32 @@ function bindEvents() {
       return;
     }
 
+    if (e.target.id === "matchup-deck-filter-toggle") {
+      matchupDeckFilter =
+        matchupDeckFilter === "all" ? "active" : matchupDeckFilter === "active" ? "retired" : "all";
+      render();
+      return;
+    }
+
+    if (e.target.id === "matchup-color-view-toggle") {
+      matchupColorView = matchupColorView === "wubrgc" ? "all" : "wubrgc";
+      render();
+      return;
+    }
+
+    if (e.target.id === "matchup-color-agg-toggle") {
+      matchupColorAgg = matchupColorAgg === "inclusive" ? "exclusive" : "inclusive";
+      render();
+      return;
+    }
+
+    const matchupBracketBtn = e.target.closest("[data-matchup-bracket-filter]");
+    if (matchupBracketBtn) {
+      matchupBracketFilter = matchupBracketBtn.getAttribute("data-matchup-bracket-filter") || "";
+      render();
+      return;
+    }
+
     if (e.target.id === "color-order-toggle") {
       colorSortOrder = colorSortOrder === "wubrgc" ? "cgrbuw" : "wubrgc";
       tableSort["color-stats"] = { col: "colorOrder", dir: "asc" };
@@ -432,6 +485,10 @@ function bindEvents() {
       if (nextMatchupTab !== "decks" && deckDetailReturn === "matchups") {
         selectedDeckName = null;
         deckDetailReturn = null;
+      }
+      if (nextMatchupTab !== "decks" && opponentDetailReturn === "matchups") {
+        selectedOpponentCommander = null;
+        opponentDetailReturn = null;
       }
       matchupTab = nextMatchupTab;
       render();
@@ -576,6 +633,8 @@ function bindEvents() {
     const deckDetailBtn = e.target.closest("[data-deck-detail]");
     if (deckDetailBtn) {
       selectedDeckName = deckDetailBtn.dataset.deckDetail;
+      selectedOpponentCommander = null;
+      opponentDetailReturn = null;
       if (currentView === "stats" && statsTab === "matchups" && matchupTab === "decks") {
         deckDetailReturn = "matchups";
         render();
@@ -588,9 +647,21 @@ function bindEvents() {
       return;
     }
 
+    const opponentDetailBtn = e.target.closest("[data-opponent-detail]");
+    if (opponentDetailBtn) {
+      selectedOpponentCommander = opponentDetailBtn.dataset.opponentDetail;
+      selectedDeckName = null;
+      deckDetailReturn = null;
+      opponentDetailReturn = "matchups";
+      render();
+      return;
+    }
+
     if (e.target.id === "deck-detail-back") {
       selectedDeckName = null;
       deckDetailReturn = null;
+      selectedOpponentCommander = null;
+      opponentDetailReturn = null;
       render();
       return;
     }
@@ -925,7 +996,16 @@ function getStats() {
     ),
     yearStats: computeYearStats(data.games),
     rolling: computeRolling100Stats(data.games),
-    matchups: computeAllMatchups(data.games),
+    matchups: computeAllMatchups(data.games, {
+      colorOptions: {
+        decks: data.decks,
+        deckFilter: matchupDeckFilter,
+        bracketFilter: matchupBracketFilter,
+        view: matchupColorView,
+        agg: matchupColorAgg,
+        getOpponentColors: getCommanderColorIdentity,
+      },
+    }),
   };
 }
 
@@ -952,7 +1032,9 @@ function render() {
     syncBracketFromDeck();
     bindPodAutocomplete(document.getElementById("add-game-form"), data.games);
   }
-  if (selectedDeckName) loadImagesIntoDeckDetail(selectedDeckName);
+  if (selectedDeckName || selectedOpponentCommander) {
+    loadImagesIntoDeckDetail(selectedDeckName || selectedOpponentCommander);
+  }
 
   if (matchupSearchFocused) {
     const el = document.getElementById("matchup-search");
@@ -1427,7 +1509,14 @@ function renderStats() {
       deckDetailReturn = null;
     }
 
+    if (selectedOpponentCommander && opponentDetailReturn === "matchups" && matchupTab === "decks") {
+      const profile = computeOpponentCommanderStats(data.games, selectedOpponentCommander);
+      const colors = getCommanderColorIdentity(selectedOpponentCommander);
+      return `<section class="section">${subTabs(STATS_TABS, statsTab, "stats-tab")}${renderCommanderDetail({ ...profile, colors }, { backLabel: "← Back to matchups" })}</section>`;
+    }
+
     const isDeckTab = matchupTab === "decks";
+    const isColorTab = matchupTab === "colors";
     const query = matchupSearch.trim().toLowerCase();
     const sorted = applySort(
       s.matchups[matchupTab] || [],
@@ -1460,21 +1549,64 @@ function renderStats() {
           row.opponent.toLowerCase().includes(query) || row.subject.toLowerCase().includes(query)
         );
       }
+      if (isColorTab) {
+        return (
+          row.opponent.toLowerCase().includes(query) || row.subject.toLowerCase().includes(query)
+        );
+      }
       return row.opponent.toLowerCase().includes(query);
     });
     lastMatchupDeckRows = isDeckTab ? rows : [];
     const myDeckNames = new Set(data.decks.map((d) => d.name));
 
+    const searchPlaceholder = isDeckTab
+      ? "Search my or opponent decks"
+      : isColorTab
+        ? "Search my or opponent colors"
+        : "Search opponents";
+
+    const colorFilters = isColorTab
+      ? `
+      <div class="filters inline color-mode-filters matchup-color-filters">
+        <button type="button" class="btn btn-ghost btn-sm" id="matchup-deck-filter-toggle">${statsDeckFilterLabel(matchupDeckFilter)}</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="matchup-color-view-toggle">${colorViewLabel(matchupColorView)}</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="matchup-color-agg-toggle">${matchupColorAgg === "inclusive" ? "Inclusive" : "Exclusive"}</button>
+      </div>
+      <div class="bracket-filter-row matchup-bracket-filters">
+        ${["", "1", "2", "3", "4", "5"]
+          .map(
+            (b) => `
+          <button type="button" class="btn btn-ghost btn-sm bracket-filter-btn ${matchupBracketFilter === b ? "active" : ""}" data-matchup-bracket-filter="${b}">
+            ${b ? `Bracket ${b}` : "All Brackets"}
+          </button>`
+          )
+          .join("")}
+      </div>`
+      : "";
+
+    const subjectHeader = isDeckTab
+      ? sortHeader("matchups", "subject", "Deck", tableSort.matchups)
+      : isColorTab
+        ? sortHeader("matchups", "subject", "My Colors", tableSort.matchups)
+        : "";
+    const opponentHeader = sortHeader(
+      "matchups",
+      "opponent",
+      isDeckTab ? "Opponent Deck" : isColorTab ? "Opponent Colors" : "Opponent",
+      tableSort.matchups
+    );
+
     body = `
       ${subTabs(MATCHUP_TABS, matchupTab, "matchup-tab")}
+      ${colorFilters}
       <div class="filters inline matchup-filters">
-        <input type="search" id="matchup-search" class="input matchup-search" placeholder="${isDeckTab ? "Search my or opponent decks" : "Search opponents"}" value="${escapeHtml(matchupSearch)}" />
+        <input type="search" id="matchup-search" class="input matchup-search" placeholder="${searchPlaceholder}" value="${escapeHtml(matchupSearch)}" />
       </div>
       <table class="table compact sortable-table matchup-table">
         <thead><tr>
           <th class="col-rank">#</th>
-          ${isDeckTab ? sortHeader("matchups", "subject", "Deck", tableSort.matchups) : ""}
-          ${sortHeader("matchups", "opponent", isDeckTab ? "Opponent Deck" : "Opponent", tableSort.matchups)}
+          ${subjectHeader}
+          ${opponentHeader}
           ${sortHeader("matchups", "games", "G", tableSort.matchups)}
           ${sortHeader("matchups", "wins", "W", tableSort.matchups)}
           ${isDeckTab ? sortHeader("matchups", "opponentCount", "Pop", tableSort.matchups) : ""}
@@ -1490,8 +1622,20 @@ function renderStats() {
               (row, rowIndex) => `
             <tr>
               <td class="col-rank">${row.rank}</td>
-              ${isDeckTab ? `<td class="matchup-deck-col">${myDeckNames.has(row.subject) ? `<button type="button" class="link-btn deck-link" data-deck-detail="${escapeHtml(row.subject)}">${escapeHtml(row.subject)}</button>` : escapeHtml(row.subject)}</td>` : ""}
-              <td>${escapeHtml(row.opponent)}</td>
+              ${
+                isDeckTab
+                  ? `<td class="matchup-deck-col">${myDeckNames.has(row.subject) ? `<button type="button" class="link-btn deck-link" data-deck-detail="${escapeHtml(row.subject)}">${escapeHtml(row.subject)}</button>` : escapeHtml(row.subject)}</td>`
+                  : isColorTab
+                    ? `<td class="matchup-color-col"><span class="color-label">${colorBadge(row.subjectColors || [])}</span> ${escapeHtml(row.subject)}</td>`
+                    : ""
+              }
+              ${
+                isDeckTab
+                  ? `<td class="matchup-deck-col"><button type="button" class="link-btn deck-link" data-opponent-detail="${escapeHtml(row.opponent)}">${escapeHtml(row.opponent)}</button></td>`
+                  : isColorTab
+                    ? `<td class="matchup-color-col"><span class="color-label">${colorBadge(row.opponentColors || [])}</span> ${escapeHtml(row.opponent)}</td>`
+                    : `<td>${escapeHtml(row.opponent)}</td>`
+              }
               <td>${row.games}</td>
               <td>${row.wins}</td>
               ${isDeckTab ? `<td class="matchup-pop-col">${row.opponentCount ? `<span class="matchup-pop-trigger has-tip" data-matchup-row-index="${rowIndex}">${row.opponentCount}</span>` : "—"}</td>` : ""}

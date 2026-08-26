@@ -1,6 +1,7 @@
 import { MY_PLAYER_NAME } from "./opponent-search.js";
 import { winRate } from "./stats.js";
 import { getCommanderMatchupKeys } from "./commander-names.js";
+import { colorKeyLabel, colorKeysForIdentity, rowColorsFromKey } from "./color-stats.js";
 
 /** Commander pod baseline (30CCSTAT). */
 export const MATCHUP_BASELINE = 0.25;
@@ -10,6 +11,7 @@ export const MATCHUP_PRIOR_WINS = MATCHUP_PRIOR_GAMES * MATCHUP_BASELINE;
 export const MATCHUP_TABS = [
   { id: "players", label: "Player Matchups" },
   { id: "decks", label: "Deck Matchups" },
+  { id: "colors", label: "Color Matchups" },
 ];
 
 /** @typedef {{ seat: number, player: string, deck: string, commander: string, didWin: boolean }} GameSeat */
@@ -245,10 +247,102 @@ export function buildMyMatchupRows(games, tabId) {
     });
 }
 
-/** @param {import('./store.js').Game[]} games */
-export function computeAllMatchups(games) {
+/** @param {import('./store.js').Game[]} games @param {import('./store.js').Deck[]} decks @param {"all" | "active" | "retired"} deckFilter @param {string} bracketFilter */
+function filterGamesForColorMatchups(games, decks, deckFilter, bracketFilter) {
+  const deckMap = new Map(decks.map((d) => [d.name, d]));
+  return games.filter((game) => {
+    const deck = deckMap.get(game.deck);
+    if (deckFilter === "active" && deck?.retired) return false;
+    if (deckFilter === "retired" && !deck?.retired) return false;
+    if (bracketFilter) {
+      const bracket = deck?.bracket ?? game.bracket;
+      if (String(bracket) !== bracketFilter) return false;
+    }
+    return true;
+  });
+}
+
+/**
+ * @param {import('./store.js').Game[]} games
+ * @param {{ decks: import('./store.js').Deck[], deckFilter: 'all'|'active'|'retired', bracketFilter: string, view: 'wubrgc'|'all', agg: 'inclusive'|'exclusive', getOpponentColors: (name: string) => string[] }} options
+ */
+export function buildColorMatchupRows(games, options) {
+  const { decks, deckFilter, bracketFilter, view, agg, getOpponentColors } = options;
+  const deckMap = new Map(decks.map((d) => [d.name, d]));
+  const filteredGames = filterGamesForColorMatchups(games, decks, deckFilter, bracketFilter);
+  const rows = new Map();
+
+  for (const game of filteredGames) {
+    const seats = parseGameSeats(game);
+    if (seats.length < 2) continue;
+
+    const mySeat = seats.find(isMySeat);
+    if (!mySeat) continue;
+
+    const myColors = deckMap.get(game.deck)?.colors ?? [];
+
+    for (const opponentSeat of seats) {
+      if (opponentSeat === mySeat) continue;
+
+      const oppColors = getOpponentColors(opponentSeat.commander);
+      const subjectKeys = colorKeysForIdentity(myColors, view, agg);
+      const opponentKeys = colorKeysForIdentity(oppColors, view, agg);
+
+      for (const subjectKey of subjectKeys) {
+        for (const opponentKey of opponentKeys) {
+          const mapKey = `ci:${subjectKey}__oci:${opponentKey}`;
+          const row =
+            rows.get(mapKey) ??
+            ({
+              subjectKey: `ci:${subjectKey}`,
+              opponentKey: `oci:${opponentKey}`,
+              subject: colorKeyLabel(subjectKey, view),
+              opponent: colorKeyLabel(opponentKey, view),
+              subjectColors: rowColorsFromKey(subjectKey),
+              opponentColors: rowColorsFromKey(opponentKey),
+              games: 0,
+              wins: 0,
+              losses: 0,
+              sharedLosses: 0,
+            });
+
+          row.games += 1;
+          if (mySeat.didWin) row.wins += 1;
+          else if (opponentSeat.didWin) row.losses += 1;
+          else row.sharedLosses += 1;
+
+          rows.set(mapKey, row);
+        }
+      }
+    }
+  }
+
+  const finalized = [...rows.values()].map(finalizeMatchupRow);
+
+  return finalized.sort((a, b) => {
+    if (b.normalizedMatchupImpact !== a.normalizedMatchupImpact) {
+      return b.normalizedMatchupImpact - a.normalizedMatchupImpact;
+    }
+    const outcomeA = matchupOutcomeTieRank(a);
+    const outcomeB = matchupOutcomeTieRank(b);
+    if (outcomeB !== outcomeA) {
+      return outcomeB - outcomeA;
+    }
+    if (b.games !== a.games) {
+      return b.games - a.games;
+    }
+    if (a.subject !== b.subject) {
+      return a.subject.localeCompare(b.subject, undefined, { numeric: true });
+    }
+    return a.opponent.localeCompare(b.opponent, undefined, { numeric: true });
+  });
+}
+
+/** @param {import('./store.js').Game[]} games @param {{ colorOptions?: object }} [options] */
+export function computeAllMatchups(games, options = {}) {
   return {
     players: buildMyMatchupRows(games, "players"),
     decks: buildMyMatchupRows(games, "decks"),
+    colors: options.colorOptions ? buildColorMatchupRows(games, options.colorOptions) : [],
   };
 }
