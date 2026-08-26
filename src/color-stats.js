@@ -29,8 +29,32 @@ export function colorKeyLabel(key, view) {
   return rowLabel(key);
 }
 
-/** @param {string[]} colors @param {'wubrgc'|'all'} view @param {'inclusive'|'exclusive'} agg */
+/** @param {string[]} rowColors @param {string[]} deckColors @param {'inclusive'|'exclusive'} mode */
+export function rowMatchesDeck(rowColors, deckColors, mode) {
+  const deck = deckColors || [];
+  const row = rowColors || [];
+
+  if (!row.length) {
+    return deck.length === 0;
+  }
+  if (!deck.length) {
+    return false;
+  }
+
+  if (mode === "exclusive") {
+    if (row.length !== deck.length) return false;
+    const a = [...row].sort().join("");
+    const b = [...deck].sort().join("");
+    return a === b;
+  }
+  return row.every((c) => deck.includes(c));
+}
+
+/** @param {string[]} colors @param {'wubrgc'|'all'|'exact'} view @param {'inclusive'|'exclusive'} agg */
 export function colorKeysForIdentity(colors, view, agg) {
+  if (view === "exact") {
+    return [identityKey(colors || [])];
+  }
   if (view === "wubrgc") {
     const order = ["W", "U", "B", "R", "G", "C"];
     return order.filter((key) => {
@@ -65,18 +89,6 @@ function subsets(colors) {
   return out;
 }
 
-function rowMatchesDeck(rowColors, deckColors, mode) {
-  if (mode === "exclusive") {
-    if (!rowColors.length && !deckColors.length) return true;
-    if (rowColors.length !== deckColors.length) return false;
-    const a = [...rowColors].sort().join("");
-    const b = [...deckColors].sort().join("");
-    return a === b;
-  }
-  if (!rowColors.length) return !deckColors.length;
-  return rowColors.every((c) => deckColors.includes(c));
-}
-
 function rowSortIndex(key, sortOrder) {
   const order = sortOrder === "cgrbuw" ? ORDER_REVERSE : ORDER_FORWARD;
   if (key === "C") return order.indexOf("C");
@@ -93,6 +105,14 @@ function buildRowKeys(deckStats, view, agg, sortOrder) {
   if (view === "wubrgc") {
     const order = sortOrder === "cgrbuw" ? ORDER_REVERSE : ORDER_FORWARD;
     return [...order];
+  }
+
+  if (view === "exact") {
+    const keys = new Set();
+    for (const deck of deckStats) {
+      keys.add(identityKey(deck.colors || []));
+    }
+    return [...keys];
   }
 
   const keys = new Set();
@@ -115,14 +135,15 @@ function buildRowKeys(deckStats, view, agg, sortOrder) {
 
 /**
  * @param {import('./stats.js').DeckStat[]} deckStats
- * @param {{ view: 'wubrgc'|'all', agg: 'inclusive'|'exclusive', sortOrder: 'wubrgc'|'cgrbuw' }} opts
+ * @param {{ view: 'wubrgc'|'all'|'exact', agg: 'inclusive'|'exclusive', sortOrder: 'wubrgc'|'cgrbuw' }} opts
  */
 export function computeColorStatsAdvanced(deckStats, { view, agg, sortOrder }) {
   const rowKeys = buildRowKeys(deckStats, view, agg, sortOrder);
+  const matchMode = view === "exact" ? "exclusive" : agg;
 
   const rows = rowKeys.map((key) => {
     const rowColors = rowColorsFromKey(key);
-    const decks = deckStats.filter((d) => rowMatchesDeck(rowColors, d.colors || [], agg));
+    const decks = deckStats.filter((d) => rowMatchesDeck(rowColors, d.colors || [], matchMode));
     const games = decks.reduce((s, d) => s + d.games, 0);
     const wins = decks.reduce((s, d) => s + d.wins, 0);
     return {
@@ -147,5 +168,14 @@ export function colorColumnSortLabel(sortOrder) {
 }
 
 export function colorViewLabel(view) {
-  return view === "all" ? "All Colors" : "WUBRGC";
+  if (view === "all") return "All Colors";
+  if (view === "exact") return "Exact Colors";
+  return "WUBRGC";
+}
+
+/** @param {'wubrgc'|'all'|'exact'} view */
+export function cycleColorView(view) {
+  if (view === "wubrgc") return "all";
+  if (view === "all") return "exact";
+  return "wubrgc";
 }

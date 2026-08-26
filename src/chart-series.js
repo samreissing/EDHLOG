@@ -1,23 +1,7 @@
 import { compareGamesChronologically, normalizeDate } from "./dates.js";
 import { gameBracket } from "./stats.js";
 import { mixManaColors, MANA_HEX } from "./mana-colors.js";
-
-function rowColorsFromKey(key) {
-  if (key === "C") return [];
-  return key.split("");
-}
-
-function rowMatchesDeck(rowColors, deckColors, mode) {
-  if (mode === "exclusive") {
-    if (!rowColors.length && !deckColors.length) return true;
-    if (rowColors.length !== deckColors.length) return false;
-    const a = [...rowColors].sort().join("");
-    const b = [...deckColors].sort().join("");
-    return a === b;
-  }
-  if (!rowColors.length) return !deckColors.length;
-  return rowColors.every((c) => deckColors.includes(c));
-}
+import { rowColorsFromKey, rowMatchesDeck } from "./color-stats.js";
 
 export function lineColorForColorKey(key) {
   const colors = rowColorsFromKey(key);

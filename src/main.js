@@ -33,6 +33,7 @@ import {
   computeColorStatsAdvanced,
   colorColumnSortLabel,
   colorViewLabel,
+  cycleColorView,
 } from "./color-stats.js";
 import { renderDeckDetail } from "./deck-detail.js";
 import {
@@ -398,7 +399,7 @@ function bindEvents() {
     }
 
     if (e.target.id === "matchup-color-view-toggle") {
-      matchupColorView = matchupColorView === "wubrgc" ? "all" : "wubrgc";
+      matchupColorView = cycleColorView(matchupColorView);
       render();
       return;
     }
@@ -425,7 +426,7 @@ function bindEvents() {
     }
 
     if (e.target.id === "color-view-toggle") {
-      colorView = colorView === "wubrgc" ? "all" : "wubrgc";
+      colorView = cycleColorView(colorView);
       colorsChartSelection = new Set();
       pieAnimKey++;
       render();
@@ -1187,7 +1188,7 @@ function renderStats() {
               statsGames,
               statsDecks,
               c.key,
-              colorAgg,
+              colorView === "exact" ? "exclusive" : colorAgg,
               chartRange.start,
               chartRange.end
             )
