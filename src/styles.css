@@ -1053,9 +1053,34 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
 }
 
-.matchup-deck-tip-trigger.has-tip {
+.matchup-pop-col {
+  text-align: center;
+}
+
+.matchup-pop-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.65rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--accent);
+  background: rgba(91, 159, 212, 0.16);
+  border: 1px solid rgba(91, 159, 212, 0.45);
+}
+
+.matchup-pop-trigger.has-tip {
   cursor: help;
-  border-bottom: 1px dotted var(--muted);
+}
+
+.matchup-deck-col .link-btn {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .filters.inline {

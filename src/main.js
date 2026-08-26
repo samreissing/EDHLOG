@@ -116,6 +116,8 @@ let viewingGameId = null;
 let editingGameId = null;
 let editingDeckName = null;
 let selectedDeckName = null;
+/** @type {null | 'decks' | 'matchups'} */
+let deckDetailReturn = null;
 let deckSort = "normWr";
 let deckSortDir = "desc";
 let deckBracketFilter = "";
@@ -185,6 +187,10 @@ function resetStatsTabState(tab) {
     matchupTab = "players";
     matchupSearch = "";
     tableSort.matchups = { col: "normalizedMatchupImpact", dir: "desc" };
+    if (deckDetailReturn === "matchups") {
+      selectedDeckName = null;
+      deckDetailReturn = null;
+    }
   }
 }
 
@@ -422,7 +428,12 @@ function bindEvents() {
 
     const matchupBtn = e.target.closest("[data-matchup-tab]");
     if (matchupBtn) {
-      matchupTab = matchupBtn.getAttribute("data-matchup-tab");
+      const nextMatchupTab = matchupBtn.getAttribute("data-matchup-tab");
+      if (nextMatchupTab !== "decks" && deckDetailReturn === "matchups") {
+        selectedDeckName = null;
+        deckDetailReturn = null;
+      }
+      matchupTab = nextMatchupTab;
       render();
       return;
     }
@@ -565,6 +576,12 @@ function bindEvents() {
     const deckDetailBtn = e.target.closest("[data-deck-detail]");
     if (deckDetailBtn) {
       selectedDeckName = deckDetailBtn.dataset.deckDetail;
+      if (currentView === "stats" && statsTab === "matchups" && matchupTab === "decks") {
+        deckDetailReturn = "matchups";
+        render();
+        return;
+      }
+      deckDetailReturn = "decks";
       currentView = "decks";
       renderNav();
       render();
@@ -573,6 +590,7 @@ function bindEvents() {
 
     if (e.target.id === "deck-detail-back") {
       selectedDeckName = null;
+      deckDetailReturn = null;
       render();
       return;
     }
@@ -588,7 +606,10 @@ function bindEvents() {
       if (!confirm("Delete this deck?")) return;
       const name = editingDeckName;
       data.decks = data.decks.filter((d) => d.name !== name);
-      if (selectedDeckName === name) selectedDeckName = null;
+      if (selectedDeckName === name) {
+        selectedDeckName = null;
+        deckDetailReturn = null;
+      }
       editingDeckName = null;
       document.getElementById("deck-modal")?.classList.add("hidden");
       saveData(data);
@@ -850,7 +871,7 @@ function bindMatchupDeckTips() {
   const tip = document.getElementById("matchup-deck-tip");
   if (!tip) return;
 
-  bindHoverTip(tip, document.querySelectorAll(".matchup-deck-tip-trigger"), (el) => {
+  bindHoverTip(tip, document.querySelectorAll(".matchup-pop-trigger"), (el) => {
     const row = lastMatchupDeckRows[Number(el.dataset.matchupRowIndex)];
     return formatPlayerBreakdownTip(row?.opponentPlayerBreakdown);
   });
@@ -1396,6 +1417,16 @@ function renderStats() {
       </div>
       ${renderChartSection(seatChart, "clear-seats-chart")}`;
   } else if (statsTab === "matchups") {
+    if (selectedDeckName && deckDetailReturn === "matchups" && matchupTab === "decks") {
+      const deck = data.decks.find((d) => d.name === selectedDeckName);
+      if (deck) {
+        const stats = getStats().deckStats.find((d) => d.name === selectedDeckName);
+        return `<section class="section">${subTabs(STATS_TABS, statsTab, "stats-tab")}${renderDeckDetail(deck, stats, { backLabel: "← Back to matchups" })}</section>`;
+      }
+      selectedDeckName = null;
+      deckDetailReturn = null;
+    }
+
     const isDeckTab = matchupTab === "decks";
     const query = matchupSearch.trim().toLowerCase();
     const sorted = applySort(
@@ -1406,6 +1437,7 @@ function renderStats() {
         opponent: (r) => r.opponent,
         games: (r) => r.games,
         wins: (r) => r.wins,
+        opponentCount: (r) => r.opponentCount ?? 0,
         winRate: (r) => r.winRate,
         matchupImpact: (r) => r.matchupImpact,
         normalizedMatchupImpact: (r) => r.normalizedMatchupImpact,
@@ -1430,6 +1462,7 @@ function renderStats() {
       return row.opponent.toLowerCase().includes(query);
     });
     lastMatchupDeckRows = isDeckTab ? rows : [];
+    const myDeckNames = new Set(data.decks.map((d) => d.name));
 
     body = `
       ${subTabs(MATCHUP_TABS, matchupTab, "matchup-tab")}
@@ -1443,6 +1476,7 @@ function renderStats() {
           ${sortHeader("matchups", "opponent", isDeckTab ? "Opponent Deck" : "Opponent", tableSort.matchups)}
           ${sortHeader("matchups", "games", "G", tableSort.matchups)}
           ${sortHeader("matchups", "wins", "W", tableSort.matchups)}
+          ${isDeckTab ? sortHeader("matchups", "opponentCount", "Pop", tableSort.matchups) : ""}
           ${sortHeader("matchups", "winRate", "WR", tableSort.matchups)}
           ${sortHeader("matchups", "matchupImpact", "MI", tableSort.matchups)}
           ${sortHeader("matchups", "normalizedMatchupImpact", "NMI", tableSort.matchups)}
@@ -1455,10 +1489,11 @@ function renderStats() {
               (row, rowIndex) => `
             <tr>
               <td class="col-rank">${row.rank}</td>
-              ${isDeckTab ? `<td><span class="matchup-deck-tip-trigger ${row.opponentPlayerBreakdown?.length ? "has-tip" : ""}" data-matchup-row-index="${rowIndex}">${escapeHtml(row.subject)}</span></td>` : ""}
-              <td><span class="matchup-deck-tip-trigger ${row.opponentPlayerBreakdown?.length ? "has-tip" : ""}" data-matchup-row-index="${rowIndex}">${escapeHtml(row.opponent)}</span></td>
+              ${isDeckTab ? `<td class="matchup-deck-col">${myDeckNames.has(row.subject) ? `<button type="button" class="link-btn deck-link" data-deck-detail="${escapeHtml(row.subject)}">${escapeHtml(row.subject)}</button>` : escapeHtml(row.subject)}</td>` : ""}
+              <td>${escapeHtml(row.opponent)}</td>
               <td>${row.games}</td>
               <td>${row.wins}</td>
+              ${isDeckTab ? `<td class="matchup-pop-col">${row.opponentCount ? `<span class="matchup-pop-trigger has-tip" data-matchup-row-index="${rowIndex}">${row.opponentCount}</span>` : "—"}</td>` : ""}
               <td>${pctCell(row.winRate)}</td>
               <td>${impactCell(row.matchupImpact)}</td>
               <td>${impactCell(row.normalizedMatchupImpact)}</td>
