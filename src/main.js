@@ -1627,14 +1627,14 @@ function renderStats() {
                 isDeckTab
                   ? `<td class="matchup-deck-col">${myDeckNames.has(row.subject) ? `<button type="button" class="link-btn deck-link" data-deck-detail="${escapeHtml(row.subject)}">${escapeHtml(row.subject)}</button>` : escapeHtml(row.subject)}</td>`
                   : isColorTab
-                    ? `<td class="matchup-color-col"><span class="color-label">${colorBadge(row.subjectColors || [])}</span> ${escapeHtml(row.subject)}</td>`
+                    ? `<td class="matchup-color-col"><span class="color-label">${colorBadge(row.subjectColors || [])}</span></td>`
                     : ""
               }
               ${
                 isDeckTab
                   ? `<td class="matchup-deck-col"><button type="button" class="link-btn deck-link" data-opponent-detail="${escapeHtml(row.opponent)}">${escapeHtml(row.opponent)}</button></td>`
                   : isColorTab
-                    ? `<td class="matchup-color-col"><span class="color-label">${colorBadge(row.opponentColors || [])}</span> ${escapeHtml(row.opponent)}</td>`
+                    ? `<td class="matchup-color-col"><span class="color-label">${colorBadge(row.opponentColors || [])}</span></td>`
                     : `<td>${escapeHtml(row.opponent)}</td>`
               }
               <td>${row.games}</td>
