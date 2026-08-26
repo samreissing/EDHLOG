@@ -232,14 +232,16 @@ export function renderWinRateLineChart(series, title = "", range = null) {
     });
   }
 
-  const points = renderIndexedPoints(series);
+  const points = range
+    ? renderDateAlignedPoints(series, range.start, range.end)
+    : renderIndexedPoints(series);
   const rendered = renderPointGroups(points);
 
   return renderChartFrame({
     plotW,
     plotH,
     baselineY,
-    xLabels: renderXLabels(points, series),
+    xLabels: range ? renderFixedRangeXLabels(range) : renderXLabels(points, series),
     title,
     body: `
       ${gridMarkup}
