@@ -138,6 +138,7 @@ function finalizeMatchupRow(row) {
     opponentWins,
     opponentWinRate,
     opponentPlayerBreakdown,
+    opponentCount: opponentPlayerBreakdown.length,
     matchupImpact: calcMatchupImpact(row.wins, row.games),
     normalizedMatchupImpact: calcNormalizedMatchupImpact(row.wins, row.games),
     opponentMatchupImpact: calcMatchupImpact(opponentWins, row.games),

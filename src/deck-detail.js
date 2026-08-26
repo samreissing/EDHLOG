@@ -34,8 +34,9 @@ function cardRow(card) {
     </div>`;
 }
 
-/** @param {import('./store.js').Deck} deck @param {object} stats */
-export function renderDeckDetail(deck, stats) {
+/** @param {import('./store.js').Deck} deck @param {object} stats @param {{ backLabel?: string }} [options] */
+export function renderDeckDetail(deck, stats, options = {}) {
+  const backLabel = options.backLabel ?? "← Back to decks";
   const commanders = commanderNames(deck.name);
   const cards = deck.cards || [];
   const grouped = new Map();
@@ -71,7 +72,7 @@ export function renderDeckDetail(deck, stats) {
   return `
     <section class="section deck-detail" data-deck-detail-root="${escapeHtml(deck.name)}">
       <div class="deck-detail-nav">
-        <button type="button" class="btn btn-ghost btn-sm" id="deck-detail-back">← Back to decks</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="deck-detail-back">${backLabel}</button>
       </div>
 
       <div class="deck-detail-hero">
