@@ -19,15 +19,24 @@ export function toggleSort(state, col) {
   return { col, dir: "desc" };
 }
 
+function normalizeTieBreakers(value) {
+  if (!value) return [];
+  return Array.isArray(value) ? value : [value];
+}
+
 export function applySort(rows, state, getters, tieBreakers = {}) {
   if (!state?.col || !getters[state.col]) return rows;
   const get = getters[state.col];
+  const ties = normalizeTieBreakers(tieBreakers[state.col]);
   return [...rows].sort((a, b) => {
     const primary = compareValues(get(a), get(b), state.dir);
     if (primary !== 0) return primary;
-    const tieKey = tieBreakers[state.col];
-    if (tieKey && getters[tieKey]) {
-      return compareValues(getters[tieKey](a), getters[tieKey](b), state.dir);
+    for (const tie of ties) {
+      const tieKey = typeof tie === "string" ? tie : tie.key;
+      const tieDir = typeof tie === "string" ? state.dir : tie.dir ?? state.dir;
+      if (!getters[tieKey]) continue;
+      const cmp = compareValues(getters[tieKey](a), getters[tieKey](b), tieDir);
+      if (cmp !== 0) return cmp;
     }
     return 0;
   });

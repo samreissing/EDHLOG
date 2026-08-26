@@ -117,6 +117,11 @@ export function calcNormalizedMatchupImpact(wins, games) {
   return normalizedWinRate - MATCHUP_BASELINE;
 }
 
+/** Higher = better when NMI ties: shared losses beat losses-to. */
+export function matchupOutcomeTieRank(row) {
+  return (row.sharedLosses ?? 0) - (row.losses ?? 0);
+}
+
 function finalizeMatchupRow(row) {
   const winRateVal = row.games > 0 ? winRate(row.wins, row.games) : 0;
   const opponentWins = row.losses;
@@ -221,6 +226,11 @@ export function buildMyMatchupRows(games, tabId) {
   return finalized.sort((a, b) => {
       if (b.normalizedMatchupImpact !== a.normalizedMatchupImpact) {
         return b.normalizedMatchupImpact - a.normalizedMatchupImpact;
+      }
+      const outcomeA = matchupOutcomeTieRank(a);
+      const outcomeB = matchupOutcomeTieRank(b);
+      if (outcomeB !== outcomeA) {
+        return outcomeB - outcomeA;
       }
       if (b.games !== a.games) {
         return b.games - a.games;
