@@ -12,6 +12,39 @@ import {
 const ORDER_FORWARD = ["W", "U", "B", "R", "G", "C"];
 const ORDER_REVERSE = ["C", "G", "R", "B", "U", "W"];
 
+export function rowColorsFromKey(key) {
+  if (key === "C") return [];
+  return key.split("");
+}
+
+function rowLabel(key) {
+  if (key === "C") return "Colorless";
+  return [...key].map((c) => COLOR_NAMES[c] || c).join(" ");
+}
+
+export function colorKeyLabel(key, view) {
+  if (view === "wubrgc" && key !== "C" && key.length === 1) {
+    return COLOR_NAMES[key] || key;
+  }
+  return rowLabel(key);
+}
+
+/** @param {string[]} colors @param {'wubrgc'|'all'} view @param {'inclusive'|'exclusive'} agg */
+export function colorKeysForIdentity(colors, view, agg) {
+  if (view === "wubrgc") {
+    const order = ["W", "U", "B", "R", "G", "C"];
+    return order.filter((key) => {
+      const rowColors = key === "C" ? [] : [key];
+      return rowMatchesDeck(rowColors, colors || [], agg);
+    });
+  }
+  if (agg === "exclusive") {
+    return [identityKey(colors || [])];
+  }
+  if (!colors?.length) return ["C"];
+  return subsets(colors).map((sub) => identityKey(sub));
+}
+
 function identityKey(colors) {
   if (!colors.length) return "C";
   return [...colors]
@@ -78,16 +111,6 @@ function buildRowKeys(deckStats, view, agg, sortOrder) {
     }
   }
   return [...keys];
-}
-
-function rowColorsFromKey(key) {
-  if (key === "C") return [];
-  return key.split("");
-}
-
-function rowLabel(key) {
-  if (key === "C") return "Colorless";
-  return [...key].map((c) => COLOR_NAMES[c] || c).join(" ");
 }
 
 /**

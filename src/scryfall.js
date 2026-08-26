@@ -1,6 +1,14 @@
+import { canonicalizeColors } from "./color-identity.js";
+
 const imageCache = new Map();
 const metadataCache = new Map();
 let lastRequestAt = 0;
+
+function parseColorIdentity(card) {
+  if (!card) return [];
+  const ids = (card.color_identity || []).filter((c) => "WUBRG".includes(c));
+  return canonicalizeColors(ids);
+}
 
 async function throttle() {
   const wait = Math.max(0, 110 - (Date.now() - lastRequestAt));
@@ -36,6 +44,7 @@ export async function fetchCardMetadata(name) {
   const meta = {
     layout: card.layout,
     faceNames: (card.card_faces || []).map((face) => face.name),
+    colorIdentity: parseColorIdentity(card),
   };
   metadataCache.set(key, meta);
   return meta;

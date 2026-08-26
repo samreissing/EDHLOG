@@ -1083,6 +1083,36 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   white-space: nowrap;
 }
 
+.matchup-color-col {
+  min-width: 8rem;
+}
+
+.matchup-color-col .color-label {
+  margin-right: 0.35rem;
+}
+
+.matchup-color-filters,
+.matchup-bracket-filters {
+  margin-bottom: 0.75rem;
+}
+
+.commander-players-section {
+  margin-top: 1.5rem;
+}
+
+.commander-players-section h3 {
+  margin: 0 0 0.75rem;
+}
+
+.commander-players-list {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.commander-players-list li {
+  margin-bottom: 0.35rem;
+}
+
 .filters.inline {
   margin-bottom: 0;
   align-items: center;
