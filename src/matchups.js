@@ -1,6 +1,6 @@
 import { MY_PLAYER_NAME } from "./opponent-search.js";
 import { winRate } from "./stats.js";
-import { getCommanderMatchupKeys } from "./commander-names.js";
+import { getCommanderMatchupIdentities } from "./commander-names.js";
 import { colorKeyLabel, colorKeysForIdentity, rowColorsFromKey } from "./color-stats.js";
 
 /** Commander pod baseline (30CCSTAT). */
@@ -70,15 +70,16 @@ function winnerSeatForGame(game) {
   return 0;
 }
 
-/** @param {GameSeat} mySeat @param {GameSeat} opponentSeat @param {'players' | 'decks'} tabId */
-function matchupPairs(mySeat, opponentSeat, tabId) {
+/** @param {GameSeat} mySeat @param {GameSeat} opponentSeat @param {'players' | 'decks'} tabId @param {{ splitPartners?: boolean }} [options] */
+function matchupPairs(mySeat, opponentSeat, tabId, options = {}) {
   if (tabId === "players") {
     return [matchupPairKeys(mySeat, opponentSeat, tabId)];
   }
 
+  const { splitPartners = false } = options;
   const pairs = [];
-  for (const subject of getCommanderMatchupKeys(mySeat.deck)) {
-    for (const opponent of getCommanderMatchupKeys(opponentSeat.commander)) {
+  for (const subject of getCommanderMatchupIdentities(mySeat.deck, { splitPartners })) {
+    for (const opponent of getCommanderMatchupIdentities(opponentSeat.commander, { splitPartners })) {
       pairs.push({
         subjectKey: `d:${normalizeKey(subject)}`,
         subjectLabel: subject,
@@ -169,8 +170,10 @@ export function matchupImpactClass(value) {
  * Matchups from Brass's perspective only: me vs players, or my deck vs opponent decks.
  * @param {import('./store.js').Game[]} games
  * @param {'players' | 'decks'} tabId
+ * @param {{ splitPartners?: boolean }} [options]
  */
-export function buildMyMatchupRows(games, tabId) {
+export function buildMyMatchupRows(games, tabId, options = {}) {
+  const { splitPartners = false } = options;
   const rows = new Map();
 
   for (const game of games) {
@@ -187,7 +190,8 @@ export function buildMyMatchupRows(games, tabId) {
       for (const { subjectKey, subjectLabel, opponentKey, opponentLabel } of matchupPairs(
         mySeat,
         opponentSeat,
-        tabId
+        tabId,
+        { splitPartners }
       )) {
         if (subjectKey === opponentKey) continue;
 
@@ -264,10 +268,11 @@ function filterGamesForColorMatchups(games, decks, deckFilter, bracketFilter) {
 
 /**
  * @param {import('./store.js').Game[]} games
- * @param {{ decks: import('./store.js').Deck[], deckFilter: 'all'|'active'|'retired', bracketFilter: string, view: 'wubrgc'|'all'|'exact', agg: 'inclusive'|'exclusive', getOpponentColors: (name: string) => string[] }} options
+ * @param {{ decks: import('./store.js').Deck[], deckFilter: 'all'|'active'|'retired', bracketFilter: string, view: 'wubrgc'|'all'|'exact', agg: 'inclusive'|'exclusive', getOpponentColors: (name: string) => string[], splitPartners?: boolean }} options
  */
 export function buildColorMatchupRows(games, options) {
-  const { decks, deckFilter, bracketFilter, view, agg, getOpponentColors } = options;
+  const { decks, deckFilter, bracketFilter, view, agg, getOpponentColors, splitPartners = false } =
+    options;
   const deckMap = new Map(decks.map((d) => [d.name, d]));
   const filteredGames = filterGamesForColorMatchups(games, decks, deckFilter, bracketFilter);
   const rows = new Map();
@@ -284,34 +289,38 @@ export function buildColorMatchupRows(games, options) {
     for (const opponentSeat of seats) {
       if (opponentSeat === mySeat) continue;
 
-      const oppColors = getOpponentColors(opponentSeat.commander);
+      const oppIdentities = getCommanderMatchupIdentities(opponentSeat.commander, { splitPartners });
       const subjectKeys = colorKeysForIdentity(myColors, view, agg);
-      const opponentKeys = colorKeysForIdentity(oppColors, view, agg);
 
       for (const subjectKey of subjectKeys) {
-        for (const opponentKey of opponentKeys) {
-          const mapKey = `ci:${subjectKey}__oci:${opponentKey}`;
-          const row =
-            rows.get(mapKey) ??
-            ({
-              subjectKey: `ci:${subjectKey}`,
-              opponentKey: `oci:${opponentKey}`,
-              subject: colorKeyLabel(subjectKey, view),
-              opponent: colorKeyLabel(opponentKey, view),
-              subjectColors: rowColorsFromKey(subjectKey),
-              opponentColors: rowColorsFromKey(opponentKey),
-              games: 0,
-              wins: 0,
-              losses: 0,
-              sharedLosses: 0,
-            });
+        for (const oppIdentity of oppIdentities) {
+          const oppColors = getOpponentColors(oppIdentity);
+          const opponentKeys = colorKeysForIdentity(oppColors, view, agg);
 
-          row.games += 1;
-          if (mySeat.didWin) row.wins += 1;
-          else if (opponentSeat.didWin) row.losses += 1;
-          else row.sharedLosses += 1;
+          for (const opponentKey of opponentKeys) {
+            const mapKey = `ci:${subjectKey}__oci:${opponentKey}`;
+            const row =
+              rows.get(mapKey) ??
+              ({
+                subjectKey: `ci:${subjectKey}`,
+                opponentKey: `oci:${opponentKey}`,
+                subject: colorKeyLabel(subjectKey, view),
+                opponent: colorKeyLabel(opponentKey, view),
+                subjectColors: rowColorsFromKey(subjectKey),
+                opponentColors: rowColorsFromKey(opponentKey),
+                games: 0,
+                wins: 0,
+                losses: 0,
+                sharedLosses: 0,
+              });
 
-          rows.set(mapKey, row);
+            row.games += 1;
+            if (mySeat.didWin) row.wins += 1;
+            else if (opponentSeat.didWin) row.losses += 1;
+            else row.sharedLosses += 1;
+
+            rows.set(mapKey, row);
+          }
         }
       }
     }
@@ -338,11 +347,14 @@ export function buildColorMatchupRows(games, options) {
   });
 }
 
-/** @param {import('./store.js').Game[]} games @param {{ colorOptions?: object }} [options] */
+/** @param {import('./store.js').Game[]} games @param {{ splitPartners?: boolean, colorOptions?: object }} [options] */
 export function computeAllMatchups(games, options = {}) {
+  const splitPartners = options.splitPartners ?? false;
   return {
-    players: buildMyMatchupRows(games, "players"),
-    decks: buildMyMatchupRows(games, "decks"),
-    colors: options.colorOptions ? buildColorMatchupRows(games, options.colorOptions) : [],
+    players: buildMyMatchupRows(games, "players", { splitPartners }),
+    decks: buildMyMatchupRows(games, "decks", { splitPartners }),
+    colors: options.colorOptions
+      ? buildColorMatchupRows(games, { ...options.colorOptions, splitPartners })
+      : [],
   };
 }
