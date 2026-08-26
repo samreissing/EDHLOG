@@ -264,7 +264,7 @@ function filterGamesForColorMatchups(games, decks, deckFilter, bracketFilter) {
 
 /**
  * @param {import('./store.js').Game[]} games
- * @param {{ decks: import('./store.js').Deck[], deckFilter: 'all'|'active'|'retired', bracketFilter: string, view: 'wubrgc'|'all', agg: 'inclusive'|'exclusive', getOpponentColors: (name: string) => string[] }} options
+ * @param {{ decks: import('./store.js').Deck[], deckFilter: 'all'|'active'|'retired', bracketFilter: string, view: 'wubrgc'|'all'|'exact', agg: 'inclusive'|'exclusive', getOpponentColors: (name: string) => string[] }} options
  */
 export function buildColorMatchupRows(games, options) {
   const { decks, deckFilter, bracketFilter, view, agg, getOpponentColors } = options;
