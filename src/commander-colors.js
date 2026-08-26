@@ -1,8 +1,8 @@
 import { fetchCardMetadata } from "./scryfall.js";
-import { splitCommanderName } from "./commander-names.js";
+import { getCommanderInfo, splitCommanderName } from "./commander-names.js";
 import { canonicalizeColors } from "./color-identity.js";
 
-const CACHE_KEY = "edhlog:commander-colors:v1";
+const CACHE_KEY = "edhlog:commander-colors:v2";
 
 /** @type {Map<string, string[]>} */
 const colorCache = loadCache();
@@ -28,31 +28,52 @@ function cacheKey(name) {
     .toLowerCase();
 }
 
+function storeColors(name, colors) {
+  if (!name) return;
+  colorCache.set(cacheKey(name), colors);
+}
+
+/** @param {string} fullName */
 async function resolveCommanderColorIdentity(fullName) {
   const trimmed = fullName.trim();
-  const key = cacheKey(trimmed);
-  if (colorCache.has(key)) return colorCache.get(key);
+  if (!trimmed) return [];
 
+  const cached = colorCache.get(cacheKey(trimmed));
+  if (cached) return cached;
+
+  const info = getCommanderInfo(trimmed);
   const parts = splitCommanderName(trimmed);
-  const union = new Set();
 
-  if (parts.length < 2) {
+  if (info.kind === "partner" && parts.length === 1) {
     const meta = await fetchCardMetadata(trimmed);
     const colors = meta?.colorIdentity ?? [];
-    colorCache.set(key, colors);
+    storeColors(trimmed, colors);
     saveCache();
     return colors;
   }
 
-  for (const part of parts) {
-    const meta = await fetchCardMetadata(part);
-    for (const color of meta?.colorIdentity ?? []) {
-      union.add(color);
+  if (info.kind === "partner") {
+    const union = new Set();
+    for (const part of info.parts) {
+      let partColors = colorCache.get(cacheKey(part));
+      if (!partColors) {
+        const meta = await fetchCardMetadata(part);
+        partColors = meta?.colorIdentity ?? [];
+        storeColors(part, partColors);
+      }
+      for (const color of partColors) union.add(color);
     }
+    const colors = canonicalizeColors([...union]);
+    storeColors(info.canonicalName, colors);
+    storeColors(trimmed, colors);
+    saveCache();
+    return colors;
   }
 
-  const colors = canonicalizeColors([...union]);
-  colorCache.set(key, colors);
+  const meta = await fetchCardMetadata(info.canonicalName);
+  const colors = meta?.colorIdentity ?? [];
+  storeColors(info.canonicalName, colors);
+  storeColors(trimmed, colors);
   saveCache();
   return colors;
 }
@@ -61,7 +82,12 @@ async function resolveCommanderColorIdentity(fullName) {
 export function getCommanderColorIdentity(name) {
   const trimmed = String(name || "").trim();
   if (!trimmed) return [];
-  return colorCache.get(cacheKey(trimmed)) ?? [];
+
+  const direct = colorCache.get(cacheKey(trimmed));
+  if (direct) return direct;
+
+  const info = getCommanderInfo(trimmed);
+  return colorCache.get(cacheKey(info.canonicalName)) ?? [];
 }
 
 /** @param {import('./store.js').Game[]} games */
@@ -78,8 +104,17 @@ export function collectOpponentCommanderNames(games) {
 
 /** @param {string[]} names */
 export async function warmCommanderColorCache(names) {
-  const pending = names.filter((name) => !colorCache.has(cacheKey(name)));
+  const pending = new Set(names.filter(Boolean));
+  for (const name of names) {
+    const info = getCommanderInfo(name);
+    if (info.kind === "partner") {
+      for (const part of info.parts) pending.add(part);
+      pending.add(info.canonicalName);
+    }
+  }
   for (const name of pending) {
-    await resolveCommanderColorIdentity(name);
+    if (!colorCache.has(cacheKey(name))) {
+      await resolveCommanderColorIdentity(name);
+    }
   }
 }

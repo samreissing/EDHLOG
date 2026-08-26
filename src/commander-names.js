@@ -1,6 +1,6 @@
 import { fetchCardMetadata } from "./scryfall.js";
 
-const CACHE_KEY = "edhlog:commander-matchup-keys:v1";
+const CACHE_KEY = "edhlog:commander-matchup-keys:v2";
 const DFC_LAYOUTS = new Set([
   "transform",
   "modal_dfc",
@@ -10,8 +10,10 @@ const DFC_LAYOUTS = new Set([
   "art_series",
 ]);
 
-/** @type {Map<string, string[]>} */
-const matchupKeysCache = loadCache();
+/** @typedef {{ kind: "single" | "dfc" | "partner", canonicalName: string, parts: string[] }} CommanderInfo */
+
+/** @type {Map<string, CommanderInfo>} */
+const matchupCache = loadCache();
 
 function loadCache() {
   try {
@@ -25,7 +27,7 @@ function loadCache() {
 }
 
 function saveCache() {
-  localStorage.setItem(CACHE_KEY, JSON.stringify(Object.fromEntries(matchupKeysCache)));
+  localStorage.setItem(CACHE_KEY, JSON.stringify(Object.fromEntries(matchupCache)));
 }
 
 export function splitCommanderName(name) {
@@ -58,64 +60,144 @@ function isDoubleFacedMetadata(meta, parts) {
   return false;
 }
 
-function partnerKeys(fullName, parts) {
-  return [parts[0], parts[1], fullName.trim()];
+/** @param {string[]} parts */
+export function canonicalPartnerName(parts) {
+  return [...parts]
+    .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }))
+    .join(" // ");
 }
 
-async function resolveCommanderMatchupKeys(fullName) {
+/** @param {string} name */
+function singleInfo(name) {
+  const trimmed = name.trim();
+  return { kind: "single", canonicalName: trimmed, parts: [trimmed] };
+}
+
+/** @param {string} name */
+function dfcInfo(name) {
+  const trimmed = name.trim();
+  return { kind: "dfc", canonicalName: trimmed, parts: [trimmed] };
+}
+
+/** @param {string[]} parts */
+function partnerInfo(parts) {
+  const sortedParts = [...parts].sort((a, b) =>
+    a.localeCompare(b, undefined, { sensitivity: "base" })
+  );
+  return {
+    kind: "partner",
+    canonicalName: sortedParts.join(" // "),
+    parts: sortedParts,
+  };
+}
+
+/** @param {string} originalName @param {CommanderInfo} info */
+function storeCommanderInfo(originalName, info) {
+  const aliases = new Set([originalName, info.canonicalName]);
+  if (info.kind === "partner") {
+    for (const part of info.parts) aliases.add(part);
+    aliases.add([...info.parts].reverse().join(" // "));
+  }
+  for (const alias of aliases) {
+    if (alias) matchupCache.set(cacheKey(alias), info);
+  }
+  saveCache();
+}
+
+/** @param {string} name */
+function lookupCommanderInfo(name) {
+  const trimmed = String(name || "").trim();
+  if (!trimmed) return null;
+  return matchupCache.get(cacheKey(trimmed)) ?? null;
+}
+
+/** Sync commander classification with cache + heuristics. */
+export function getCommanderInfo(name) {
+  const trimmed = String(name || "").trim();
+  if (!trimmed) return singleInfo("");
+
+  const cached = lookupCommanderInfo(trimmed);
+  if (cached) return cached;
+
+  const parts = splitCommanderName(trimmed);
+  if (parts.length < 2) return singleInfo(trimmed);
+  if (sameCardNameHeuristic(parts)) return dfcInfo(trimmed);
+
+  return partnerInfo(parts);
+}
+
+/** @param {string} name @param {{ splitPartners?: boolean }} [options] */
+export function getCommanderMatchupIdentities(name, options = {}) {
+  const { splitPartners = false } = options;
+  const info = getCommanderInfo(name);
+  if (info.kind === "partner" && splitPartners) {
+    return [...info.parts];
+  }
+  return [info.canonicalName];
+}
+
+/** @param {string} commanderName @param {string} targetName @param {{ splitPartners?: boolean }} [options] */
+export function commanderMatchesTarget(commanderName, targetName, options = {}) {
+  const { splitPartners = false } = options;
+  const commander = String(commanderName || "").trim();
+  const target = String(targetName || "").trim();
+  if (!commander || !target) return false;
+  if (cacheKey(commander) === cacheKey(target)) return true;
+
+  const commanderInfo = getCommanderInfo(commander);
+  const targetInfo = getCommanderInfo(target);
+
+  if (!splitPartners) {
+    return commanderInfo.canonicalName === targetInfo.canonicalName;
+  }
+
+  if (targetInfo.kind === "partner") {
+    return commanderInfo.canonicalName === targetInfo.canonicalName;
+  }
+
+  if (commanderInfo.kind === "partner") {
+    return commanderInfo.parts.some((part) => cacheKey(part) === cacheKey(target));
+  }
+
+  return commanderInfo.canonicalName === targetInfo.canonicalName;
+}
+
+/** @param {string} fullName */
+async function resolveCommanderInfo(fullName) {
   const trimmed = fullName.trim();
-  const key = cacheKey(trimmed);
-  if (matchupKeysCache.has(key)) return matchupKeysCache.get(key);
+  const existing = lookupCommanderInfo(trimmed);
+  if (existing) return existing;
 
   const parts = splitCommanderName(trimmed);
   if (parts.length < 2) {
-    const single = [trimmed];
-    matchupKeysCache.set(key, single);
-    saveCache();
-    return single;
+    const info = singleInfo(trimmed);
+    storeCommanderInfo(trimmed, info);
+    return info;
   }
 
   if (sameCardNameHeuristic(parts)) {
-    const single = [trimmed];
-    matchupKeysCache.set(key, single);
-    saveCache();
-    return single;
+    const info = dfcInfo(trimmed);
+    storeCommanderInfo(trimmed, info);
+    return info;
   }
 
   let meta = await fetchCardMetadata(trimmed);
   if (isDoubleFacedMetadata(meta, parts)) {
-    const single = [trimmed];
-    matchupKeysCache.set(key, single);
-    saveCache();
-    return single;
+    const info = dfcInfo(trimmed);
+    storeCommanderInfo(trimmed, info);
+    return info;
   }
 
   meta = await fetchCardMetadata(parts[0]);
   if (isDoubleFacedMetadata(meta, parts)) {
-    const single = [trimmed];
-    matchupKeysCache.set(key, single);
-    saveCache();
-    return single;
+    const info = dfcInfo(trimmed);
+    storeCommanderInfo(trimmed, info);
+    return info;
   }
 
-  const keys = partnerKeys(trimmed, parts);
-  matchupKeysCache.set(key, keys);
-  saveCache();
-  return keys;
-}
-
-/** @param {string} name */
-export function getCommanderMatchupKeys(name) {
-  const trimmed = String(name || "").trim();
-  if (!trimmed) return [];
-  const cached = matchupKeysCache.get(cacheKey(trimmed));
-  if (cached) return cached;
-
-  const parts = splitCommanderName(trimmed);
-  if (parts.length < 2) return [trimmed];
-  if (sameCardNameHeuristic(parts)) return [trimmed];
-
-  return partnerKeys(trimmed, parts);
+  const info = partnerInfo(parts);
+  storeCommanderInfo(trimmed, info);
+  return info;
 }
 
 /** @param {import('./store.js').Game[]} games */
@@ -132,8 +214,8 @@ export function collectPartnerCommanderNames(games) {
 
 /** @param {string[]} names */
 export async function warmCommanderMatchupCache(names) {
-  const pending = names.filter((name) => !matchupKeysCache.has(cacheKey(name)));
+  const pending = names.filter((name) => !lookupCommanderInfo(name));
   for (const name of pending) {
-    await resolveCommanderMatchupKeys(name);
+    await resolveCommanderInfo(name);
   }
 }

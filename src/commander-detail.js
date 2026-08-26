@@ -3,6 +3,7 @@ import { colorBadge, winRate, normalizedWinRate } from "./stats.js";
 import { formatDate, compareGamesChronologically } from "./dates.js";
 import { commanderNames } from "./scryfall.js";
 import { parseGameSeats } from "./matchups.js";
+import { commanderMatchesTarget } from "./commander-names.js";
 import { MY_PLAYER_NAME } from "./opponent-search.js";
 
 function escapeHtml(str) {
@@ -28,9 +29,9 @@ function statBlock(label, value, isWr = false) {
   return `<div class="stat-card"><span class="stat-label">${label}</span>${rendered}</div>`;
 }
 
-/** @param {import('./store.js').Game[]} games @param {string} commanderName */
-export function computeOpponentCommanderStats(games, commanderName) {
-  const target = normalizeKey(commanderName);
+/** @param {import('./store.js').Game[]} games @param {string} commanderName @param {{ splitPartners?: boolean }} [options] */
+export function computeOpponentCommanderStats(games, commanderName, options = {}) {
+  const { splitPartners = false } = options;
   let gamesCount = 0;
   let wins = 0;
   let losses = 0;
@@ -48,7 +49,7 @@ export function computeOpponentCommanderStats(games, commanderName) {
     let opponentSeat = null;
     for (const seat of seats) {
       if (seat === mySeat) continue;
-      if (normalizeKey(seat.commander) === target) {
+      if (commanderMatchesTarget(seat.commander, commanderName, { splitPartners })) {
         opponentSeat = seat;
         break;
       }

@@ -51,6 +51,7 @@ import { bindPodAutocomplete, MY_PLAYER_NAME } from "./opponent-search.js";
 import {
   warmCommanderMatchupCache,
   collectPartnerCommanderNames,
+  getCommanderInfo,
 } from "./commander-names.js";
 import { bindModalBackdropDismiss } from "./modals.js";
 import {
@@ -119,6 +120,7 @@ let matchupDeckFilter = "all";
 let matchupColorView = "wubrgc";
 let matchupColorAgg = "inclusive";
 let matchupBracketFilter = "";
+let matchupSplitPartners = false;
 /** @type {{ kind: 'all' } | { kind: 'window', rangeStart: number, rangeEnd: number } | { kind: 'cumulative', rangeEnd: number } | { kind: 'year', year: string }} */
 let trendsFilter = { kind: "all" };
 let selectedSeats = [];
@@ -207,6 +209,7 @@ function resetStatsTabState(tab) {
     matchupColorView = "wubrgc";
     matchupColorAgg = "inclusive";
     matchupBracketFilter = "";
+    matchupSplitPartners = false;
     tableSort.matchups = { col: "normalizedMatchupImpact", dir: "desc" };
     if (deckDetailReturn === "matchups") {
       selectedDeckName = null;
@@ -239,6 +242,24 @@ function resetGamesViewState() {
   viewingGameId = null;
   logFilters = { deck: "", result: "", year: "" };
   tableSort["game-log"] = { col: "date", dir: "desc" };
+}
+
+function findOwnedDeckName(subject, decks) {
+  const subjectCanonical = getCommanderInfo(subject).canonicalName;
+  for (const deck of decks) {
+    if (getCommanderInfo(deck.name).canonicalName === subjectCanonical) {
+      return deck.name;
+    }
+  }
+  return null;
+}
+
+function renderMatchupDeckCell(subject, decks) {
+  const owned = findOwnedDeckName(subject, decks);
+  if (owned) {
+    return `<button type="button" class="link-btn deck-link" data-deck-detail="${escapeHtml(owned)}">${escapeHtml(subject)}</button>`;
+  }
+  return escapeHtml(subject);
 }
 
 function getStatsScope() {
@@ -387,6 +408,12 @@ function bindEvents() {
       if (statsTab === "colors") colorsChartSelection = new Set();
       if (statsTab === "brackets") bracketsChartSelection = newChartSelection();
       pieAnimKey++;
+      render();
+      return;
+    }
+
+    if (e.target.id === "matchup-split-partners") {
+      matchupSplitPartners = e.target.checked;
       render();
       return;
     }
@@ -998,6 +1025,7 @@ function getStats() {
     yearStats: computeYearStats(data.games),
     rolling: computeRolling100Stats(data.games),
     matchups: computeAllMatchups(data.games, {
+      splitPartners: matchupSplitPartners,
       colorOptions: {
         decks: data.decks,
         deckFilter: matchupDeckFilter,
@@ -1511,7 +1539,9 @@ function renderStats() {
     }
 
     if (selectedOpponentCommander && opponentDetailReturn === "matchups" && matchupTab === "decks") {
-      const profile = computeOpponentCommanderStats(data.games, selectedOpponentCommander);
+      const profile = computeOpponentCommanderStats(data.games, selectedOpponentCommander, {
+        splitPartners: matchupSplitPartners,
+      });
       const colors = getCommanderColorIdentity(selectedOpponentCommander);
       return `<section class="section">${subTabs(STATS_TABS, statsTab, "stats-tab")}${renderCommanderDetail({ ...profile, colors }, { backLabel: "← Back to matchups" })}</section>`;
     }
@@ -1558,7 +1588,6 @@ function renderStats() {
       return row.opponent.toLowerCase().includes(query);
     });
     lastMatchupDeckRows = isDeckTab ? rows : [];
-    const myDeckNames = new Set(data.decks.map((d) => d.name));
 
     const searchPlaceholder = isDeckTab
       ? "Search my or opponent decks"
@@ -1601,6 +1630,10 @@ function renderStats() {
       ${subTabs(MATCHUP_TABS, matchupTab, "matchup-tab")}
       ${colorFilters}
       <div class="filters inline matchup-filters">
+        <label class="checkbox matchup-split-partners">
+          <input type="checkbox" id="matchup-split-partners" ${matchupSplitPartners ? "checked" : ""} />
+          Split partners
+        </label>
         <input type="search" id="matchup-search" class="input matchup-search" placeholder="${searchPlaceholder}" value="${escapeHtml(matchupSearch)}" />
       </div>
       <table class="table compact sortable-table matchup-table">
@@ -1625,7 +1658,7 @@ function renderStats() {
               <td class="col-rank">${row.rank}</td>
               ${
                 isDeckTab
-                  ? `<td class="matchup-deck-col">${myDeckNames.has(row.subject) ? `<button type="button" class="link-btn deck-link" data-deck-detail="${escapeHtml(row.subject)}">${escapeHtml(row.subject)}</button>` : escapeHtml(row.subject)}</td>`
+                  ? `<td class="matchup-deck-col">${renderMatchupDeckCell(row.subject, data.decks)}</td>`
                   : isColorTab
                     ? `<td class="matchup-color-col"><span class="color-label">${colorBadge(row.subjectColors || [])}</span></td>`
                     : ""

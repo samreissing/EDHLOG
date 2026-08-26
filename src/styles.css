@@ -1096,6 +1096,11 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   margin-bottom: 0.75rem;
 }
 
+.matchup-split-partners {
+  margin-right: 0.75rem;
+  white-space: nowrap;
+}
+
 .commander-players-section {
   margin-top: 1.5rem;
 }
