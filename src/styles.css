@@ -1101,10 +1101,6 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   white-space: nowrap;
 }
 
-.totals-note {
-  margin: 0 0 0.75rem;
-}
-
 .totals-filters,
 .totals-color-filters {
   margin-bottom: 0.75rem;
