@@ -1,6 +1,7 @@
 import { MY_PLAYER_NAME } from "./opponent-search.js";
 import { winRate } from "./stats.js";
 import { getCommanderMatchupIdentities } from "./commander-names.js";
+import { resolveCommanderColors } from "./commander-colors.js";
 import { colorKeyLabel, colorKeysForIdentity, rowColorsFromKey } from "./color-stats.js";
 
 /** Commander pod baseline (30CCSTAT). */
@@ -268,11 +269,10 @@ function filterGamesForColorMatchups(games, decks, deckFilter, bracketFilter) {
 
 /**
  * @param {import('./store.js').Game[]} games
- * @param {{ decks: import('./store.js').Deck[], deckFilter: 'all'|'active'|'retired', bracketFilter: string, view: 'wubrgc'|'all'|'exact', agg: 'inclusive'|'exclusive', getOpponentColors: (name: string) => string[], splitPartners?: boolean }} options
+ * @param {{ decks: import('./store.js').Deck[], deckFilter: 'all'|'active'|'retired', bracketFilter: string, view: 'wubrgc'|'all'|'exact', agg: 'inclusive'|'exclusive', splitPartners?: boolean }} options
  */
 export function buildColorMatchupRows(games, options) {
-  const { decks, deckFilter, bracketFilter, view, agg, getOpponentColors, splitPartners = false } =
-    options;
+  const { decks, deckFilter, bracketFilter, view, agg, splitPartners = false } = options;
   const deckMap = new Map(decks.map((d) => [d.name, d]));
   const filteredGames = filterGamesForColorMatchups(games, decks, deckFilter, bracketFilter);
   const rows = new Map();
@@ -284,42 +284,53 @@ export function buildColorMatchupRows(games, options) {
     const mySeat = seats.find(isMySeat);
     if (!mySeat) continue;
 
-    const myColors = deckMap.get(game.deck)?.colors ?? [];
+    const myDeck = deckMap.get(game.deck);
+    const myIdentities = getCommanderMatchupIdentities(game.deck, { splitPartners });
 
     for (const opponentSeat of seats) {
       if (opponentSeat === mySeat) continue;
 
       const oppIdentities = getCommanderMatchupIdentities(opponentSeat.commander, { splitPartners });
-      const subjectKeys = colorKeysForIdentity(myColors, view, agg);
 
-      for (const subjectKey of subjectKeys) {
-        for (const oppIdentity of oppIdentities) {
-          const oppColors = getOpponentColors(oppIdentity);
-          const opponentKeys = colorKeysForIdentity(oppColors, view, agg);
+      for (const myIdentity of myIdentities) {
+        const myColors = resolveCommanderColors(myIdentity, {
+          splitPartners,
+          ownedColors: myDeck?.colors,
+        });
+        const subjectKeys = colorKeysForIdentity(myColors, view, agg);
 
-          for (const opponentKey of opponentKeys) {
-            const mapKey = `ci:${subjectKey}__oci:${opponentKey}`;
-            const row =
-              rows.get(mapKey) ??
-              ({
-                subjectKey: `ci:${subjectKey}`,
-                opponentKey: `oci:${opponentKey}`,
-                subject: colorKeyLabel(subjectKey, view),
-                opponent: colorKeyLabel(opponentKey, view),
-                subjectColors: rowColorsFromKey(subjectKey),
-                opponentColors: rowColorsFromKey(opponentKey),
-                games: 0,
-                wins: 0,
-                losses: 0,
-                sharedLosses: 0,
-              });
+        for (const subjectKey of subjectKeys) {
+          for (const oppIdentity of oppIdentities) {
+            const oppColors = resolveCommanderColors(oppIdentity, {
+              splitPartners,
+              ownedColors: deckMap.get(oppIdentity)?.colors,
+            });
+            const opponentKeys = colorKeysForIdentity(oppColors, view, agg);
 
-            row.games += 1;
-            if (mySeat.didWin) row.wins += 1;
-            else if (opponentSeat.didWin) row.losses += 1;
-            else row.sharedLosses += 1;
+            for (const opponentKey of opponentKeys) {
+              const mapKey = `ci:${subjectKey}__oci:${opponentKey}`;
+              const row =
+                rows.get(mapKey) ??
+                ({
+                  subjectKey: `ci:${subjectKey}`,
+                  opponentKey: `oci:${opponentKey}`,
+                  subject: colorKeyLabel(subjectKey, view),
+                  opponent: colorKeyLabel(opponentKey, view),
+                  subjectColors: rowColorsFromKey(subjectKey),
+                  opponentColors: rowColorsFromKey(opponentKey),
+                  games: 0,
+                  wins: 0,
+                  losses: 0,
+                  sharedLosses: 0,
+                });
 
-            rows.set(mapKey, row);
+              row.games += 1;
+              if (mySeat.didWin) row.wins += 1;
+              else if (opponentSeat.didWin) row.losses += 1;
+              else row.sharedLosses += 1;
+
+              rows.set(mapKey, row);
+            }
           }
         }
       }

@@ -1,5 +1,6 @@
 import { parseGameSeats } from "./matchups.js";
 import { getCommanderInfo, getCommanderMatchupIdentities } from "./commander-names.js";
+import { resolveCommanderColors } from "./commander-colors.js";
 import { winRate, normalizedWinRate } from "./stats.js";
 import {
   colorKeysForIdentity,
@@ -59,7 +60,7 @@ function sortRankings(rows) {
  * @param {{ splitPartners?: boolean }} [options]
  */
 export function buildPodDeckRankings(games, decks, options = {}) {
-  const { splitPartners = false, getOpponentColors = () => [] } = options;
+  const { splitPartners = false } = options;
   const rows = new Map();
 
   for (const game of games) {
@@ -106,7 +107,10 @@ export function buildPodDeckRankings(games, decks, options = {}) {
 
       return finalizePodRow({
         ...row,
-        colors: owned?.colors ?? getOpponentColors(row.name),
+        colors: resolveCommanderColors(row.name, {
+          splitPartners,
+          ownedColors: owned?.colors,
+        }),
         bracket: owned?.bracket,
         isOwned: !!owned,
         pilots,
@@ -171,14 +175,13 @@ export function buildPodPlayerRankings(games) {
 /**
  * @param {import('./store.js').Game[]} games
  * @param {import('./store.js').Deck[]} decks
- * @param {{ splitPartners?: boolean, view?: 'wubrgc'|'all'|'exact', agg?: 'inclusive'|'exclusive', getOpponentColors?: (name: string) => string[] }} options
+ * @param {{ splitPartners?: boolean, view?: 'wubrgc'|'all'|'exact', agg?: 'inclusive'|'exclusive' }} options
  */
 export function buildPodColorRankings(games, decks, options = {}) {
   const {
     splitPartners = false,
     view = "exact",
     agg = "exclusive",
-    getOpponentColors = () => [],
   } = options;
   const rows = new Map();
 
@@ -189,7 +192,10 @@ export function buildPodColorRankings(games, decks, options = {}) {
 
       for (const commander of getCommanderMatchupIdentities(seat.commander, { splitPartners })) {
         const owned = findOwnedDeck(commander, decks);
-        const colors = owned?.colors ?? getOpponentColors(commander);
+        const colors = resolveCommanderColors(commander, {
+          splitPartners,
+          ownedColors: owned?.colors,
+        });
         const colorKeys = colorKeysForIdentity(colors, view, agg);
 
         for (const colorKey of colorKeys) {

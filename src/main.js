@@ -319,9 +319,12 @@ async function boot() {
   bindEvents();
   void Promise.all([
     warmCommanderMatchupCache(collectPartnerCommanderNames(data.games)),
-    warmCommanderColorCache(collectOpponentCommanderNames(data.games)),
+    warmCommanderColorCache([
+      ...collectOpponentCommanderNames(data.games),
+      ...collectPartnerCommanderNames(data.games),
+    ]),
   ]).then(() => {
-    if (currentView === "stats" && statsTab === "matchups") render();
+    if (currentView === "stats" && (statsTab === "matchups" || statsTab === "totals")) render();
   });
   bindModalBackdropDismiss({
     deck: () => {
@@ -1105,14 +1108,12 @@ function getStats() {
         bracketFilter: matchupBracketFilter,
         view: matchupColorView,
         agg: matchupColorAgg,
-        getOpponentColors: getCommanderColorIdentity,
       },
     }),
     totals: computeAllTotals(data.games, data.decks, {
       splitPartners: totalsSplitPartners,
       view: totalsColorView,
       agg: totalsColorAgg,
-      getOpponentColors: getCommanderColorIdentity,
     }),
   };
 }
