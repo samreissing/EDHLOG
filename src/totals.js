@@ -106,7 +106,7 @@ export function buildPodDeckRankings(games, decks, options = {}) {
 
       return finalizePodRow({
         ...row,
-        colors: owned?.colors ?? getOpponentColors(commander),
+        colors: owned?.colors ?? getOpponentColors(row.name),
         bracket: owned?.bracket,
         isOwned: !!owned,
         pilots,
