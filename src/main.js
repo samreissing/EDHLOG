@@ -921,10 +921,16 @@ function bindEvents() {
     e.target.value = "";
   });
   document.getElementById("reset-btn").addEventListener("click", async () => {
-    if (!confirm("Reset to original spreadsheet data?")) return;
+    if (
+      !confirm(
+        "Delete all games, decks, and recorded players? Export a backup first if you want to keep your data."
+      )
+    ) {
+      return;
+    }
     data = await resetToSeed();
     render();
-    toast("Reset to seed");
+    toast("Site reset");
   });
 }
 
@@ -1721,10 +1727,14 @@ function renderStats() {
       ${subTabs(MATCHUP_TABS, matchupTab, "matchup-tab")}
       ${colorFilters}
       <div class="filters inline matchup-filters">
-        <label class="checkbox matchup-split-partners">
+        ${
+          isDeckTab || isColorTab
+            ? `<label class="checkbox matchup-split-partners">
           <input type="checkbox" id="matchup-split-partners" ${matchupSplitPartners ? "checked" : ""} />
           Split partners
-        </label>
+        </label>`
+            : ""
+        }
         <input type="search" id="matchup-search" class="input matchup-search" placeholder="${searchPlaceholder}" value="${escapeHtml(matchupSearch)}" />
       </div>
       <table class="table compact sortable-table matchup-table">
@@ -1816,12 +1826,15 @@ function renderStats() {
     body = `
       ${subTabs(TOTALS_TABS, totalsTab, "totals-tab")}
       ${colorFilters}
-      <p class="muted-text totals-note">Rankings use every seat logged in a pod — yours and opponents.</p>
       <div class="filters inline totals-filters">
-        <label class="checkbox totals-split-partners">
+        ${
+          isDeckTab || isColorTab
+            ? `<label class="checkbox totals-split-partners">
           <input type="checkbox" id="totals-split-partners" ${totalsSplitPartners ? "checked" : ""} />
           Split partners
-        </label>
+        </label>`
+            : ""
+        }
         <input type="search" id="totals-search" class="input totals-search" placeholder="Search ${nameHeader.toLowerCase()}" value="${escapeHtml(totalsSearch)}" />
       </div>
       <table class="table compact sortable-table totals-table">
