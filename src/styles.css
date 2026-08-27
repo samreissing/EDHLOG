@@ -520,6 +520,28 @@ th.sortable.sorted {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
+.filters.inline.stats-range-toolbar {
+  width: 100%;
+  align-items: end;
+  margin-bottom: 1rem;
+}
+
+.stats-range-toolbar .stats-deck-filter-toggle {
+  margin-left: auto;
+}
+
+.overview-toolbar {
+  width: 100%;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.overview-toolbar .overview-bracket-filters {
+  margin: 0;
+  flex: 1;
+}
+
 .bracket-filter-row {
   display: flex;
   flex-wrap: wrap;
