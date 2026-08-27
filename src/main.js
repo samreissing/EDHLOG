@@ -118,7 +118,6 @@ let statsBracketFilter = "";
 let bracketsChartMode = null;
 let matchupTab = "players";
 let matchupSearch = "";
-let matchupDeckFilter = "all";
 let matchupColorView = "wubrgc";
 let matchupColorAgg = "inclusive";
 let matchupBracketFilter = "";
@@ -183,7 +182,6 @@ let tableSort = {
 
 function resetStatsTabState(tab) {
   if (tab === "colors") {
-    statsDeckFilter = "all";
     colorView = "wubrgc";
     colorAgg = "inclusive";
     colorSortOrder = "wubrgc";
@@ -193,8 +191,6 @@ function resetStatsTabState(tab) {
     tableSort["color-stats"] = { col: "colorOrder", dir: "asc" };
     pieAnimKey++;
   } else if (tab === "brackets") {
-    statsDeckFilter = "all";
-    statsBracketFilter = "";
     bracketsChartMode = null;
     bracketsChartSelection = newChartSelection();
     bracketsChartRange = { start: null, end: null, customized: false };
@@ -215,7 +211,6 @@ function resetStatsTabState(tab) {
   } else if (tab === "matchups") {
     matchupTab = "players";
     matchupSearch = "";
-    matchupDeckFilter = "all";
     matchupColorView = "wubrgc";
     matchupColorAgg = "inclusive";
     matchupBracketFilter = "";
@@ -291,12 +286,29 @@ function getStatsScope() {
   return { statsDecks, statsGames, filteredDeckStats };
 }
 
-function renderDateRangeFilters(idPrefix, bounds, range) {
+function renderDateRangeFilters(idPrefix, bounds, range, { deckFilter = false } = {}) {
   return `
-    <div class="filters inline seat-range-filters">
+    <div class="filters inline stats-range-toolbar seat-range-filters">
       <label>From <input type="date" id="${idPrefix}-range-start" min="${bounds.min}" max="${bounds.max}" value="${range.start}" /></label>
       <label>To <input type="date" id="${idPrefix}-range-end" min="${bounds.min}" max="${bounds.max}" value="${range.end}" /></label>
+      ${deckFilter ? renderStatsDeckFilterToggle() : ""}
     </div>`;
+}
+
+function renderStatsDeckFilterToggle() {
+  return `<button type="button" class="btn btn-ghost btn-sm stats-deck-filter-toggle" id="stats-deck-filter-toggle">${statsDeckFilterLabel(statsDeckFilter)}</button>`;
+}
+
+function renderBracketFilterButtons() {
+  return ["", "1", "2", "3", "4", "5"]
+    .map((b) => {
+      const active = bracketsChartMode !== "table" && statsBracketFilter === b;
+      return `
+          <button type="button" class="btn btn-ghost btn-sm bracket-filter-btn ${active ? "active" : ""}" data-bracket-filter="${b}">
+            ${b ? `Bracket ${b}` : "All Brackets"}
+          </button>`;
+    })
+    .join("");
 }
 
 function chartSeriesRowStyle(color) {
@@ -457,13 +469,6 @@ function bindEvents() {
 
     if (e.target.id === "totals-color-agg-toggle") {
       totalsColorAgg = totalsColorAgg === "inclusive" ? "exclusive" : "inclusive";
-      render();
-      return;
-    }
-
-    if (e.target.id === "matchup-deck-filter-toggle") {
-      matchupDeckFilter =
-        matchupDeckFilter === "all" ? "active" : matchupDeckFilter === "active" ? "retired" : "all";
       render();
       return;
     }
@@ -1089,7 +1094,7 @@ function getStats() {
     statsDeckFilter === "all" ? data.decks : statsDecks,
     statsGames
   );
-  const overview = computeOverview(data.games);
+  const overview = computeOverview(statsGames);
   return {
     deckStats,
     overview,
@@ -1099,18 +1104,13 @@ function getStats() {
       sortOrder: colorSortOrder,
     }),
     bracketStats: computeBracketStats(statsGames, filteredDeckStats),
-    bracketDetail: computeBracketDetail(
-      statsGames,
-      statsDeckFilter === "all" ? data.decks : statsDecks,
-      statsBracketFilter
-    ),
-    yearStats: computeYearStats(data.games),
-    rolling: computeRolling100Stats(data.games),
-    matchups: computeAllMatchups(data.games, {
+    yearStats: computeYearStats(statsGames),
+    rolling: computeRolling100Stats(statsGames),
+    matchups: computeAllMatchups(statsGames, {
       splitPartners: matchupSplitPartners,
       colorOptions: {
         decks: data.decks,
-        deckFilter: matchupDeckFilter,
+        deckFilter: statsDeckFilter,
         bracketFilter: matchupBracketFilter,
         view: matchupColorView,
         agg: matchupColorAgg,
@@ -1227,21 +1227,6 @@ function renderTurnStats(detail) {
       </div>`;
 }
 
-function renderBracketDetail(detail) {
-  return `
-    <div class="bracket-detail">
-      <div class="stat-grid">
-        ${statCard("Games", detail.overview.games)}
-        ${statCard("Wins", detail.overview.wins)}
-        ${statCard("Losses", detail.overview.losses)}
-        ${statCard("Win Rate", detail.overview.winRate, true)}
-      </div>
-      ${renderTurnStats(detail)}
-      <h3 class="section-sub">Top Decks</h3>
-      ${renderPodium(detail.podium)}
-    </div>`;
-}
-
 function pieSliceSignature(slices) {
   return slices
     .filter((slice) => slice.value > 0)
@@ -1273,14 +1258,24 @@ function renderStats() {
   let body = "";
 
   if (statsTab === "overview") {
+    const { statsDecks, statsGames } = getStatsScope();
+    const scopeDecks = statsDeckFilter === "all" ? data.decks : statsDecks;
+    const bracketDetail = computeBracketDetail(statsGames, scopeDecks, statsBracketFilter);
+
     body = `
-      <div class="stat-grid">
-        ${statCard("Games", s.overview.games)}
-        ${statCard("Wins", s.overview.wins)}
-        ${statCard("Losses", s.overview.losses)}
-        ${statCard("Win Rate", s.overview.winRate, true)}
+      <div class="filters inline overview-toolbar">
+        ${renderStatsDeckFilterToggle()}
+        <div class="bracket-filter-row overview-bracket-filters">${renderBracketFilterButtons()}</div>
       </div>
-      ${renderTurnStats(s.overview)}
+      <div class="stat-grid">
+        ${statCard("Games", bracketDetail.overview.games)}
+        ${statCard("Wins", bracketDetail.overview.wins)}
+        ${statCard("Losses", bracketDetail.overview.losses)}
+        ${statCard("Win Rate", bracketDetail.overview.winRate, true)}
+      </div>
+      ${renderTurnStats(bracketDetail)}
+      <h3 class="section-sub">Top Decks</h3>
+      ${renderPodium(bracketDetail.podium)}
       `;
   } else if (statsTab === "colors") {
     const { statsDecks, statsGames } = getStatsScope();
@@ -1328,9 +1323,8 @@ function renderStats() {
     const colorsPie = getPieRenderState(pieSlices, "colors");
 
     body = `
-      ${renderDateRangeFilters("colors", chartRange.bounds, chartRange)}
+      ${renderDateRangeFilters("colors", chartRange.bounds, chartRange, { deckFilter: true })}
       <div class="filters inline color-mode-filters">
-        <button type="button" class="btn btn-ghost btn-sm" id="stats-deck-filter-toggle">${statsDeckFilterLabel(statsDeckFilter)}</button>
         <button type="button" class="btn btn-ghost btn-sm" id="color-view-toggle">${colorViewLabel(colorView)}</button>
         <button type="button" class="btn btn-ghost btn-sm" id="color-agg-toggle">${colorAgg === "inclusive" ? "Inclusive" : "Exclusive"}</button>
       </div>
@@ -1384,11 +1378,6 @@ function renderStats() {
     }));
     const chartRange = getEffectiveChartRange(statsGames, bracketsChartRange);
     const bracketsPie = getPieRenderState(pieSlices, "brackets");
-    const scopeDecks = statsDeckFilter === "all" ? data.decks : statsDecks;
-    const bracketDetail =
-      bracketsChartMode === "table" && bracketsChartSelection.size
-        ? computeBracketDetail(statsGames, scopeDecks, "", [...bracketsChartSelection.keys()].map(Number))
-        : computeBracketDetail(statsGames, scopeDecks, statsBracketFilter);
 
     let bracketSeries = [];
     if (bracketsChartMode === "filter" && statsBracketFilter) {
@@ -1432,19 +1421,7 @@ function renderStats() {
     const bracketChart = renderMultiWinRateLineChart(bracketSeries, chartRange);
 
     body = `
-      ${renderDateRangeFilters("brackets", chartRange.bounds, chartRange)}
-      <div class="bracket-filter-row">
-        <button type="button" class="btn btn-ghost btn-sm" id="stats-deck-filter-toggle">${statsDeckFilterLabel(statsDeckFilter)}</button>
-        ${["", "1", "2", "3", "4", "5"]
-          .map(
-            (b) => `
-          <button type="button" class="btn btn-ghost btn-sm bracket-filter-btn ${bracketsChartMode === "filter" && statsBracketFilter === b ? "active" : ""}" data-bracket-filter="${b}">
-            ${b ? `Bracket ${b}` : "All Brackets"}
-          </button>`
-          )
-          .join("")}
-      </div>
-      ${renderBracketDetail(bracketDetail)}
+      ${renderDateRangeFilters("brackets", chartRange.bounds, chartRange, { deckFilter: true })}
       <div class="chart-table-row">
         <div class="chart-table-grow">
           <table class="table compact sortable-table">
@@ -1472,6 +1449,7 @@ function renderStats() {
       </div>
       ${renderChartSection(bracketChart, "clear-brackets-chart")}`;
   } else if (statsTab === "trends") {
+    const { statsGames } = getStatsScope();
     const windowsForChart = s.rolling.windows.length
       ? applySort(s.rolling.windows, tableSort["trends-windows"], {
           label: (w) => w.label,
@@ -1480,9 +1458,9 @@ function renderStats() {
           winRate: (w) => w.winRate,
         })
       : [];
-    const chartGames = getTrendsChartGames(data.games, windowsForChart, trendsWindowSelection);
+    const chartGames = getTrendsChartGames(statsGames, windowsForChart, trendsWindowSelection);
     const chartRange = getEffectiveChartRange(
-      chartGames.length ? chartGames : data.games,
+      chartGames.length ? chartGames : statsGames,
       trendsChartRange
     );
 
@@ -1498,7 +1476,7 @@ function renderStats() {
               label: window.label,
               color: colorForChartSelection(trendsWindowSelection, id, windowsForChart.length),
               series: computeWinRateSeries(
-                gamesForTrendsWindowSeries(data.games, window.rangeStart, window.rangeEnd)
+                gamesForTrendsWindowSeries(statsGames, window.rangeStart, window.rangeEnd)
               ),
             };
           }),
@@ -1513,7 +1491,7 @@ function renderStats() {
     }
 
     if (!s.rolling.windows.length) {
-      body = `${renderDateRangeFilters("trends", chartRange.bounds, chartRange)}${renderChartSection(chart, "clear-trends-chart")}`;
+      body = `${renderDateRangeFilters("trends", chartRange.bounds, chartRange, { deckFilter: true })}${renderChartSection(chart, "clear-trends-chart")}`;
     } else {
       const windows = windowsForChart;
       const cumulative = applySort(s.rolling.cumulative, tableSort["trends-cumulative"], {
@@ -1523,7 +1501,7 @@ function renderStats() {
       });
 
       body = `
-        ${renderDateRangeFilters("trends", chartRange.bounds, chartRange)}
+        ${renderDateRangeFilters("trends", chartRange.bounds, chartRange, { deckFilter: true })}
         <h3 class="section-sub">By Year</h3>
         <div class="year-row">
           <button type="button" class="year-chip trends-selectable ${trendsFilter.kind === "all" ? "active" : ""}" data-trends-all>
@@ -1591,23 +1569,24 @@ function renderStats() {
         ${renderChartSection(chart, "clear-trends-chart")}`;
     }
   } else if (statsTab === "seats") {
-    const bounds = getSeatDateBounds(data.games, seatViewMode);
-    const range = getEffectiveSeatRange(data.games);
-    const seatStats = computeSeatStats(data.games, seatViewMode);
+    const { statsGames } = getStatsScope();
+    const bounds = getSeatDateBounds(statsGames, seatViewMode);
+    const range = getEffectiveSeatRange(statsGames);
+    const seatStats = computeSeatStats(statsGames, seatViewMode);
     const seatChart = renderMultiWinRateLineChart(
       selectedSeats.map((seat) => ({
         id: seat,
         label: `Seat ${seat}`,
         color: SEAT_COLORS[seat],
         series: computeWinRateSeries(
-          gamesForSeatSeries(data.games, seat, range.start, range.end, seatViewMode)
+          gamesForSeatSeries(statsGames, seat, range.start, range.end, seatViewMode)
         ),
       })),
       range
     );
 
     body = `
-      ${renderDateRangeFilters("seats", bounds, range)}
+      ${renderDateRangeFilters("seats", bounds, range, { deckFilter: true })}
       <div class="seat-toggle-row">
         <button type="button" class="seat-toggle seat-view-toggle" data-seat-view-cycle title="Cycle seat perspective">
           <strong>${SEAT_VIEW_LABELS[seatViewMode]}</strong>
@@ -1695,7 +1674,6 @@ function renderStats() {
     const colorFilters = isColorTab
       ? `
       <div class="filters inline color-mode-filters matchup-color-filters">
-        <button type="button" class="btn btn-ghost btn-sm" id="matchup-deck-filter-toggle">${statsDeckFilterLabel(matchupDeckFilter)}</button>
         <button type="button" class="btn btn-ghost btn-sm" id="matchup-color-view-toggle">${colorViewLabel(matchupColorView)}</button>
         <button type="button" class="btn btn-ghost btn-sm" id="matchup-color-agg-toggle">${matchupColorAgg === "inclusive" ? "Inclusive" : "Exclusive"}</button>
       </div>
@@ -1727,6 +1705,7 @@ function renderStats() {
       ${subTabs(MATCHUP_TABS, matchupTab, "matchup-tab")}
       ${colorFilters}
       <div class="filters inline matchup-filters">
+        ${renderStatsDeckFilterToggle()}
         ${
           isDeckTab || isColorTab
             ? `<label class="checkbox matchup-split-partners">
