@@ -1210,12 +1210,18 @@ function renderPodium(podium) {
     .join("")}</div>`;
 }
 
-function renderBracketDetail(detail) {
-  const turnWin =
-    detail.avgTurnWin != null ? detail.avgTurnWin.toFixed(1) : "—";
-  const turnLoss =
-    detail.avgTurnLoss != null ? detail.avgTurnLoss.toFixed(1) : "—";
+function renderTurnStats(detail) {
+  const turnWin = detail.avgTurnWin != null ? detail.avgTurnWin.toFixed(1) : "—";
+  const turnLoss = detail.avgTurnLoss != null ? detail.avgTurnLoss.toFixed(1) : "—";
 
+  return `
+      <div class="stat-grid stat-grid-compact">
+        ${statCard("Avg Turn (Win)", turnWin)}
+        ${statCard("Avg Turn (Loss)", turnLoss)}
+      </div>`;
+}
+
+function renderBracketDetail(detail) {
   return `
     <div class="bracket-detail">
       <div class="stat-grid">
@@ -1224,12 +1230,9 @@ function renderBracketDetail(detail) {
         ${statCard("Losses", detail.overview.losses)}
         ${statCard("Win Rate", detail.overview.winRate, true)}
       </div>
+      ${renderTurnStats(detail)}
       <h3 class="section-sub">Top Decks</h3>
       ${renderPodium(detail.podium)}
-      <div class="stat-grid stat-grid-compact">
-        ${statCard("Avg Turn (Win)", turnWin)}
-        ${statCard("Avg Turn (Loss)", turnLoss)}
-      </div>
     </div>`;
 }
 
@@ -1271,6 +1274,7 @@ function renderStats() {
         ${statCard("Losses", s.overview.losses)}
         ${statCard("Win Rate", s.overview.winRate, true)}
       </div>
+      ${renderTurnStats(s.overview)}
       `;
   } else if (statsTab === "colors") {
     const { statsDecks, statsGames } = getStatsScope();

@@ -77,6 +77,24 @@ export function computeOverview(games) {
     wins,
     losses: total - wins,
     winRate: winRate(wins, total),
+    ...computeTurnAverages(games),
+  };
+}
+
+/** @param {import('./store.js').Game[]} games */
+export function computeTurnAverages(games) {
+  const winTurns = games
+    .filter((g) => g.result === "Win" && Number(g.turn) > 0)
+    .map((g) => Number(g.turn));
+  const lossTurns = games
+    .filter((g) => g.result === "Loss" && Number(g.turn) > 0)
+    .map((g) => Number(g.turn));
+
+  const avg = (nums) => (nums.length ? nums.reduce((sum, n) => sum + n, 0) / nums.length : null);
+
+  return {
+    avgTurnWin: avg(winTurns),
+    avgTurnLoss: avg(lossTurns),
   };
 }
 
@@ -98,21 +116,13 @@ export function computeBracketDetail(games, decks, bracketFilter = "", selectedB
   const overview = computeOverview(filtered);
   const deckStats = computeDeckStats(decks, filtered).filter((d) => d.games > 0);
   const podium = sortDeckList(deckStats, "normWr", "desc").slice(0, 3);
-
-  const winTurns = filtered
-    .filter((g) => g.result === "Win" && Number(g.turn) > 0)
-    .map((g) => Number(g.turn));
-  const lossTurns = filtered
-    .filter((g) => g.result === "Loss" && Number(g.turn) > 0)
-    .map((g) => Number(g.turn));
-
-  const avg = (nums) => (nums.length ? nums.reduce((sum, n) => sum + n, 0) / nums.length : null);
+  const { avgTurnWin, avgTurnLoss } = computeTurnAverages(filtered);
 
   return {
     overview,
     podium,
-    avgTurnWin: avg(winTurns),
-    avgTurnLoss: avg(lossTurns),
+    avgTurnWin,
+    avgTurnLoss,
   };
 }
 
