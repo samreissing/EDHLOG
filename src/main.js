@@ -1808,15 +1808,30 @@ function renderStats() {
       .map((row, index) => ({ ...row, rank: index + 1 }))
       .filter((row) => !query || row.name.toLowerCase().includes(query));
 
-    const colorFilters = isColorTab
-      ? `
-      <div class="filters inline color-mode-filters totals-color-filters">
+    const nameHeader = isDeckTab ? "Deck" : isPlayerTab ? "Player" : "Colors";
+
+    const splitPartnersControl =
+      isDeckTab || isColorTab
+        ? `<label class="checkbox totals-split-partners">
+          <input type="checkbox" id="totals-split-partners" ${totalsSplitPartners ? "checked" : ""} />
+          Split partners
+        </label>`
+        : "";
+
+    const totalsSearchInput = `<input type="search" id="totals-search" class="input totals-search" placeholder="Search ${nameHeader.toLowerCase()}" value="${escapeHtml(totalsSearch)}" />`;
+
+    const totalsToolbar = isColorTab
+      ? `<div class="filters inline totals-filters totals-color-toolbar">
         <button type="button" class="btn btn-ghost btn-sm" id="totals-color-view-toggle">${colorViewLabel(totalsColorView)}</button>
         <button type="button" class="btn btn-ghost btn-sm" id="totals-color-agg-toggle">${totalsColorAgg === "inclusive" ? "Inclusive" : "Exclusive"}</button>
+        ${splitPartnersControl}
+        ${totalsSearchInput}
       </div>`
-      : "";
+      : `<div class="filters inline totals-filters">
+        ${splitPartnersControl}
+        ${totalsSearchInput}
+      </div>`;
 
-    const nameHeader = isDeckTab ? "Deck" : isPlayerTab ? "Player" : "Colors";
     const extraHeader = isDeckTab
       ? sortHeader(tableId, "pilotCount", "Pilots", tableSort[tableId])
       : isPlayerTab
@@ -1825,18 +1840,7 @@ function renderStats() {
 
     body = `
       ${subTabs(TOTALS_TABS, totalsTab, "totals-tab")}
-      ${colorFilters}
-      <div class="filters inline totals-filters">
-        ${
-          isDeckTab || isColorTab
-            ? `<label class="checkbox totals-split-partners">
-          <input type="checkbox" id="totals-split-partners" ${totalsSplitPartners ? "checked" : ""} />
-          Split partners
-        </label>`
-            : ""
-        }
-        <input type="search" id="totals-search" class="input totals-search" placeholder="Search ${nameHeader.toLowerCase()}" value="${escapeHtml(totalsSearch)}" />
-      </div>
+      ${totalsToolbar}
       <table class="table compact sortable-table totals-table">
         <thead><tr>
           <th class="col-rank">#</th>
