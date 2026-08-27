@@ -1101,6 +1101,25 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   white-space: nowrap;
 }
 
+.totals-note {
+  margin: 0 0 0.75rem;
+}
+
+.totals-filters,
+.totals-color-filters {
+  margin-bottom: 0.75rem;
+}
+
+.totals-split-partners {
+  margin-right: 0.75rem;
+  white-space: nowrap;
+}
+
+.totals-name-col,
+.totals-color-col {
+  min-width: 8rem;
+}
+
 .commander-players-section {
   margin-top: 1.5rem;
 }

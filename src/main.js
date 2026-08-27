@@ -60,6 +60,7 @@ import {
   matchupImpactClass,
   MATCHUP_TABS,
 } from "./matchups.js";
+import { computeAllTotals, TOTALS_TABS } from "./totals.js";
 import {
   computeWinRateSeries,
   renderWinRateLineChart,
@@ -100,6 +101,7 @@ const STATS_TABS = [
   { id: "trends", label: "Trends" },
   { id: "seats", label: "Seats" },
   { id: "matchups", label: "Matchups" },
+  { id: "totals", label: "Totals" },
 ];
 
 const DECK_STATUS_OPTIONS = [
@@ -121,6 +123,11 @@ let matchupColorView = "wubrgc";
 let matchupColorAgg = "inclusive";
 let matchupBracketFilter = "";
 let matchupSplitPartners = false;
+let totalsTab = "decks";
+let totalsSearch = "";
+let totalsSplitPartners = false;
+let totalsColorView = "exact";
+let totalsColorAgg = "exclusive";
 /** @type {{ kind: 'all' } | { kind: 'window', rangeStart: number, rangeEnd: number } | { kind: 'cumulative', rangeEnd: number } | { kind: 'year', year: string }} */
 let trendsFilter = { kind: "all" };
 let selectedSeats = [];
@@ -169,6 +176,9 @@ let tableSort = {
   "decks-main": { col: "normWr", dir: "desc" },
   "game-log": { col: "date", dir: "desc" },
   matchups: { col: "normalizedMatchupImpact", dir: "desc" },
+  "totals-decks": { col: "normalizedWr", dir: "desc" },
+  "totals-players": { col: "normalizedWr", dir: "desc" },
+  "totals-colors": { col: "normalizedWr", dir: "desc" },
 };
 
 function resetStatsTabState(tab) {
@@ -219,6 +229,15 @@ function resetStatsTabState(tab) {
       selectedOpponentCommander = null;
       opponentDetailReturn = null;
     }
+  } else if (tab === "totals") {
+    totalsTab = "decks";
+    totalsSearch = "";
+    totalsSplitPartners = false;
+    totalsColorView = "exact";
+    totalsColorAgg = "exclusive";
+    tableSort["totals-decks"] = { col: "normalizedWr", dir: "desc" };
+    tableSort["totals-players"] = { col: "normalizedWr", dir: "desc" };
+    tableSort["totals-colors"] = { col: "normalizedWr", dir: "desc" };
   }
 }
 
@@ -363,6 +382,9 @@ function bindEvents() {
     if (e.target.id === "matchup-search") {
       matchupSearch = e.target.value;
       render();
+    } else if (e.target.id === "totals-search") {
+      totalsSearch = e.target.value;
+      render();
     } else if (e.target.id === "seats-range-start" || e.target.id === "seats-range-end") {
       seatRange.customized = true;
       seatRange.start = document.getElementById("seats-range-start")?.value || null;
@@ -414,6 +436,24 @@ function bindEvents() {
 
     if (e.target.id === "matchup-split-partners") {
       matchupSplitPartners = e.target.checked;
+      render();
+      return;
+    }
+
+    if (e.target.id === "totals-split-partners") {
+      totalsSplitPartners = e.target.checked;
+      render();
+      return;
+    }
+
+    if (e.target.id === "totals-color-view-toggle") {
+      totalsColorView = cycleColorView(totalsColorView);
+      render();
+      return;
+    }
+
+    if (e.target.id === "totals-color-agg-toggle") {
+      totalsColorAgg = totalsColorAgg === "inclusive" ? "exclusive" : "inclusive";
       render();
       return;
     }
@@ -522,6 +562,13 @@ function bindEvents() {
         opponentDetailReturn = null;
       }
       matchupTab = nextMatchupTab;
+      render();
+      return;
+    }
+
+    const totalsBtn = e.target.closest("[data-totals-tab]");
+    if (totalsBtn) {
+      totalsTab = totalsBtn.getAttribute("data-totals-tab");
       render();
       return;
     }
@@ -1061,12 +1108,20 @@ function getStats() {
         getOpponentColors: getCommanderColorIdentity,
       },
     }),
+    totals: computeAllTotals(data.games, data.decks, {
+      splitPartners: totalsSplitPartners,
+      view: totalsColorView,
+      agg: totalsColorAgg,
+      getOpponentColors: getCommanderColorIdentity,
+    }),
   };
 }
 
 function render() {
   const matchupSearchFocused = document.activeElement?.id === "matchup-search";
   const matchupSearchPos = matchupSearchFocused ? document.activeElement.selectionStart : null;
+  const totalsSearchFocused = document.activeElement?.id === "totals-search";
+  const totalsSearchPos = totalsSearchFocused ? document.activeElement.selectionStart : null;
 
   const main = document.getElementById("main");
   if (currentView === "stats") main.innerHTML = renderStats();
@@ -1096,6 +1151,14 @@ function render() {
     if (el) {
       el.focus();
       if (matchupSearchPos != null) el.setSelectionRange(matchupSearchPos, matchupSearchPos);
+    }
+  }
+
+  if (totalsSearchFocused) {
+    const el = document.getElementById("totals-search");
+    if (el) {
+      el.focus();
+      if (totalsSearchPos != null) el.setSelectionRange(totalsSearchPos, totalsSearchPos);
     }
   }
 }
@@ -1707,6 +1770,94 @@ function renderStats() {
         </tbody>
       </table>
       ${isDeckTab ? `<div id="matchup-deck-tip" class="deck-opponent-tip" hidden></div>` : ""}`;
+  } else if (statsTab === "totals") {
+    const isDeckTab = totalsTab === "decks";
+    const isPlayerTab = totalsTab === "players";
+    const isColorTab = totalsTab === "colors";
+    const query = totalsSearch.trim().toLowerCase();
+    const tableId = `totals-${totalsTab}`;
+    const rows = applySort(
+      s.totals[totalsTab] || [],
+      tableSort[tableId],
+      {
+        name: (r) => r.name,
+        pilotCount: (r) => r.pilotCount ?? 0,
+        commanderCount: (r) => r.commanderCount ?? 0,
+        playerCount: (r) => r.playerCount ?? 0,
+        games: (r) => r.games,
+        wins: (r) => r.wins,
+        winRate: (r) => r.winRate,
+        normalizedWr: (r) => r.normalizedWr,
+      }
+    )
+      .map((row, index) => ({ ...row, rank: index + 1 }))
+      .filter((row) => !query || row.name.toLowerCase().includes(query));
+
+    const colorFilters = isColorTab
+      ? `
+      <div class="filters inline color-mode-filters totals-color-filters">
+        <button type="button" class="btn btn-ghost btn-sm" id="totals-color-view-toggle">${colorViewLabel(totalsColorView)}</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="totals-color-agg-toggle">${totalsColorAgg === "inclusive" ? "Inclusive" : "Exclusive"}</button>
+      </div>`
+      : "";
+
+    const nameHeader = isDeckTab ? "Deck" : isPlayerTab ? "Player" : "Colors";
+    const extraHeader = isDeckTab
+      ? sortHeader(tableId, "pilotCount", "Pilots", tableSort[tableId])
+      : isPlayerTab
+        ? sortHeader(tableId, "commanderCount", "Decks", tableSort[tableId])
+        : `${sortHeader(tableId, "playerCount", "Pilots", tableSort[tableId])}${sortHeader(tableId, "commanderCount", "Decks", tableSort[tableId])}`;
+
+    body = `
+      ${subTabs(TOTALS_TABS, totalsTab, "totals-tab")}
+      ${colorFilters}
+      <p class="muted-text totals-note">Rankings use every seat logged in a pod — yours and opponents.</p>
+      <div class="filters inline totals-filters">
+        <label class="checkbox totals-split-partners">
+          <input type="checkbox" id="totals-split-partners" ${totalsSplitPartners ? "checked" : ""} />
+          Split partners
+        </label>
+        <input type="search" id="totals-search" class="input totals-search" placeholder="Search ${nameHeader.toLowerCase()}" value="${escapeHtml(totalsSearch)}" />
+      </div>
+      <table class="table compact sortable-table totals-table">
+        <thead><tr>
+          <th class="col-rank">#</th>
+          ${sortHeader(tableId, "name", nameHeader, tableSort[tableId])}
+          ${extraHeader}
+          ${sortHeader(tableId, "games", "G", tableSort[tableId])}
+          ${sortHeader(tableId, "wins", "W", tableSort[tableId])}
+          ${sortHeader(tableId, "winRate", "WR", tableSort[tableId])}
+          ${sortHeader(tableId, "normalizedWr", "Norm WR", tableSort[tableId])}
+        </tr></thead>
+        <tbody>
+          ${rows
+            .map(
+              (row) => `
+            <tr>
+              <td class="col-rank">${row.rank}</td>
+              ${
+                isDeckTab
+                  ? `<td class="totals-name-col">${row.colors?.length ? `<span class="color-label">${colorBadge(row.colors)}</span> ` : ""}${escapeHtml(row.name)}</td>`
+                  : isColorTab
+                    ? `<td class="totals-color-col"><span class="color-label">${colorBadge(row.displayColors || [])}</span></td>`
+                    : `<td>${escapeHtml(row.name)}</td>`
+              }
+              ${
+                isDeckTab
+                  ? `<td>${row.pilotCount || "—"}</td>`
+                  : isPlayerTab
+                    ? `<td>${row.commanderCount || "—"}</td>`
+                    : `<td>${row.playerCount || "—"}</td><td>${row.commanderCount || "—"}</td>`
+              }
+              <td>${row.games}</td>
+              <td>${row.wins}</td>
+              <td>${pctCell(row.winRate)}</td>
+              <td>${pctCell(row.normalizedWr)}</td>
+            </tr>`
+            )
+            .join("")}
+        </tbody>
+      </table>`;
   }
 
   return `<section class="section">${subTabs(STATS_TABS, statsTab, "stats-tab")}${body}</section>`;
