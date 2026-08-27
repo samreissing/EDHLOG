@@ -1,5 +1,5 @@
 import { fetchCardMetadata } from "./scryfall.js";
-import { getCommanderInfo, splitCommanderName } from "./commander-names.js";
+import { getCommanderInfo, isPartnerPartName, splitCommanderName } from "./commander-names.js";
 import { canonicalizeColors } from "./color-identity.js";
 
 const CACHE_KEY = "edhlog:commander-colors:v2";
@@ -83,11 +83,33 @@ export function getCommanderColorIdentity(name) {
   const trimmed = String(name || "").trim();
   if (!trimmed) return [];
 
-  const direct = colorCache.get(cacheKey(trimmed));
+  const trimmedKey = cacheKey(trimmed);
+  const info = getCommanderInfo(trimmed);
+
+  if (isPartnerPartName(trimmed)) {
+    const matchedPart = info.parts.find((part) => cacheKey(part) === trimmedKey);
+    if (matchedPart) {
+      return colorCache.get(cacheKey(matchedPart)) ?? [];
+    }
+  }
+
+  const direct = colorCache.get(trimmedKey);
   if (direct) return direct;
 
-  const info = getCommanderInfo(trimmed);
   return colorCache.get(cacheKey(info.canonicalName)) ?? [];
+}
+
+/**
+ * Prefer owned deck colors unless split-partner mode needs a single card's identity.
+ * @param {string} name
+ * @param {{ splitPartners?: boolean, ownedColors?: string[] | null }} [options]
+ */
+export function resolveCommanderColors(name, options = {}) {
+  const { splitPartners = false, ownedColors = null } = options;
+  if (ownedColors?.length && !(splitPartners && isPartnerPartName(name))) {
+    return ownedColors;
+  }
+  return getCommanderColorIdentity(name);
 }
 
 /** @param {import('./store.js').Game[]} games */

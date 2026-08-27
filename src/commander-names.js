@@ -126,6 +126,15 @@ export function getCommanderInfo(name) {
   return partnerInfo(parts);
 }
 
+/** True when name refers to one card in a partner pair, not the combined pair. */
+export function isPartnerPartName(name) {
+  const info = getCommanderInfo(name);
+  if (info.kind !== "partner") return false;
+  const key = cacheKey(name);
+  if (key === cacheKey(info.canonicalName)) return false;
+  return info.parts.some((part) => cacheKey(part) === key);
+}
+
 /** @param {string} name @param {{ splitPartners?: boolean }} [options] */
 export function getCommanderMatchupIdentities(name, options = {}) {
   const { splitPartners = false } = options;
