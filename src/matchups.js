@@ -3,6 +3,7 @@ import { winRate } from "./stats.js";
 import { getCommanderMatchupIdentities } from "./commander-names.js";
 import { resolveCommanderColors } from "./commander-colors.js";
 import { colorKeyLabel, colorKeysForIdentity, rowColorsFromKey } from "./color-stats.js";
+import { deckMapByKey } from "./deck-identity.js";
 
 /** Commander pod baseline (30CCSTAT). */
 export const MATCHUP_BASELINE = 0.25;
@@ -254,7 +255,7 @@ export function buildMyMatchupRows(games, tabId, options = {}) {
 
 /** @param {import('./store.js').Game[]} games @param {import('./store.js').Deck[]} decks @param {"all" | "active" | "retired"} deckFilter @param {string} bracketFilter */
 function filterGamesForColorMatchups(games, decks, deckFilter, bracketFilter) {
-  const deckMap = new Map(decks.map((d) => [d.name, d]));
+  const deckMap = deckMapByKey(decks);
   return games.filter((game) => {
     const deck = deckMap.get(game.deck);
     if (deckFilter === "active" && deck?.retired) return false;
@@ -273,7 +274,7 @@ function filterGamesForColorMatchups(games, decks, deckFilter, bracketFilter) {
  */
 export function buildColorMatchupRows(games, options) {
   const { decks, deckFilter, bracketFilter, view, agg, splitPartners = false } = options;
-  const deckMap = new Map(decks.map((d) => [d.name, d]));
+  const deckMap = deckMapByKey(decks);
   const filteredGames = filterGamesForColorMatchups(games, decks, deckFilter, bracketFilter);
   const rows = new Map();
 

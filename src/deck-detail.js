@@ -2,6 +2,7 @@ import { pctCell } from "./wr-color.js";
 import { colorBadge } from "./stats.js";
 import { formatDate } from "./dates.js";
 import { commanderNames } from "./scryfall.js";
+import { deckKey, deckTitle, deckLabel } from "./deck-identity.js";
 
 function escapeHtml(str) {
   return String(str)
@@ -37,7 +38,7 @@ function cardRow(card) {
 /** @param {import('./store.js').Deck} deck @param {object} stats @param {{ backLabel?: string }} [options] */
 export function renderDeckDetail(deck, stats, options = {}) {
   const backLabel = options.backLabel ?? "← Back to decks";
-  const commanders = commanderNames(deck.name);
+  const commanders = commanderNames(deckLabel(deck));
   const cards = deck.cards || [];
   const grouped = new Map();
 
@@ -70,7 +71,7 @@ export function renderDeckDetail(deck, stats, options = {}) {
     .join("");
 
   return `
-    <section class="section deck-detail" data-deck-detail-root="${escapeHtml(deck.name)}">
+    <section class="section deck-detail" data-deck-detail-root="${escapeHtml(deckKey(deck))}">
       <div class="deck-detail-nav">
         <button type="button" class="btn btn-ghost btn-sm" id="deck-detail-back">${backLabel}</button>
       </div>
@@ -79,7 +80,8 @@ export function renderDeckDetail(deck, stats, options = {}) {
         <div class="deck-commander-images">${commanderImgs}</div>
         <div class="deck-detail-main">
           <div class="deck-detail-header">
-            <h2 class="deck-detail-title">${colorBadge(deck.colors)} ${escapeHtml(deck.name)}</h2>
+            <h2 class="deck-detail-title">${colorBadge(deck.colors)} ${escapeHtml(deckTitle(deck))}</h2>
+            ${deck.name?.trim() ? `<p class="deck-detail-commander">${escapeHtml(deckLabel(deck))}</p>` : ""}
             ${deck.retired ? '<span class="badge muted">Retired</span>' : ""}
           </div>
           <div class="stat-grid deck-detail-stats">

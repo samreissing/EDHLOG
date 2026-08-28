@@ -37,6 +37,15 @@ import {
 } from "./color-stats.js";
 import { renderDeckDetail } from "./deck-detail.js";
 import {
+  deckKey,
+  deckTitle,
+  deckLabel,
+  findDeck,
+  deckMapByKey,
+  deckLabelForKey,
+  deckTitleForKey,
+} from "./deck-identity.js";
+import {
   renderCommanderDetail,
   computeOpponentCommanderStats,
 } from "./commander-detail.js";
@@ -261,8 +270,8 @@ function resetGamesViewState() {
 function findOwnedDeckName(subject, decks) {
   const subjectCanonical = getCommanderInfo(subject).canonicalName;
   for (const deck of decks) {
-    if (getCommanderInfo(deck.name).canonicalName === subjectCanonical) {
-      return deck.name;
+    if (getCommanderInfo(deckLabel(deck)).canonicalName === subjectCanonical) {
+      return deckKey(deck);
     }
   }
   return null;
@@ -289,9 +298,9 @@ function getStatsScope() {
 function renderDateRangeFilters(idPrefix, bounds, range, { deckFilter = false } = {}) {
   return `
     <div class="filters inline stats-range-toolbar seat-range-filters">
+      ${deckFilter ? renderStatsDeckFilterToggle() : ""}
       <label>From <input type="date" id="${idPrefix}-range-start" min="${bounds.min}" max="${bounds.max}" value="${range.start}" /></label>
       <label>To <input type="date" id="${idPrefix}-range-end" min="${bounds.min}" max="${bounds.max}" value="${range.end}" /></label>
-      ${deckFilter ? renderStatsDeckFilterToggle() : ""}
     </div>`;
 }
 
@@ -763,9 +772,10 @@ function bindEvents() {
     if (e.target.id === "delete-deck-modal") {
       if (!editingDeckName) return;
       if (!confirm("Delete this deck?")) return;
-      const name = editingDeckName;
-      data.decks = data.decks.filter((d) => d.name !== name);
-      if (selectedDeckName === name) {
+      const key = editingDeckName;
+      data.decks = data.decks.filter((d) => deckKey(d) !== key);
+      data.games = data.games.filter((g) => g.deck !== key);
+      if (selectedDeckName === key) {
         selectedDeckName = null;
         deckDetailReturn = null;
       }
@@ -867,28 +877,32 @@ function bindEvents() {
     } else if (e.target.id === "deck-form") {
       e.preventDefault();
       const fd = new FormData(e.target);
+      const commander = String(fd.get("commander") || "").trim();
+      if (!commander) return toast("Commander is required", true);
       const deck = {
-        name: fd.get("name").trim(),
+        name: String(fd.get("name") || "").trim(),
+        commander,
         bracket: Number(fd.get("bracket")),
         colors: fd.getAll("color"),
         retired: fd.get("retired") === "on",
         createdAt: fd.get("createdAt") || todayISO(),
       };
-      const originalName = fd.get("originalName");
+      const originalKey = String(fd.get("originalKey") || "").trim();
 
-      if (originalName) {
-        const idx = data.decks.findIndex((d) => d.name === originalName);
+      if (originalKey) {
+        const idx = data.decks.findIndex((d) => deckKey(d) === originalKey);
         if (idx < 0) return toast("Deck not found", true);
-        if (deck.name !== originalName && data.decks.some((d) => d.name === deck.name)) {
+        if (deckKey(deck) !== originalKey && data.decks.some((d) => deckKey(d) === deckKey(deck))) {
           return toast("Deck exists", true);
         }
         const existing = data.decks[idx];
         data.decks[idx] = { ...existing, ...deck };
-        if (deck.name !== originalName) {
+        if (deckKey(deck) !== originalKey) {
           for (const game of data.games) {
-            if (game.deck === originalName) game.deck = deck.name;
+            if (game.deck === originalKey) game.deck = deckKey(deck);
           }
-          if (selectedDeckName === originalName) selectedDeckName = deck.name;
+          if (selectedDeckName === originalKey) selectedDeckName = deckKey(deck);
+          if (editingDeckName === originalKey) editingDeckName = deckKey(deck);
         }
         editingDeckName = null;
         saveData(data);
@@ -899,13 +913,13 @@ function bindEvents() {
         return;
       }
 
-      if (data.decks.some((d) => d.name === deck.name)) return toast("Deck exists", true);
+      if (data.decks.some((d) => deckKey(d) === deckKey(deck))) return toast("Deck exists", true);
       data.decks.push(deck);
       saveData(data);
       document.getElementById("deck-modal")?.classList.add("hidden");
       e.target.reset();
       render();
-      toast(`Added ${deck.name}`);
+      toast(`Added ${deckTitle(deck)}`);
     }
   });
 
@@ -1079,7 +1093,7 @@ function filterDecksForStats(decks, filter) {
 /** @param {import('./store.js').Game[]} games @param {import('./store.js').Deck[]} decks @param {"all" | "active" | "retired"} filter */
 function filterGamesForStats(games, decks, filter) {
   if (filter === "all") return games;
-  const deckMap = new Map(decks.map((d) => [d.name, d]));
+  const deckMap = deckMapByKey(decks);
   return games.filter((game) => {
     const retired = deckMap.get(game.deck)?.retired ?? false;
     return filter === "retired" ? retired : !retired;
@@ -1198,7 +1212,7 @@ function impactCell(value, title = "") {
   return `<span class="impact-cell ${cls}"${titleAttr}>${formatMatchupImpact(value)}</span>`;
 }
 
-function renderPodium(podium) {
+function renderPodium(podium, labelForDeck = deckLabel) {
   if (!podium.length) {
     return "";
   }
@@ -1209,7 +1223,7 @@ function renderPodium(podium) {
       (deck, index) => `
       <div class="podium-slot podium-${index + 1}">
         <span class="podium-rank">${labels[index]}</span>
-        <strong class="podium-name">${escapeHtml(deck.name)}</strong>
+        <strong class="podium-name">${escapeHtml(labelForDeck(deck))}</strong>
         <span class="podium-meta">${deck.wins}W · ${deck.games}G · ${pct(deck.normalizedWr)} norm</span>
       </div>`
     )
@@ -1275,7 +1289,7 @@ function renderStats() {
       </div>
       ${renderTurnStats(bracketDetail)}
       <h3 class="section-sub">Top Decks</h3>
-      ${renderPodium(bracketDetail.podium)}
+      ${renderPodium(bracketDetail.podium, deckTitle)}
       `;
   } else if (statsTab === "colors") {
     const { statsDecks, statsGames } = getStatsScope();
@@ -1605,9 +1619,9 @@ function renderStats() {
       ${renderChartSection(seatChart, "clear-seats-chart")}`;
   } else if (statsTab === "matchups") {
     if (selectedDeckName && deckDetailReturn === "matchups" && matchupTab === "decks") {
-      const deck = data.decks.find((d) => d.name === selectedDeckName);
+      const deck = data.decks.find((d) => deckKey(d) === selectedDeckName);
       if (deck) {
-        const stats = getStats().deckStats.find((d) => d.name === selectedDeckName);
+        const stats = getStats().deckStats.find((d) => deckKey(d) === selectedDeckName);
         return `<section class="section">${subTabs(STATS_TABS, statsTab, "stats-tab")}${renderDeckDetail(deck, stats, { backLabel: "← Back to matchups" })}</section>`;
       }
       selectedDeckName = null;
@@ -1874,11 +1888,11 @@ function escapeHtml(str) {
 
 function renderDecks() {
   if (selectedDeckName) {
-    const deck = data.decks.find((d) => d.name === selectedDeckName);
+    const deck = findDeck(data.decks, selectedDeckName);
     if (!deck) {
       selectedDeckName = null;
     } else {
-      const stats = getStats().deckStats.find((d) => d.name === selectedDeckName);
+      const stats = getStats().deckStats.find((d) => deckKey(d) === deckKey(deck));
       return renderDeckDetail(deck, stats);
     }
   }
@@ -1905,7 +1919,7 @@ function renderDecks() {
     showLastPlayed ? (d.lastPlayed ? formatDate(d.lastPlayed) : "—") : formatDate(d.createdAt);
 
   const editingDeck = editingDeckName
-    ? data.decks.find((d) => d.name === editingDeckName)
+    ? data.decks.find((d) => deckKey(d) === editingDeckName)
     : null;
 
   return `
@@ -1950,7 +1964,7 @@ function renderDecks() {
             <th class="row-actions-col"></th>
           </tr></thead>
           <tbody>
-            ${list.length ? list.map((d) => `<tr><td class="deck-date">${dateCell(d)}</td><td class="deck-name"><button type="button" class="link-btn deck-link" data-deck-detail="${escapeHtml(d.name)}">${escapeHtml(d.name)}</button></td><td class="deck-colors">${colorBadge(d.colors)}</td><td class="deck-tight">${d.bracket}</td><td class="deck-tight">${d.games}</td><td class="deck-tight">${d.wins}</td><td class="deck-stat">${d.games ? pctCell(d.normalizedWr) : "—"}</td><td class="deck-stat">${d.games ? pctCell(d.winRate) : "—"}</td><td class="row-actions"><button type="button" class="btn-icon edit-deck" data-name="${escapeHtml(d.name)}" title="Edit deck">✎</button></td></tr>`).join("") : '<tr><td colspan="9"></td></tr>'}
+            ${list.length ? list.map((d) => `<tr><td class="deck-date">${dateCell(d)}</td><td class="deck-name"><button type="button" class="link-btn deck-link" data-deck-detail="${escapeHtml(deckKey(d))}">${escapeHtml(deckTitle(d))}</button></td><td class="deck-colors">${colorBadge(d.colors)}</td><td class="deck-tight">${d.bracket}</td><td class="deck-tight">${d.games}</td><td class="deck-tight">${d.wins}</td><td class="deck-stat">${d.games ? pctCell(d.normalizedWr) : "—"}</td><td class="deck-stat">${d.games ? pctCell(d.winRate) : "—"}</td><td class="row-actions"><button type="button" class="btn-icon edit-deck" data-name="${escapeHtml(deckKey(d))}" title="Edit deck">✎</button></td></tr>`).join("") : '<tr><td colspan="9"></td></tr>'}
           </tbody>
         </table>
       </div>
@@ -1959,8 +1973,9 @@ function renderDecks() {
       <div class="modal-content">
         <h3>${editingDeck ? "Edit Deck" : "Add Deck"}</h3>
         <form id="deck-form" class="deck-form">
-          ${editingDeck ? `<input type="hidden" name="originalName" value="${escapeHtml(editingDeck.name)}" />` : ""}
-          <label>Name<input name="name" required value="${editingDeck ? escapeHtml(editingDeck.name) : ""}" /></label>
+          ${editingDeck ? `<input type="hidden" name="originalKey" value="${escapeHtml(deckKey(editingDeck))}" />` : ""}
+          <label>Name<input name="name" placeholder="Optional deck name" value="${editingDeck ? escapeHtml(editingDeck.name || "") : ""}" /></label>
+          <label>Commander<input name="commander" required value="${editingDeck ? escapeHtml(deckLabel(editingDeck)) : ""}" /></label>
           <label>Created<input type="date" name="createdAt" value="${editingDeck?.createdAt || todayISO()}" required /></label>
           <label>Bracket<select name="bracket">${[1, 2, 3, 4, 5].map((b) => `<option value="${b}" ${(editingDeck ? editingDeck.bracket : 4) === b ? "selected" : ""}>${b}</option>`).join("")}</select></label>
           <fieldset class="color-fieldset"><legend>Colors</legend>
@@ -1986,7 +2001,9 @@ function renderGames() {
     turn: (g) => g.turn || 0,
   });
 
-  const decks = [...new Set(data.decks.map((d) => d.name))].sort();
+  const decks = [...data.decks]
+    .sort((a, b) => deckLabel(a).localeCompare(deckLabel(b)))
+    .map((d) => deckKey(d));
   const years = [...new Set(data.games.map((g) => gameYear(g.date)))].sort();
   const sort = tableSort["game-log"];
   const editing = editingGameId ? data.games.find((g) => g.id === editingGameId) : null;
@@ -1996,7 +2013,7 @@ function renderGames() {
     <section class="section">
       <div class="section-header">
         <div class="filters inline">
-          <label>Deck<select id="filter-deck"><option value="">All</option>${decks.map((d) => `<option value="${escapeHtml(d)}" ${logFilters.deck === d ? "selected" : ""}>${escapeHtml(d)}</option>`).join("")}</select></label>
+          <label>Deck<select id="filter-deck"><option value="">All</option>${decks.map((d) => `<option value="${escapeHtml(d)}" ${logFilters.deck === d ? "selected" : ""}>${escapeHtml(deckLabelForKey(d, data.decks))}</option>`).join("")}</select></label>
           <label>Result<select id="filter-result"><option value="">All</option><option value="Win" ${logFilters.result === "Win" ? "selected" : ""}>Wins</option><option value="Loss" ${logFilters.result === "Loss" ? "selected" : ""}>Losses</option></select></label>
           <label>Year<select id="filter-year"><option value="">All</option>${years.map((y) => `<option value="${y}" ${logFilters.year === y ? "selected" : ""}>${y}</option>`).join("")}</select></label>
           <span class="filter-count" id="filter-count">${games.length} games</span>
@@ -2107,7 +2124,7 @@ function renderGameDetail(game) {
 }
 
 function deckBracketValue(deckName) {
-  return data.decks.find((d) => d.name === deckName)?.bracket ?? 4;
+  return findDeck(data.decks, deckName)?.bracket ?? 4;
 }
 
 function recentDecksPlayed(deckStats, limit = 5) {
@@ -2118,7 +2135,7 @@ function recentDecksPlayed(deckStats, limit = 5) {
 
   for (const game of sorted) {
     if (!game.deck || seen.has(game.deck)) continue;
-    const deck = deckStats.find((d) => d.name === game.deck && !d.retired);
+    const deck = deckStats.find((d) => deckKey(d) === game.deck && !d.retired);
     if (!deck) continue;
     seen.add(game.deck);
     recent.push(deck);
@@ -2153,7 +2170,7 @@ function renderLogForm() {
       <label>My deck<select name="deck" required><option value="">Select…</option>${decks
         .map(
           (d) =>
-            `<option value="${escapeHtml(d.name)}" data-bracket="${d.bracket}" ${editing?.deck === d.name ? "selected" : ""}>${escapeHtml(d.name)}</option>`
+            `<option value="${escapeHtml(deckKey(d))}" data-bracket="${d.bracket}" ${editing?.deck === deckKey(d) ? "selected" : ""}>${escapeHtml(deckLabel(d))}</option>`
         )
         .join("")}</select></label>
       <label>Bracket<select name="bracket"><option value="" ${!bracketVal ? "selected" : ""}>—</option>${[
@@ -2207,9 +2224,9 @@ function renderLogForm() {
           .map(
             (d) => `
           <div class="quick-deck">
-            <span class="quick-name">${colorBadge(d.colors)} ${escapeHtml(d.name)}</span>
-            <button type="button" class="btn btn-sm win quick-win" data-deck="${escapeHtml(d.name)}">W</button>
-            <button type="button" class="btn btn-sm loss quick-loss" data-deck="${escapeHtml(d.name)}">L</button>
+            <span class="quick-name">${colorBadge(d.colors)} ${escapeHtml(deckLabel(d))}</span>
+            <button type="button" class="btn btn-sm win quick-win" data-deck="${escapeHtml(deckKey(d))}">W</button>
+            <button type="button" class="btn btn-sm loss quick-loss" data-deck="${escapeHtml(deckKey(d))}">L</button>
           </div>`
           )
           .join("")}
@@ -2219,8 +2236,9 @@ function renderLogForm() {
 
 function gameRow(g) {
   const cls = g.result === "Win" ? "win" : "loss";
+  const deckDisplay = deckLabelForKey(g.deck, data.decks);
   return `<tr data-deck="${escapeHtml(g.deck)}" data-result="${g.result}" data-year="${gameYear(g.date)}">
-    <td><button type="button" class="link-btn view-game" data-id="${g.id}">${formatDate(g.date)}</button></td><td class="deck-name"><button type="button" class="link-btn deck-link" data-deck-detail="${escapeHtml(g.deck)}">${escapeHtml(g.deck)}</button></td>
+    <td><button type="button" class="link-btn view-game" data-id="${g.id}">${formatDate(g.date)}</button></td><td class="deck-name"><button type="button" class="link-btn deck-link" data-deck-detail="${escapeHtml(g.deck)}">${escapeHtml(deckDisplay)}</button></td>
     <td>${g.mySeat || "—"}</td><td>${g.turn || "—"}</td>
     <td><span class="result-pill ${cls}">${g.result}</span></td>
     <td class="row-actions">
@@ -2356,7 +2374,7 @@ function syncResultFromSeats() {
 
 async function importDeckListForSelected(url) {
   if (!selectedDeckName) return;
-  const deck = data.decks.find((d) => d.name === selectedDeckName);
+  const deck = findDeck(data.decks, selectedDeckName);
   if (!deck) return;
 
   const trimmed = String(url || "").trim();
