@@ -9,7 +9,7 @@ import {
 import { getCommanderInfo, getCommanderMatchupIdentities, commanderMatchesTarget } from "./commander-names.js";
 import { resolveCommanderColors } from "./commander-colors.js";
 import { deckKey, deckCommander, deckId, deckTitle, findDeck, deckLabelForKey, deckTitleForKey } from "./deck-identity.js";
-import { winRate, normalizedWinRate } from "./stats.js";
+import { winRate, normalizedWinRate, computeTurnAverages } from "./stats.js";
 import { compareGamesChronologically, formatDate } from "./dates.js";
 import { commanderNames } from "./scryfall.js";
 import { computeWinRateSeries, renderWinRateLineChart } from "./trends-chart.js";
@@ -94,6 +94,33 @@ function computeSeatStats(games, seatFilter) {
     lastPlayed: lastPlayed?.date ?? null,
     winRate: winRate(wins, gamesCount),
     normalizedWr: normalizedWinRate(wins, gamesCount),
+    ...computeSeatTurnAverages(games, seatFilter),
+  };
+}
+
+/** @param {import('./store.js').Game[]} games @param {(seat: import('./matchups.js').GameSeat, seats: import('./matchups.js').GameSeat[], game: import('./store.js').Game) => boolean} seatFilter */
+function computeSeatTurnAverages(games, seatFilter) {
+  const winTurns = [];
+  const lossTurns = [];
+
+  for (const game of games) {
+    const turn = Number(game.turn);
+    if (!(turn > 0)) continue;
+
+    const seats = parseGameSeats(game);
+    for (const seat of seats) {
+      if (!seatFilter(seat, seats, game)) continue;
+      const outcome = seatOutcome(seat, seats);
+      if (outcome === "win") winTurns.push(turn);
+      else if (outcome === "loss") lossTurns.push(turn);
+    }
+  }
+
+  const avg = (nums) => (nums.length ? nums.reduce((sum, n) => sum + n, 0) / nums.length : null);
+
+  return {
+    avgTurnWin: avg(winTurns),
+    avgTurnLoss: avg(lossTurns),
   };
 }
 
@@ -256,6 +283,16 @@ function statBlock(label, value, isWr = false) {
   return `<div class="stat-card"><span class="stat-label">${label}</span>${rendered}</div>`;
 }
 
+function formatTurnAvg(value) {
+  return value != null ? value.toFixed(1) : "—";
+}
+
+function turnStatBlocks(stats) {
+  return `
+    ${statBlock("Avg Turn (Win)", formatTurnAvg(stats.avgTurnWin))}
+    ${statBlock("Avg Turn (Loss)", formatTurnAvg(stats.avgTurnLoss))}`;
+}
+
 function impactCell(value) {
   const cls = matchupImpactClass(value);
   return `<span class="impact-cell ${cls}">${formatMatchupImpact(value)}</span>`;
@@ -291,6 +328,7 @@ function computeMyDeckSlotStats(games, deckSlotId) {
     lastPlayed: lastPlayed?.date ?? null,
     winRate: winRate(wins, gamesCount),
     normalizedWr: normalizedWinRate(wins, gamesCount),
+    ...computeTurnAverages(deckGames),
   };
 }
 
@@ -513,6 +551,7 @@ export function renderEntityReportModal(report, decks, activeMatchupTab = "playe
     ${statBlock("Wins", report.stats.wins)}
     ${statBlock("Win rate", report.stats.games ? report.stats.winRate : 0, !!report.stats.games)}
     ${statBlock("Norm WR", report.stats.games ? report.stats.normalizedWr : 0, !!report.stats.games)}
+    ${turnStatBlocks(report.stats)}
     ${statBlock("Last played", report.stats.lastPlayed ? formatDate(report.stats.lastPlayed) : "—")}`;
 
   const chart =
