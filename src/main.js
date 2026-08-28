@@ -5,6 +5,7 @@ import {
   importData,
   resetToSeed,
   nextGameId,
+  nextDeckId,
   getLastSeedSync,
 } from "./store.js";
 import {
@@ -38,12 +39,15 @@ import {
 } from "./color-stats.js";
 import {
   deckKey,
+  deckId,
   deckTitle,
   deckLabel,
+  deckCommander,
   findDeck,
   deckMapByKey,
   deckLabelForKey,
   deckTitleForKey,
+  resolveMyCommander,
 } from "./deck-identity.js";
 import {
   buildEntityReport,
@@ -146,7 +150,7 @@ let gameModalOpen = false;
 let viewingGameId = null;
 let editingGameId = null;
 let editingDeckName = null;
-/** @type {{ kind: 'player' | 'deck', key: string, playerScope?: string | null } | null} */
+/** @type {{ kind: 'player' | 'deck', key: string, playerScope?: string | null, deckSlotId?: string | null } | null} */
 let entityReport = null;
 /** @type {'players' | 'decks'} */
 let entityReportMatchupTab = "players";
@@ -272,8 +276,8 @@ function renderMatchupOpponentDeckCell(row, decks) {
   return renderDeckReportLink(row.opponent, decks, { label: row.opponent });
 }
 
-function openEntityReport(kind, key, playerScope = null) {
-  entityReport = { kind, key, playerScope };
+function openEntityReport(kind, key, playerScope = null, deckSlotId = null) {
+  entityReport = { kind, key, playerScope, deckSlotId };
   entityReportMatchupTab = "players";
   syncEntityReportModal();
 }
@@ -404,7 +408,8 @@ function bindEvents() {
       openEntityReport(
         entityBtn.dataset.entityReport,
         entityBtn.dataset.entityKey,
-        entityBtn.dataset.entityPlayerScope || null
+        entityBtn.dataset.entityPlayerScope || null,
+        entityBtn.dataset.entityDeckSlot || null
       );
       return;
     }
@@ -780,9 +785,9 @@ function bindEvents() {
       if (!editingDeckName) return;
       if (!confirm("Delete this deck?")) return;
       const key = editingDeckName;
-      data.decks = data.decks.filter((d) => deckKey(d) !== key);
+      data.decks = data.decks.filter((d) => deckId(d) !== key);
       data.games = data.games.filter((g) => g.deck !== key);
-      if (entityReport?.kind === "deck" && entityReport.key === key) {
+      if (entityReport?.deckSlotId === key || entityReport?.key === key) {
         entityReport = null;
         syncEntityReportModal();
       }
@@ -884,6 +889,7 @@ function bindEvents() {
       const commander = String(fd.get("commander") || "").trim();
       if (!commander) return toast("Commander is required", true);
       const deck = {
+        id: nextDeckId(data),
         name: String(fd.get("name") || "").trim(),
         commander,
         bracket: Number(fd.get("bracket")),
@@ -891,25 +897,19 @@ function bindEvents() {
         retired: fd.get("retired") === "on",
         createdAt: fd.get("createdAt") || todayISO(),
       };
-      const originalKey = String(fd.get("originalKey") || "").trim();
+      const originalId = String(fd.get("originalId") || "").trim();
 
-      if (originalKey) {
-        const idx = data.decks.findIndex((d) => deckKey(d) === originalKey);
+      if (originalId) {
+        const idx = data.decks.findIndex((d) => deckId(d) === originalId);
         if (idx < 0) return toast("Deck not found", true);
-        if (deckKey(deck) !== originalKey && data.decks.some((d) => deckKey(d) === deckKey(deck))) {
-          return toast("Deck exists", true);
-        }
         const existing = data.decks[idx];
-        data.decks[idx] = { ...existing, ...deck };
-        if (deckKey(deck) !== originalKey) {
-          for (const game of data.games) {
-            if (game.deck === originalKey) game.deck = deckKey(deck);
-          }
-          if (entityReport?.kind === "deck" && entityReport.key === originalKey) {
-            entityReport = { ...entityReport, key: deckKey(deck) };
-          }
-          if (editingDeckName === originalKey) editingDeckName = deckKey(deck);
-        }
+        const commanderClash = data.decks.some(
+          (d) =>
+            deckId(d) !== originalId &&
+            getCommanderInfo(deckCommander(d)).canonicalName === getCommanderInfo(commander).canonicalName
+        );
+        if (commanderClash) return toast("Another deck already uses that commander", true);
+        data.decks[idx] = { ...existing, ...deck, id: originalId };
         editingDeckName = null;
         saveData(data);
         document.getElementById("deck-modal")?.classList.add("hidden");
@@ -919,7 +919,13 @@ function bindEvents() {
         return;
       }
 
-      if (data.decks.some((d) => deckKey(d) === deckKey(deck))) return toast("Deck exists", true);
+      if (
+        data.decks.some(
+          (d) => getCommanderInfo(deckCommander(d)).canonicalName === getCommanderInfo(commander).canonicalName
+        )
+      ) {
+        return toast("Deck exists", true);
+      }
       data.decks.push(deck);
       saveData(data);
       document.getElementById("deck-modal")?.classList.add("hidden");
@@ -1156,6 +1162,7 @@ function syncEntityReportModal() {
     kind: entityReport.kind,
     key: entityReport.key,
     playerScope: entityReport.playerScope,
+    deckSlotId: entityReport.deckSlotId,
     splitPartners: totalsSplitPartners,
   });
 
@@ -1169,7 +1176,7 @@ function syncEntityReportModal() {
   modal.classList.remove("hidden");
   modal.innerHTML = renderEntityReportModal(report, data.decks, entityReportMatchupTab);
   bindWinRateLineCharts();
-  void loadImagesIntoEntityReport(report.title);
+  void loadImagesIntoEntityReport(report.displayCommander || report.title);
 }
 
 function render() {
@@ -1255,7 +1262,7 @@ function renderPodium(podium, labelForDeck = deckLabel) {
       (deck, index) => `
       <div class="podium-slot podium-${index + 1}">
         <span class="podium-rank">${labels[index]}</span>
-        <strong class="podium-name">${renderDeckReportLink(deckKey(deck), data.decks, { label: labelForDeck(deck), playerScope: MY_PLAYER_NAME })}</strong>
+        <strong class="podium-name">${renderDeckReportLink(deckCommander(deck), data.decks, { label: labelForDeck(deck), playerScope: MY_PLAYER_NAME, deckSlotId: deckId(deck) })}</strong>
         <span class="podium-meta">${deck.wins}W · ${deck.games}G · ${pct(deck.normalizedWr)} norm</span>
       </div>`
     )
@@ -1937,7 +1944,7 @@ function renderDecks() {
     showLastPlayed ? (d.lastPlayed ? formatDate(d.lastPlayed) : "—") : formatDate(d.createdAt);
 
   const editingDeck = editingDeckName
-    ? data.decks.find((d) => deckKey(d) === editingDeckName)
+    ? data.decks.find((d) => deckId(d) === editingDeckName)
     : null;
 
   return `
@@ -1982,7 +1989,7 @@ function renderDecks() {
             <th class="row-actions-col"></th>
           </tr></thead>
           <tbody>
-            ${list.length ? list.map((d) => `<tr><td class="deck-date">${dateCell(d)}</td><td class="deck-name">${renderDeckReportLink(deckKey(d), data.decks, { label: deckTitle(d) })}</td><td class="deck-colors">${colorBadge(d.colors)}</td><td class="deck-tight">${d.bracket}</td><td class="deck-tight">${d.games}</td><td class="deck-tight">${d.wins}</td><td class="deck-stat">${d.games ? pctCell(d.normalizedWr) : "—"}</td><td class="deck-stat">${d.games ? pctCell(d.winRate) : "—"}</td><td class="row-actions"><button type="button" class="btn-icon edit-deck" data-name="${escapeHtml(deckKey(d))}" title="Edit deck">✎</button></td></tr>`).join("") : '<tr><td colspan="9"></td></tr>'}
+            ${list.length ? list.map((d) => `<tr><td class="deck-date">${dateCell(d)}</td><td class="deck-name">${renderDeckReportLink(deckCommander(d), data.decks, { label: deckTitle(d), deckSlotId: deckId(d) })}</td><td class="deck-colors">${colorBadge(d.colors)}</td><td class="deck-tight">${d.bracket}</td><td class="deck-tight">${d.games}</td><td class="deck-tight">${d.wins}</td><td class="deck-stat">${d.games ? pctCell(d.normalizedWr) : "—"}</td><td class="deck-stat">${d.games ? pctCell(d.winRate) : "—"}</td><td class="row-actions"><button type="button" class="btn-icon edit-deck" data-name="${escapeHtml(deckId(d))}" title="Edit deck">✎</button></td></tr>`).join("") : '<tr><td colspan="9"></td></tr>'}
           </tbody>
         </table>
       </div>
@@ -1991,7 +1998,7 @@ function renderDecks() {
       <div class="modal-content">
         <h3>${editingDeck ? "Edit Deck" : "Add Deck"}</h3>
         <form id="deck-form" class="deck-form">
-          ${editingDeck ? `<input type="hidden" name="originalKey" value="${escapeHtml(deckKey(editingDeck))}" />` : ""}
+          ${editingDeck ? `<input type="hidden" name="originalId" value="${escapeHtml(deckId(editingDeck))}" />` : ""}
           <label>Name<input name="name" placeholder="Optional deck name" value="${editingDeck ? escapeHtml(editingDeck.name || "") : ""}" /></label>
           <label>Commander<input name="commander" required value="${editingDeck ? escapeHtml(deckLabel(editingDeck)) : ""}" /></label>
           <label>Created<input type="date" name="createdAt" value="${editingDeck?.createdAt || todayISO()}" required /></label>
@@ -2021,7 +2028,7 @@ function renderGames() {
 
   const decks = [...data.decks]
     .sort((a, b) => deckLabel(a).localeCompare(deckLabel(b)))
-    .map((d) => deckKey(d));
+    .map((d) => deckId(d));
   const years = [...new Set(data.games.map((g) => gameYear(g.date)))].sort();
   const sort = tableSort["game-log"];
   const editing = editingGameId ? data.games.find((g) => g.id === editingGameId) : null;
@@ -2114,7 +2121,7 @@ function podPlayerName(game, seat) {
 }
 
 function podCommanderName(game, seat) {
-  if (Number(game.mySeat) === seat) return game.deck || "";
+  if (Number(game.mySeat) === seat) return resolveMyCommander(game, data.decks);
   return opponentName(game, seat);
 }
 
@@ -2165,7 +2172,7 @@ function recentDecksPlayed(deckStats, limit = 5) {
 
   for (const game of sorted) {
     if (!game.deck || seen.has(game.deck)) continue;
-    const deck = deckStats.find((d) => deckKey(d) === game.deck && !d.retired);
+    const deck = deckStats.find((d) => deckId(d) === game.deck && !d.retired);
     if (!deck) continue;
     seen.add(game.deck);
     recent.push(deck);
@@ -2200,7 +2207,7 @@ function renderLogForm() {
       <label>My deck<select name="deck" required><option value="">Select…</option>${decks
         .map(
           (d) =>
-            `<option value="${escapeHtml(deckKey(d))}" data-bracket="${d.bracket}" ${editing?.deck === deckKey(d) ? "selected" : ""}>${escapeHtml(deckLabel(d))}</option>`
+            `<option value="${escapeHtml(deckId(d))}" data-bracket="${d.bracket}" ${editing?.deck === deckId(d) ? "selected" : ""}>${escapeHtml(deckLabel(d))}</option>`
         )
         .join("")}</select></label>
       <label>Bracket<select name="bracket"><option value="" ${!bracketVal ? "selected" : ""}>—</option>${[
@@ -2255,8 +2262,8 @@ function renderLogForm() {
             (d) => `
           <div class="quick-deck">
             <span class="quick-name">${colorBadge(d.colors)} ${escapeHtml(deckLabel(d))}</span>
-            <button type="button" class="btn btn-sm win quick-win" data-deck="${escapeHtml(deckKey(d))}">W</button>
-            <button type="button" class="btn btn-sm loss quick-loss" data-deck="${escapeHtml(deckKey(d))}">L</button>
+            <button type="button" class="btn btn-sm win quick-win" data-deck="${escapeHtml(deckId(d))}">W</button>
+            <button type="button" class="btn btn-sm loss quick-loss" data-deck="${escapeHtml(deckId(d))}">L</button>
           </div>`
           )
           .join("")}
@@ -2266,9 +2273,15 @@ function renderLogForm() {
 
 function gameRow(g) {
   const cls = g.result === "Win" ? "win" : "loss";
-  const deckDisplay = deckLabelForKey(g.deck, data.decks);
+  const deck = findDeck(data.decks, g.deck);
+  const deckDisplay = deck ? deckTitle(deck) : deckTitleForKey(g.deck, data.decks);
+  const deckLink = renderDeckReportLink(deck ? deckCommander(deck) : resolveMyCommander(g, data.decks), data.decks, {
+    label: deckDisplay,
+    playerScope: MY_PLAYER_NAME,
+    deckSlotId: g.deck,
+  });
   return `<tr data-deck="${escapeHtml(g.deck)}" data-result="${g.result}" data-year="${gameYear(g.date)}">
-    <td><button type="button" class="link-btn view-game" data-id="${g.id}">${formatDate(g.date)}</button></td><td class="deck-name">${renderDeckReportLink(g.deck, data.decks, { label: deckDisplay, playerScope: MY_PLAYER_NAME })}</td>
+    <td><button type="button" class="link-btn view-game" data-id="${g.id}">${formatDate(g.date)}</button></td><td class="deck-name">${deckLink}</td>
     <td>${g.mySeat || "—"}</td><td>${g.turn || "—"}</td>
     <td><span class="result-pill ${cls}">${g.result}</span></td>
     <td class="row-actions">
@@ -2325,6 +2338,15 @@ function parseGameForm(fd) {
   return game;
 }
 
+function applyGameCommanderSnapshot(payload, existingGame = null) {
+  const deck = findDeck(data.decks, payload.deck);
+  if (existingGame?.deck === payload.deck && existingGame.myCommander) {
+    payload.myCommander = existingGame.myCommander;
+    return;
+  }
+  if (deck) payload.myCommander = deckCommander(deck);
+}
+
 function saveGameFromForm(fd) {
   const payload = parseGameForm(fd);
   if (!payload.deck) return toast("Pick a deck", true);
@@ -2332,6 +2354,8 @@ function saveGameFromForm(fd) {
   if (editingGameId) {
     const idx = data.games.findIndex((g) => g.id === editingGameId);
     if (idx >= 0) {
+      const existing = data.games[idx];
+      applyGameCommanderSnapshot(payload, existing);
       const updated = {
         id: editingGameId,
         date: payload.date,
@@ -2339,6 +2363,7 @@ function saveGameFromForm(fd) {
         result: payload.result,
         source: "local",
       };
+      if (payload.myCommander) updated.myCommander = payload.myCommander;
       if (payload.mySeat) {
         updated.mySeat = payload.mySeat;
         updated.opponents = payload.opponents || [];
@@ -2358,6 +2383,7 @@ function saveGameFromForm(fd) {
     return;
   }
 
+  applyGameCommanderSnapshot(payload);
   data.games.push({ id: nextGameId(data.games), ...payload });
   saveData(data);
   gameModalOpen = false;

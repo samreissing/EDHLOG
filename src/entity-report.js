@@ -8,7 +8,7 @@ import {
 } from "./matchups.js";
 import { getCommanderInfo, getCommanderMatchupIdentities, commanderMatchesTarget } from "./commander-names.js";
 import { resolveCommanderColors } from "./commander-colors.js";
-import { deckKey, deckCommander, findDeck, deckLabelForKey } from "./deck-identity.js";
+import { deckKey, deckCommander, deckId, deckTitle, findDeck, deckLabelForKey, deckTitleForKey } from "./deck-identity.js";
 import { winRate, normalizedWinRate } from "./stats.js";
 import { compareGamesChronologically, formatDate } from "./dates.js";
 import { commanderNames } from "./scryfall.js";
@@ -236,18 +236,19 @@ export function renderPlayerReportLink(playerName, label = playerName) {
 /**
  * @param {string} commanderOrKey
  * @param {import('./store.js').Deck[]} decks
- * @param {{ label?: string, playerScope?: string | null }} [options]
+ * @param {{ label?: string, playerScope?: string | null, deckSlotId?: string | null }} [options]
  */
 export function renderDeckReportLink(commanderOrKey, decks, options = {}) {
-  const { label, playerScope = null } = options;
+  const { label, playerScope = null, deckSlotId = null } = options;
   const trimmed = String(commanderOrKey || "").trim();
-  if (!trimmed) return escapeHtml(label || "");
-  const owned = findOwnedDeckKey(trimmed, decks);
-  const key = owned || trimmed;
+  if (!trimmed && !deckSlotId) return escapeHtml(label || "");
+  const owned = deckSlotId ? null : findOwnedDeckKey(trimmed, decks);
+  const key = deckSlotId || owned || trimmed;
   const scopeAttr = playerScope
     ? ` data-entity-player-scope="${escapeHtml(playerScope)}"`
     : "";
-  return `<button type="button" class="link-btn entity-link" data-entity-report="deck" data-entity-key="${escapeHtml(key)}"${scopeAttr}>${escapeHtml(label || deckLabelForKey(key, decks))}</button>`;
+  const slotAttr = deckSlotId ? ` data-entity-deck-slot="${escapeHtml(deckSlotId)}"` : "";
+  return `<button type="button" class="link-btn entity-link" data-entity-report="deck" data-entity-key="${escapeHtml(key)}"${scopeAttr}${slotAttr}>${escapeHtml(label || deckLabelForKey(key, decks))}</button>`;
 }
 
 function statBlock(label, value, isWr = false) {
@@ -268,13 +269,45 @@ function renderMatchupOpponentCell(row, opponentKind, decks, playerScope) {
   return renderDeckReportLink(row.opponent, decks, { playerScope: playerScope || null });
 }
 
+function computeMyDeckSlotStats(games, deckSlotId) {
+  const deckGames = games.filter((game) => game.deck === deckSlotId);
+  let wins = 0;
+  /** @type {import('./store.js').Game | null} */
+  let lastPlayed = null;
+
+  for (const game of deckGames) {
+    if (game.result === "Win") wins += 1;
+    if (!lastPlayed || compareGamesChronologically(lastPlayed, game) < 0) {
+      lastPlayed = game;
+    }
+  }
+
+  const gamesCount = deckGames.length;
+  return {
+    games: gamesCount,
+    wins,
+    losses: gamesCount - wins,
+    sharedLosses: 0,
+    lastPlayed: lastPlayed?.date ?? null,
+    winRate: winRate(wins, gamesCount),
+    normalizedWr: normalizedWinRate(wins, gamesCount),
+  };
+}
+
+/** @param {import('./store.js').Game[]} games @param {string} deckSlotId */
+function chartGamesForDeckSlot(games, deckSlotId) {
+  return games
+    .filter((game) => game.deck === deckSlotId)
+    .map((game) => ({ date: game.date, result: game.result }));
+}
+
 /**
  * @param {import('./store.js').Game[]} games
  * @param {import('./store.js').Deck[]} decks
- * @param {{ kind: 'player' | 'deck', key: string, playerScope?: string | null, splitPartners?: boolean }} request
+ * @param {{ kind: 'player' | 'deck', key: string, playerScope?: string | null, splitPartners?: boolean, deckSlotId?: string | null }} request
  */
 export function buildEntityReport(games, decks, request) {
-  const { kind, key, playerScope = null, splitPartners = false } = request;
+  const { kind, key, playerScope = null, splitPartners = false, deckSlotId = null } = request;
 
   if (kind === "player") {
     const playerName = key;
@@ -305,9 +338,11 @@ export function buildEntityReport(games, decks, request) {
     const isMe = playerKey === normalizeEntityKey(MY_PLAYER_NAME);
     const ownedDecks = isMe
       ? decks.map((deck) => ({
-          key: deckKey(deck),
-          name: deckLabelForKey(deckKey(deck), decks),
-          games: games.filter((g) => g.deck === deckKey(deck)).length,
+          key: deckId(deck),
+          name: deckTitle(deck),
+          commander: deckCommander(deck),
+          deckSlotId: deckId(deck),
+          games: games.filter((g) => g.deck === deckId(deck)).length,
           owned: true,
         }))
       : [];
@@ -335,6 +370,41 @@ export function buildEntityReport(games, decks, request) {
       playerMatchups: buildEntityMatchupRows(games, "players", seatFilter),
       deckMatchups: buildEntityMatchupRows(games, "decks", seatFilter, { splitPartners }),
       playerScope: null,
+    };
+  }
+
+  if (kind === "deck" && deckSlotId) {
+    const deck = findDeck(decks, deckSlotId);
+    const title = deck ? deckTitle(deck) : deckTitleForKey(deckSlotId, decks);
+    const commanderName = deck ? deckCommander(deck) : deckLabelForKey(key, decks);
+    const slotStats = computeMyDeckSlotStats(games, deckSlotId);
+    const slotChartGames = chartGamesForDeckSlot(games, deckSlotId);
+    const seatFilter = (seat, seats, game) => {
+      if (game.deck !== deckSlotId) return false;
+      if (playerScope && normalizeEntityKey(seat.player) !== normalizeEntityKey(playerScope)) {
+        return false;
+      }
+      return normalizeEntityKey(seat.player) === normalizeEntityKey(MY_PLAYER_NAME);
+    };
+    const colors = resolveCommanderColors(commanderName, {
+      splitPartners,
+      ownedColors: deck?.colors,
+    });
+
+    return {
+      kind,
+      title,
+      subtitle: playerScope ? null : null,
+      colors,
+      stats: slotStats,
+      chartGames: slotChartGames,
+      deckList: [],
+      pilots: [],
+      playerMatchups: buildEntityMatchupRows(games, "players", seatFilter),
+      deckMatchups: buildEntityMatchupRows(games, "decks", seatFilter, { splitPartners }),
+      playerScope,
+      deckSlotId,
+      displayCommander: commanderName,
     };
   }
 
@@ -381,6 +451,8 @@ export function buildEntityReport(games, decks, request) {
     playerMatchups: buildEntityMatchupRows(games, "players", seatFilter),
     deckMatchups: buildEntityMatchupRows(games, "decks", seatFilter, { splitPartners }),
     playerScope,
+    deckSlotId: null,
+    displayCommander: commanderName,
   };
 }
 
@@ -451,7 +523,7 @@ export function renderEntityReportModal(report, decks, activeMatchupTab = "playe
   const matchupsSection = renderEntityMatchupsSection(report, decks, activeMatchupTab);
 
   if (report.kind === "deck") {
-    const commanders = commanderNames(report.title);
+    const commanders = commanderNames(report.displayCommander || report.title);
     const commanderImgs = commanders
       .map(
         (name) =>
@@ -514,11 +586,12 @@ export function renderEntityReportModal(report, decks, activeMatchupTab = "playe
         <ul class="entity-report-links">
           ${report.deckList
             .map(
-              (row) =>
-                `<li>${renderDeckReportLink(row.key, decks, {
-                  label: row.name,
-                  playerScope: report.title,
-                })} · ${row.games} game${row.games === 1 ? "" : "s"}</li>`
+                (row) =>
+                  `<li>${renderDeckReportLink(row.commander || row.key, decks, {
+                    label: row.name,
+                    playerScope: report.title,
+                    deckSlotId: row.deckSlotId || null,
+                  })} · ${row.games} game${row.games === 1 ? "" : "s"}</li>`
             )
             .join("")}
         </ul>

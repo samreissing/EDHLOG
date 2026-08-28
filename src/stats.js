@@ -36,8 +36,10 @@ export function normalizedWinRate(wins, games) {
 export function computeDeckStats(decks, games) {
   const map = new Map();
   for (const deck of decks) {
-    map.set(deckKey(deck), {
+    const id = deckId(deck);
+    map.set(id, {
       ...deck,
+      id,
       games: 0,
       wins: 0,
       losses: 0,
@@ -49,8 +51,9 @@ export function computeDeckStats(decks, games) {
     if (!map.has(key)) {
       const owned = findDeck(decks, key);
       map.set(key, {
+        id: owned?.id || key,
         name: owned?.name || "",
-        commander: owned?.commander || key,
+        commander: owned?.commander || game.myCommander || key,
         bracket: owned?.bracket ?? 4,
         colors: owned?.colors ?? [],
         retired: owned?.retired ?? false,
@@ -159,7 +162,7 @@ export function computeColorStats(deckStats) {
 }
 
 export function computeBracketStats(games, deckStats) {
-  const deckMap = new Map(deckStats.map((d) => [deckKey(d), d]));
+  const deckMap = new Map(deckStats.map((d) => [d.id || deckKey(d), d]));
   const brackets = [1, 2, 3, 4, 5].map((b) => ({ bracket: b, games: 0, wins: 0 }));
   for (const game of games) {
     const b = gameBracket(game, deckMap);
@@ -176,7 +179,7 @@ export function computeBracketStats(games, deckStats) {
 
 import { compareGamesChronologically, gameYear } from "./dates.js";
 import { canonicalizeColors, colorIdentitySortIndex } from "./color-identity.js";
-import { deckKey, deckMapByKey, deckTitle, findDeck } from "./deck-identity.js";
+import { deckId, deckKey, deckMapByKey, deckTitle, findDeck } from "./deck-identity.js";
 
 export function computeYearStats(games) {
   const byYear = new Map();
