@@ -130,6 +130,7 @@ let matchupColorView = "wubrgc";
 let matchupColorAgg = "inclusive";
 let matchupBracketFilter = "";
 let matchupSplitPartners = false;
+let matchupSplitPlayers = false;
 let totalsTab = "decks";
 let totalsSearch = "";
 let totalsSplitPartners = false;
@@ -221,6 +222,7 @@ function resetStatsTabState(tab) {
     matchupColorAgg = "inclusive";
     matchupBracketFilter = "";
     matchupSplitPartners = false;
+    matchupSplitPlayers = false;
     tableSort.matchups = { col: "normalizedMatchupImpact", dir: "desc" };
   } else if (tab === "totals") {
     totalsTab = "decks";
@@ -258,6 +260,16 @@ function resetGamesViewState() {
 
 function renderMatchupDeckCell(subject, decks) {
   return renderDeckReportLink(subject, decks, { label: subject });
+}
+
+function renderMatchupOpponentDeckCell(row, decks) {
+  if (matchupSplitPlayers && row.opponentPlayer) {
+    return renderDeckReportLink(row.opponent, decks, {
+      label: `${row.opponentPlayer} · ${row.opponent}`,
+      playerScope: row.opponentPlayer,
+    });
+  }
+  return renderDeckReportLink(row.opponent, decks, { label: row.opponent });
 }
 
 function openEntityReport(kind, key, playerScope = null) {
@@ -493,6 +505,12 @@ function bindEvents() {
 
     if (e.target.id === "matchup-split-partners") {
       matchupSplitPartners = e.target.checked;
+      render();
+      return;
+    }
+
+    if (e.target.id === "matchup-split-players") {
+      matchupSplitPlayers = e.target.checked;
       render();
       return;
     }
@@ -1110,6 +1128,7 @@ function getStats() {
     rolling: computeRolling100Stats(statsGames),
     matchups: computeAllMatchups(statsGames, {
       splitPartners: matchupSplitPartners,
+      splitPlayers: matchupSplitPlayers,
       colorOptions: {
         decks: data.decks,
         deckFilter: statsDeckFilter,
@@ -1663,7 +1682,9 @@ function renderStats() {
       if (!query) return true;
       if (isDeckTab) {
         return (
-          row.opponent.toLowerCase().includes(query) || row.subject.toLowerCase().includes(query)
+          row.opponent.toLowerCase().includes(query) ||
+          row.subject.toLowerCase().includes(query) ||
+          (row.opponentPlayer && row.opponentPlayer.toLowerCase().includes(query))
         );
       }
       if (isColorTab) {
@@ -1717,7 +1738,16 @@ function renderStats() {
       <div class="filters inline matchup-filters">
         ${renderStatsDeckFilterToggle()}
         ${
-          isDeckTab || isColorTab
+          isDeckTab
+            ? `<label class="checkbox matchup-split-partners">
+          <input type="checkbox" id="matchup-split-partners" ${matchupSplitPartners ? "checked" : ""} />
+          Split partners
+        </label>
+        <label class="checkbox matchup-split-players">
+          <input type="checkbox" id="matchup-split-players" ${matchupSplitPlayers ? "checked" : ""} />
+          Split Players
+        </label>`
+            : isColorTab
             ? `<label class="checkbox matchup-split-partners">
           <input type="checkbox" id="matchup-split-partners" ${matchupSplitPartners ? "checked" : ""} />
           Split partners
@@ -1733,7 +1763,7 @@ function renderStats() {
           ${opponentHeader}
           ${sortHeader("matchups", "games", "G", tableSort.matchups)}
           ${sortHeader("matchups", "wins", "W", tableSort.matchups)}
-          ${isDeckTab ? sortHeader("matchups", "opponentCount", "Pop", tableSort.matchups) : ""}
+          ${isDeckTab && !matchupSplitPlayers ? sortHeader("matchups", "opponentCount", "Pop", tableSort.matchups) : ""}
           ${sortHeader("matchups", "winRate", "WR", tableSort.matchups)}
           ${sortHeader("matchups", "matchupImpact", "MI", tableSort.matchups)}
           ${sortHeader("matchups", "normalizedMatchupImpact", "NMI", tableSort.matchups)}
@@ -1755,14 +1785,14 @@ function renderStats() {
               }
               ${
                 isDeckTab
-                  ? `<td class="matchup-deck-col">${renderDeckReportLink(row.opponent, data.decks, { label: row.opponent })}</td>`
+                  ? `<td class="matchup-deck-col">${renderMatchupOpponentDeckCell(row, data.decks)}</td>`
                   : isColorTab
                     ? `<td class="matchup-color-col"><span class="color-label">${colorBadge(row.opponentColors || [])}</span></td>`
                     : `<td>${renderPlayerReportLink(row.opponent)}</td>`
               }
               <td>${row.games}</td>
               <td>${row.wins}</td>
-              ${isDeckTab ? `<td class="matchup-pop-col">${row.opponentCount ? `<span class="matchup-pop-trigger has-tip" data-matchup-row-index="${rowIndex}">${row.opponentCount}</span>` : "—"}</td>` : ""}
+              ${isDeckTab && !matchupSplitPlayers ? `<td class="matchup-pop-col">${row.opponentCount ? `<span class="matchup-pop-trigger has-tip" data-matchup-row-index="${rowIndex}">${row.opponentCount}</span>` : "—"}</td>` : ""}
               <td>${pctCell(row.winRate)}</td>
               <td>${impactCell(row.matchupImpact)}</td>
               <td>${impactCell(row.normalizedMatchupImpact)}</td>
@@ -1773,7 +1803,7 @@ function renderStats() {
             .join("")}
         </tbody>
       </table>
-      ${isDeckTab ? `<div id="matchup-deck-tip" class="deck-opponent-tip" hidden></div>` : ""}`;
+      ${isDeckTab && !matchupSplitPlayers ? `<div id="matchup-deck-tip" class="deck-opponent-tip" hidden></div>` : ""}`;
   } else if (statsTab === "totals") {
     const isDeckTab = totalsTab === "decks";
     const isPlayerTab = totalsTab === "players";

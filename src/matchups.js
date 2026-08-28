@@ -72,14 +72,31 @@ function winnerSeatForGame(game) {
   return 0;
 }
 
-/** @param {GameSeat} mySeat @param {GameSeat} opponentSeat @param {'players' | 'decks'} tabId @param {{ splitPartners?: boolean }} [options] */
+/** @param {GameSeat} mySeat @param {GameSeat} opponentSeat @param {'players' | 'decks'} tabId @param {{ splitPartners?: boolean, splitPlayers?: boolean }} [options] */
 function matchupPairs(mySeat, opponentSeat, tabId, options = {}) {
   if (tabId === "players") {
     return [matchupPairKeys(mySeat, opponentSeat, tabId)];
   }
 
-  const { splitPartners = false } = options;
+  const { splitPartners = false, splitPlayers = false } = options;
   const pairs = [];
+  if (splitPlayers) {
+    const player = opponentSeat.player?.trim();
+    if (!player) return pairs;
+    for (const subject of getCommanderMatchupIdentities(mySeat.deck, { splitPartners })) {
+      for (const opponent of getCommanderMatchupIdentities(opponentSeat.commander, { splitPartners })) {
+        pairs.push({
+          subjectKey: `d:${normalizeKey(subject)}`,
+          subjectLabel: subject,
+          opponentKey: `dc:${normalizeKey(opponent)}__p:${normalizeKey(player)}`,
+          opponentLabel: opponent,
+          opponentPlayer: player,
+        });
+      }
+    }
+    return pairs;
+  }
+
   for (const subject of getCommanderMatchupIdentities(mySeat.deck, { splitPartners })) {
     for (const opponent of getCommanderMatchupIdentities(opponentSeat.commander, { splitPartners })) {
       pairs.push({
@@ -172,10 +189,10 @@ export function matchupImpactClass(value) {
  * Matchups from Brass's perspective only: me vs players, or my deck vs opponent decks.
  * @param {import('./store.js').Game[]} games
  * @param {'players' | 'decks'} tabId
- * @param {{ splitPartners?: boolean }} [options]
+ * @param {{ splitPartners?: boolean, splitPlayers?: boolean }} [options]
  */
 export function buildMyMatchupRows(games, tabId, options = {}) {
-  const { splitPartners = false } = options;
+  const { splitPartners = false, splitPlayers = false } = options;
   const rows = new Map();
 
   for (const game of games) {
@@ -189,12 +206,8 @@ export function buildMyMatchupRows(games, tabId, options = {}) {
       if (opponentSeat === mySeat) continue;
       if (tabId === "players" && !opponentSeat.player) continue;
 
-      for (const { subjectKey, subjectLabel, opponentKey, opponentLabel } of matchupPairs(
-        mySeat,
-        opponentSeat,
-        tabId,
-        { splitPartners }
-      )) {
+      for (const pair of matchupPairs(mySeat, opponentSeat, tabId, { splitPartners, splitPlayers })) {
+        const { subjectKey, subjectLabel, opponentKey, opponentLabel, opponentPlayer } = pair;
         if (subjectKey === opponentKey) continue;
 
         const mapKey = `${subjectKey}__${opponentKey}`;
@@ -205,11 +218,12 @@ export function buildMyMatchupRows(games, tabId, options = {}) {
             opponentKey,
             subject: subjectLabel,
             opponent: opponentLabel,
+            opponentPlayer,
             games: 0,
             wins: 0,
             losses: 0,
             sharedLosses: 0,
-            opponentPlayers: tabId === "decks" ? new Map() : undefined,
+            opponentPlayers: tabId === "decks" && !splitPlayers ? new Map() : undefined,
           });
 
         row.games += 1;
@@ -217,7 +231,7 @@ export function buildMyMatchupRows(games, tabId, options = {}) {
         else if (opponentSeat.didWin) row.losses += 1;
         else row.sharedLosses += 1;
 
-        if (tabId === "decks" && opponentSeat.player && row.opponentPlayers) {
+        if (tabId === "decks" && !splitPlayers && opponentSeat.player && row.opponentPlayers) {
           row.opponentPlayers.set(
             opponentSeat.player,
             (row.opponentPlayers.get(opponentSeat.player) || 0) + 1
@@ -359,12 +373,13 @@ export function buildColorMatchupRows(games, options) {
   });
 }
 
-/** @param {import('./store.js').Game[]} games @param {{ splitPartners?: boolean, colorOptions?: object }} [options] */
+/** @param {import('./store.js').Game[]} games @param {{ splitPartners?: boolean, splitPlayers?: boolean, colorOptions?: object }} [options] */
 export function computeAllMatchups(games, options = {}) {
   const splitPartners = options.splitPartners ?? false;
+  const splitPlayers = options.splitPlayers ?? false;
   return {
     players: buildMyMatchupRows(games, "players", { splitPartners }),
-    decks: buildMyMatchupRows(games, "decks", { splitPartners }),
+    decks: buildMyMatchupRows(games, "decks", { splitPartners, splitPlayers }),
     colors: options.colorOptions
       ? buildColorMatchupRows(games, { ...options.colorOptions, splitPartners })
       : [],
