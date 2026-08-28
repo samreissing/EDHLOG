@@ -2087,6 +2087,19 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   font-size: 0.95rem;
 }
 
+.entity-report-matchups {
+  margin-top: 1.25rem;
+}
+
+.entity-report-matchup-tabs {
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+}
+
+.entity-report-matchup-panel {
+  min-width: 0;
+}
+
 .entity-report-links {
   list-style: none;
   margin: 0;
