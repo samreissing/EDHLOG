@@ -2001,7 +2001,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 }
 
 .modal-content-report {
-  width: min(760px, 96vw);
+  width: min(860px, 96vw);
   max-height: 92vh;
   overflow-y: auto;
 }
@@ -2013,31 +2013,54 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   margin-bottom: 1rem;
 }
 
-.entity-report-title-wrap {
-  display: flex;
-  gap: 1rem;
-  align-items: flex-start;
-}
-
-.entity-report-images .commander-img {
-  width: 72px;
-  height: auto;
-}
-
 .entity-report-title {
   margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+  font-size: 1.35rem;
+  line-height: 1.3;
 }
 
 .entity-report-subtitle {
   margin: 0.25rem 0 0;
 }
 
+.entity-report-deck-hero {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  align-items: start;
+  margin-bottom: 1.25rem;
+}
+
+.entity-report-deck-art {
+  min-width: 0;
+}
+
+.entity-report-deck-art .entity-report-images {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.entity-report-deck-art .commander-img {
+  width: 100%;
+  max-width: none;
+  height: auto;
+}
+
+.entity-report-deck-stats {
+  min-width: 0;
+}
+
+.entity-report-deck-stats .entity-report-stats {
+  margin-bottom: 0;
+}
+
 .entity-report-stats {
   margin-bottom: 1rem;
+}
+
+.entity-report-pilots {
+  margin-top: 0;
 }
 
 .entity-report-section {
@@ -2045,6 +2068,22 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 }
 
 .entity-report-section h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+}
+
+.entity-report-matchups {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  margin-top: 1.25rem;
+}
+
+.entity-report-matchup-col {
+  min-width: 0;
+}
+
+.entity-report-matchup-col h4 {
   margin: 0 0 0.5rem;
   font-size: 0.95rem;
 }
@@ -2066,7 +2105,18 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   margin-top: 0.25rem;
 }
 
+.entity-report-matchup-col .entity-matchup-table {
+  font-size: 0.85rem;
+}
+
 .entity-report-chart .trends-chart-wrap {
   margin-top: 0;
+}
+
+@media (max-width: 720px) {
+  .entity-report-deck-hero,
+  .entity-report-matchups {
+    grid-template-columns: 1fr;
+  }
 }
 
