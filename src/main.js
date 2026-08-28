@@ -1138,7 +1138,7 @@ function getStats() {
       colorOptions: {
         decks: data.decks,
         deckFilter: statsDeckFilter,
-        bracketFilter: matchupBracketFilter,
+        bracketFilter: "",
         view: matchupColorView,
         agg: matchupColorAgg,
       },
@@ -1709,22 +1709,24 @@ function renderStats() {
         ? "Search my or opponent colors"
         : "Search opponents";
 
-    const colorFilters = isColorTab
-      ? `
-      <div class="filters inline color-mode-filters matchup-color-filters">
-        <button type="button" class="btn btn-ghost btn-sm" id="matchup-color-view-toggle">${colorViewLabel(matchupColorView)}</button>
+    const colorToolbarControls = isColorTab
+      ? `<button type="button" class="btn btn-ghost btn-sm" id="matchup-color-view-toggle">${colorViewLabel(matchupColorView)}</button>
         <button type="button" class="btn btn-ghost btn-sm" id="matchup-color-agg-toggle">${matchupColorAgg === "inclusive" ? "Inclusive" : "Exclusive"}</button>
-      </div>
-      <div class="bracket-filter-row matchup-bracket-filters">
-        ${["", "1", "2", "3", "4", "5"]
-          .map(
-            (b) => `
-          <button type="button" class="btn btn-ghost btn-sm bracket-filter-btn ${matchupBracketFilter === b ? "active" : ""}" data-matchup-bracket-filter="${b}">
-            ${b ? `Bracket ${b}` : "All Brackets"}
-          </button>`
-          )
-          .join("")}
-      </div>`
+        <label class="checkbox matchup-split-partners">
+          <input type="checkbox" id="matchup-split-partners" ${matchupSplitPartners ? "checked" : ""} />
+          Split partners
+        </label>`
+      : "";
+
+    const deckToolbarControls = isDeckTab
+      ? `<label class="checkbox matchup-split-partners">
+          <input type="checkbox" id="matchup-split-partners" ${matchupSplitPartners ? "checked" : ""} />
+          Split partners
+        </label>
+        <label class="checkbox matchup-split-players">
+          <input type="checkbox" id="matchup-split-players" ${matchupSplitPlayers ? "checked" : ""} />
+          Split Players
+        </label>`
       : "";
 
     const subjectHeader = isDeckTab
@@ -1741,26 +1743,10 @@ function renderStats() {
 
     body = `
       ${subTabs(MATCHUP_TABS, matchupTab, "matchup-tab")}
-      ${colorFilters}
       <div class="filters inline matchup-filters">
         ${renderStatsDeckFilterToggle()}
-        ${
-          isDeckTab
-            ? `<label class="checkbox matchup-split-partners">
-          <input type="checkbox" id="matchup-split-partners" ${matchupSplitPartners ? "checked" : ""} />
-          Split partners
-        </label>
-        <label class="checkbox matchup-split-players">
-          <input type="checkbox" id="matchup-split-players" ${matchupSplitPlayers ? "checked" : ""} />
-          Split Players
-        </label>`
-            : isColorTab
-            ? `<label class="checkbox matchup-split-partners">
-          <input type="checkbox" id="matchup-split-partners" ${matchupSplitPartners ? "checked" : ""} />
-          Split partners
-        </label>`
-            : ""
-        }
+        ${colorToolbarControls}
+        ${deckToolbarControls}
         <input type="search" id="matchup-search" class="input matchup-search" placeholder="${searchPlaceholder}" value="${escapeHtml(matchupSearch)}" />
       </div>
       <table class="table compact sortable-table matchup-table">
