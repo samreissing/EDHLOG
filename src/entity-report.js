@@ -9,7 +9,7 @@ import {
 import { getCommanderInfo, getCommanderMatchupIdentities, commanderMatchesTarget } from "./commander-names.js";
 import { resolveCommanderColors } from "./commander-colors.js";
 import { deckKey, deckCommander, findDeck, deckLabelForKey } from "./deck-identity.js";
-import { winRate, normalizedWinRate, colorBadge } from "./stats.js";
+import { winRate, normalizedWinRate } from "./stats.js";
 import { compareGamesChronologically, formatDate } from "./dates.js";
 import { commanderNames } from "./scryfall.js";
 import { computeWinRateSeries, renderWinRateLineChart } from "./trends-chart.js";
@@ -405,109 +405,127 @@ function mergeDeckLists(ownedDecks, playedDecks) {
  * @param {import('./store.js').Deck[]} decks
  */
 export function renderEntityReportModal(report, decks) {
-  const rootKey = report.kind === "player" ? report.title : report.title;
-  const commanders = report.kind === "deck" ? commanderNames(report.title) : [];
-  const commanderImgs =
-    report.kind === "deck"
-      ? commanders
-          .map(
-            (name) =>
-              `<img class="commander-img loading" data-card-name="${escapeHtml(name)}" alt="${escapeHtml(name)}" title="${escapeHtml(name)}" />`
-          )
-          .join("")
-      : "";
-
-  const deckSection =
-    report.kind === "player" && report.deckList.length
-      ? `<div class="entity-report-section">
-          <h4>Decks</h4>
-          <ul class="entity-report-links">
-            ${report.deckList
-              .map(
-                (row) =>
-                  `<li>${renderDeckReportLink(row.key, decks, {
-                    label: row.name,
-                    playerScope: report.title,
-                  })} · ${row.games} game${row.games === 1 ? "" : "s"}</li>`
-              )
-              .join("")}
-          </ul>
-        </div>`
-      : "";
-
-  const pilotSection =
-    report.kind === "deck" && !report.playerScope && report.pilots.length
-      ? `<div class="entity-report-section">
-          <h4>Piloted by</h4>
-          <ul class="entity-report-links">
-            ${report.pilots
-              .map(
-                (row) =>
-                  `<li>${renderPlayerReportLink(row.player)} · ${row.games} game${row.games === 1 ? "" : "s"}</li>`
-              )
-              .join("")}
-          </ul>
-        </div>`
-      : "";
+  const rootKey = report.title;
+  const statsHtml = `
+    ${statBlock("Games", report.stats.games)}
+    ${statBlock("Wins", report.stats.wins)}
+    ${statBlock("Win rate", report.stats.games ? report.stats.winRate : 0, !!report.stats.games)}
+    ${statBlock("Norm WR", report.stats.games ? report.stats.normalizedWr : 0, !!report.stats.games)}
+    ${statBlock("Last played", report.stats.lastPlayed ? formatDate(report.stats.lastPlayed) : "—")}`;
 
   const chart =
     report.chartGames.length > 0
-      ? renderWinRateLineChart(computeWinRateSeries(report.chartGames), "Performance over time")
+      ? renderWinRateLineChart(computeWinRateSeries(report.chartGames), "")
       : `<p class="muted-text entity-report-empty">No games logged yet.</p>`;
 
-  return `
-    <div class="modal-content modal-content-wide modal-content-report" data-entity-report-root="${escapeHtml(rootKey)}">
-      <div class="entity-report-header">
-        <button type="button" class="btn btn-ghost btn-sm" id="close-entity-report">Close</button>
-        <div class="entity-report-title-wrap">
-          ${
-            report.kind === "deck"
-              ? `<div class="deck-commander-images entity-report-images">${commanderImgs}</div>`
-              : ""
-          }
-          <div>
-            <h3 class="entity-report-title">
-              ${report.kind === "deck" ? colorBadge(report.colors) : ""}
-              ${escapeHtml(report.title)}
-            </h3>
-            ${
-              report.kind === "deck" && report.playerScope
-                ? `<p class="muted-text entity-report-subtitle">Scoped to this player&apos;s games</p>`
-                : ""
-            }
-          </div>
-        </div>
-      </div>
-
-      <div class="stat-grid entity-report-stats">
-        ${statBlock("Games", report.stats.games)}
-        ${statBlock("Wins", report.stats.wins)}
-        ${statBlock("Win rate", report.stats.games ? report.stats.winRate : 0, !!report.stats.games)}
-        ${statBlock("Norm WR", report.stats.games ? report.stats.normalizedWr : 0, !!report.stats.games)}
-        ${statBlock("Last played", report.stats.lastPlayed ? formatDate(report.stats.lastPlayed) : "—")}
-      </div>
-
-      ${deckSection}
-      ${pilotSection}
-
-      <div class="entity-report-section">
-        <h4>Performance over time</h4>
-        <div class="entity-report-chart">${chart}</div>
-      </div>
-
-      <div class="entity-report-section">
+  const matchupsHtml = `
+    <div class="entity-report-matchups">
+      <div class="entity-report-matchup-col">
         <h4>Player matchups</h4>
         ${renderMatchupTableWithCells(report.playerMatchups, (row) =>
           renderMatchupOpponentCell(row, "player", decks, report.playerScope)
         )}
       </div>
-
-      <div class="entity-report-section">
+      <div class="entity-report-matchup-col">
         <h4>Deck matchups</h4>
         ${renderMatchupTableWithCells(report.deckMatchups, (row) =>
           renderMatchupOpponentCell(row, "deck", decks, report.playerScope)
         )}
       </div>
+    </div>`;
+
+  if (report.kind === "deck") {
+    const commanders = commanderNames(report.title);
+    const commanderImgs = commanders
+      .map(
+        (name) =>
+          `<img class="commander-img loading" data-card-name="${escapeHtml(name)}" alt="${escapeHtml(name)}" title="${escapeHtml(name)}" />`
+      )
+      .join("");
+
+    const pilotSection =
+      !report.playerScope && report.pilots.length
+        ? `<div class="entity-report-section entity-report-pilots">
+            <h4>Piloted by</h4>
+            <ul class="entity-report-links">
+              ${report.pilots
+                .map(
+                  (row) =>
+                    `<li>${renderPlayerReportLink(row.player)} · ${row.games} game${row.games === 1 ? "" : "s"}</li>`
+                )
+                .join("")}
+            </ul>
+          </div>`
+        : "";
+
+    return `
+      <div class="modal-content modal-content-wide modal-content-report entity-report-deck" data-entity-report-root="${escapeHtml(rootKey)}">
+        <div class="entity-report-header">
+          <button type="button" class="btn btn-ghost btn-sm" id="close-entity-report">Close</button>
+          <div>
+            <h3 class="entity-report-title">${escapeHtml(report.title)}</h3>
+            ${
+              report.playerScope
+                ? `<p class="muted-text entity-report-subtitle">Scoped to this player&apos;s games</p>`
+                : ""
+            }
+          </div>
+        </div>
+
+        <div class="entity-report-deck-hero">
+          <div class="entity-report-deck-art">
+            <div class="deck-commander-images entity-report-images">${commanderImgs}</div>
+          </div>
+          <div class="entity-report-deck-stats">
+            <div class="stat-grid entity-report-stats">${statsHtml}</div>
+          </div>
+        </div>
+
+        ${pilotSection}
+
+        <div class="entity-report-section entity-report-chart-section">
+          <h4>Performance over time</h4>
+          <div class="entity-report-chart">${chart}</div>
+        </div>
+
+        ${matchupsHtml}
+      </div>`;
+  }
+
+  const deckSection = report.deckList.length
+    ? `<div class="entity-report-section">
+        <h4>Decks</h4>
+        <ul class="entity-report-links">
+          ${report.deckList
+            .map(
+              (row) =>
+                `<li>${renderDeckReportLink(row.key, decks, {
+                  label: row.name,
+                  playerScope: report.title,
+                })} · ${row.games} game${row.games === 1 ? "" : "s"}</li>`
+            )
+            .join("")}
+        </ul>
+      </div>`
+    : "";
+
+  return `
+    <div class="modal-content modal-content-wide modal-content-report entity-report-player" data-entity-report-root="${escapeHtml(rootKey)}">
+      <div class="entity-report-header">
+        <button type="button" class="btn btn-ghost btn-sm" id="close-entity-report">Close</button>
+        <h3 class="entity-report-title">${escapeHtml(report.title)}</h3>
+      </div>
+
+      <div class="stat-grid entity-report-stats">${statsHtml}</div>
+
+      ${deckSection}
+
+      <div class="entity-report-section entity-report-chart-section">
+        <h4>Performance over time</h4>
+        <div class="entity-report-chart">${chart}</div>
+      </div>
+
+      ${matchupsHtml}
     </div>`;
 }
 
