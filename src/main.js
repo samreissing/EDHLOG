@@ -266,6 +266,24 @@ function openEntityReport(kind, key, playerScope = null) {
   syncEntityReportModal();
 }
 
+function switchEntityReportMatchupTab(tabId) {
+  if (!entityReport || (tabId !== "players" && tabId !== "decks")) return;
+  entityReportMatchupTab = tabId;
+
+  const modal = document.getElementById("entity-report-modal");
+  if (!modal) return;
+
+  modal.querySelectorAll("[data-entity-matchup-tab]").forEach((btn) => {
+    const active = btn.dataset.entityMatchupTab === tabId;
+    btn.classList.toggle("active", active);
+    btn.setAttribute("aria-selected", active ? "true" : "false");
+  });
+
+  modal.querySelectorAll("[data-entity-matchup-panel]").forEach((panel) => {
+    panel.hidden = panel.dataset.entityMatchupPanel !== tabId;
+  });
+}
+
 function getStatsScope() {
   const statsDecks = filterDecksForStats(data.decks, statsDeckFilter);
   const statsGames = filterGamesForStats(data.games, data.decks, statsDeckFilter);
@@ -387,8 +405,8 @@ function bindEvents() {
 
     const entityMatchupTabBtn = e.target.closest("[data-entity-matchup-tab]");
     if (entityMatchupTabBtn && entityReport) {
-      entityReportMatchupTab = entityMatchupTabBtn.dataset.entityMatchupTab;
-      syncEntityReportModal();
+      switchEntityReportMatchupTab(entityMatchupTabBtn.dataset.entityMatchupTab);
+      return;
     }
   });
 

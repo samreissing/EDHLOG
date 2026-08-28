@@ -414,19 +414,18 @@ function renderEntityMatchupsSection(report, decks, activeMatchupTab = "players"
     )
     .join("");
 
-  const table =
-    activeMatchupTab === "decks"
-      ? renderMatchupTableWithCells(report.deckMatchups, (row) =>
-          renderMatchupOpponentCell(row, "deck", decks, report.playerScope)
-        )
-      : renderMatchupTableWithCells(report.playerMatchups, (row) =>
-          renderMatchupOpponentCell(row, "player", decks, report.playerScope)
-        );
+  const playerPanel = renderMatchupTableWithCells(report.playerMatchups, (row) =>
+    renderMatchupOpponentCell(row, "player", decks, report.playerScope)
+  );
+  const deckPanel = renderMatchupTableWithCells(report.deckMatchups, (row) =>
+    renderMatchupOpponentCell(row, "deck", decks, report.playerScope)
+  );
 
   return `
     <div class="entity-report-section entity-report-matchups">
       <div class="sub-tabs entity-report-matchup-tabs" role="tablist">${tabButtons}</div>
-      <div class="entity-report-matchup-panel" role="tabpanel">${table}</div>
+      <div class="entity-report-matchup-panel" data-entity-matchup-panel="players" role="tabpanel" ${activeMatchupTab === "players" ? "" : "hidden"}>${playerPanel}</div>
+      <div class="entity-report-matchup-panel" data-entity-matchup-panel="decks" role="tabpanel" ${activeMatchupTab === "decks" ? "" : "hidden"}>${deckPanel}</div>
     </div>`;
 }
 
