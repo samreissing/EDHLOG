@@ -138,6 +138,7 @@ let matchupSplitPlayers = false;
 let totalsTab = "decks";
 let totalsSearch = "";
 let totalsSplitPartners = false;
+let totalsExcludeMe = false;
 let totalsColorView = "exact";
 let totalsColorAgg = "exclusive";
 /** @type {{ kind: 'all' } | { kind: 'window', rangeStart: number, rangeEnd: number } | { kind: 'cumulative', rangeEnd: number } | { kind: 'year', year: string }} */
@@ -232,6 +233,7 @@ function resetStatsTabState(tab) {
     totalsTab = "decks";
     totalsSearch = "";
     totalsSplitPartners = false;
+    totalsExcludeMe = false;
     totalsColorView = "exact";
     totalsColorAgg = "exclusive";
     tableSort["totals-decks"] = { col: "normalizedWr", dir: "desc" };
@@ -522,6 +524,12 @@ function bindEvents() {
 
     if (e.target.id === "totals-split-partners") {
       totalsSplitPartners = e.target.checked;
+      render();
+      return;
+    }
+
+    if (e.target.id === "totals-exclude-me") {
+      totalsExcludeMe = e.target.checked;
       render();
       return;
     }
@@ -1145,6 +1153,7 @@ function getStats() {
     }),
     totals: computeAllTotals(data.games, data.decks, {
       splitPartners: totalsSplitPartners,
+      excludeMyPlayer: totalsExcludeMe,
       view: totalsColorView,
       agg: totalsColorAgg,
     }),
@@ -1831,6 +1840,11 @@ function renderStats() {
         </label>`
         : "";
 
+    const excludeMeControl = `<label class="checkbox totals-exclude-me">
+      <input type="checkbox" id="totals-exclude-me" ${totalsExcludeMe ? "checked" : ""} />
+      Exclude my data
+    </label>`;
+
     const totalsSearchInput = `<input type="search" id="totals-search" class="input totals-search" placeholder="Search ${nameHeader.toLowerCase()}" value="${escapeHtml(totalsSearch)}" />`;
 
     const totalsToolbar = isColorTab
@@ -1838,10 +1852,12 @@ function renderStats() {
         <button type="button" class="btn btn-ghost btn-sm" id="totals-color-view-toggle">${colorViewLabel(totalsColorView)}</button>
         <button type="button" class="btn btn-ghost btn-sm" id="totals-color-agg-toggle">${totalsColorAgg === "inclusive" ? "Inclusive" : "Exclusive"}</button>
         ${splitPartnersControl}
+        ${excludeMeControl}
         ${totalsSearchInput}
       </div>`
       : `<div class="filters inline totals-filters">
         ${splitPartnersControl}
+        ${excludeMeControl}
         ${totalsSearchInput}
       </div>`;
 
