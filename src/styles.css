@@ -531,6 +531,13 @@ th.sortable.sorted {
   flex-shrink: 0;
 }
 
+.stats-range-toolbar .stats-range-dates {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-left: auto;
+}
+
 .totals-ci-col,
 .totals-color-col {
   width: 4.5rem;
