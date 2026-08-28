@@ -1174,6 +1174,11 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   white-space: nowrap;
 }
 
+.totals-exclude-me {
+  margin-right: 0.75rem;
+  white-space: nowrap;
+}
+
 .totals-search {
   min-width: min(320px, 100%);
   padding: 0.5rem 0.75rem;

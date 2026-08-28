@@ -1,4 +1,5 @@
 import { parseGameSeats } from "./matchups.js";
+import { MY_PLAYER_NAME } from "./opponent-search.js";
 import { getCommanderInfo, getCommanderMatchupIdentities } from "./commander-names.js";
 import { resolveCommanderColors } from "./commander-colors.js";
 import { deckKey, deckCommander, findDeck } from "./deck-identity.js";
@@ -19,6 +20,11 @@ function normalizeKey(value) {
   return String(value || "")
     .trim()
     .toLowerCase();
+}
+
+/** @param {import('./matchups.js').GameSeat} seat */
+function isMyPlayer(seat) {
+  return normalizeKey(seat.player) === normalizeKey(MY_PLAYER_NAME);
 }
 
 /** @param {import('./store.js').Deck[]} decks @param {string} commander */
@@ -58,15 +64,16 @@ function sortRankings(rows) {
 /**
  * @param {import('./store.js').Game[]} games
  * @param {import('./store.js').Deck[]} decks
- * @param {{ splitPartners?: boolean }} [options]
+ * @param {{ splitPartners?: boolean, excludeMyPlayer?: boolean }} [options]
  */
 export function buildPodDeckRankings(games, decks, options = {}) {
-  const { splitPartners = false } = options;
+  const { splitPartners = false, excludeMyPlayer = false } = options;
   const rows = new Map();
 
   for (const game of games) {
     const seats = parseGameSeats(game);
     for (const seat of seats) {
+      if (excludeMyPlayer && isMyPlayer(seat)) continue;
       if (!seat.commander) continue;
 
       for (const commander of getCommanderMatchupIdentities(seat.commander, { splitPartners })) {
@@ -121,13 +128,18 @@ export function buildPodDeckRankings(games, decks, options = {}) {
   );
 }
 
-/** @param {import('./store.js').Game[]} games */
-export function buildPodPlayerRankings(games) {
+/**
+ * @param {import('./store.js').Game[]} games
+ * @param {{ excludeMyPlayer?: boolean }} [options]
+ */
+export function buildPodPlayerRankings(games, options = {}) {
+  const { excludeMyPlayer = false } = options;
   const rows = new Map();
 
   for (const game of games) {
     const seats = parseGameSeats(game);
     for (const seat of seats) {
+      if (excludeMyPlayer && isMyPlayer(seat)) continue;
       const player = seat.player?.trim();
       if (!player) continue;
 
@@ -176,11 +188,12 @@ export function buildPodPlayerRankings(games) {
 /**
  * @param {import('./store.js').Game[]} games
  * @param {import('./store.js').Deck[]} decks
- * @param {{ splitPartners?: boolean, view?: 'wubrgc'|'all'|'exact', agg?: 'inclusive'|'exclusive' }} options
+ * @param {{ splitPartners?: boolean, excludeMyPlayer?: boolean, view?: 'wubrgc'|'all'|'exact', agg?: 'inclusive'|'exclusive' }} options
  */
 export function buildPodColorRankings(games, decks, options = {}) {
   const {
     splitPartners = false,
+    excludeMyPlayer = false,
     view = "exact",
     agg = "exclusive",
   } = options;
@@ -189,6 +202,7 @@ export function buildPodColorRankings(games, decks, options = {}) {
   for (const game of games) {
     const seats = parseGameSeats(game);
     for (const seat of seats) {
+      if (excludeMyPlayer && isMyPlayer(seat)) continue;
       if (!seat.commander) continue;
 
       for (const commander of getCommanderMatchupIdentities(seat.commander, { splitPartners })) {
@@ -249,7 +263,7 @@ export function buildPodColorRankings(games, decks, options = {}) {
 export function computeAllTotals(games, decks, options = {}) {
   return {
     decks: buildPodDeckRankings(games, decks, options),
-    players: buildPodPlayerRankings(games),
+    players: buildPodPlayerRankings(games, options),
     colors: buildPodColorRankings(games, decks, options),
   };
 }
