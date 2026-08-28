@@ -299,10 +299,12 @@ function getStatsScope() {
 function renderStatsToolbar(idPrefix, bounds, range, { deckFilter = false, extra = "" } = {}) {
   return `
     <div class="filters inline stats-range-toolbar seat-range-filters">
-      <label>From <input type="date" id="${idPrefix}-range-start" min="${bounds.min}" max="${bounds.max}" value="${range.start}" /></label>
-      <label>To <input type="date" id="${idPrefix}-range-end" min="${bounds.min}" max="${bounds.max}" value="${range.end}" /></label>
       ${deckFilter ? renderStatsDeckFilterToggle() : ""}
       ${extra}
+      <div class="stats-range-dates">
+        <label>From <input type="date" id="${idPrefix}-range-start" min="${bounds.min}" max="${bounds.max}" value="${range.start}" /></label>
+        <label>To <input type="date" id="${idPrefix}-range-end" min="${bounds.min}" max="${bounds.max}" value="${range.end}" /></label>
+      </div>
     </div>`;
 }
 
