@@ -19,6 +19,9 @@ export function toggleSort(state, col) {
   return { col, dir: "desc" };
 }
 
+/** When sorting by wins, break ties with win rate (same direction as primary sort). */
+export const WINS_SORT_TIE_BREAKERS = { wins: "winRate" };
+
 function normalizeTieBreakers(value) {
   if (!value) return [];
   return Array.isArray(value) ? value : [value];
