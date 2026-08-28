@@ -147,6 +147,8 @@ let editingGameId = null;
 let editingDeckName = null;
 /** @type {{ kind: 'player' | 'deck', key: string, playerScope?: string | null } | null} */
 let entityReport = null;
+/** @type {'players' | 'decks'} */
+let entityReportMatchupTab = "players";
 let deckSort = "normWr";
 let deckSortDir = "desc";
 let deckBracketFilter = "";
@@ -260,6 +262,7 @@ function renderMatchupDeckCell(subject, decks) {
 
 function openEntityReport(kind, key, playerScope = null) {
   entityReport = { kind, key, playerScope };
+  entityReportMatchupTab = "players";
   syncEntityReportModal();
 }
 
@@ -378,6 +381,13 @@ function bindEvents() {
 
     if (e.target.id === "close-entity-report") {
       entityReport = null;
+      syncEntityReportModal();
+      return;
+    }
+
+    const entityMatchupTabBtn = e.target.closest("[data-entity-matchup-tab]");
+    if (entityMatchupTabBtn && entityReport) {
+      entityReportMatchupTab = entityMatchupTabBtn.dataset.entityMatchupTab;
       syncEntityReportModal();
     }
   });
@@ -1120,7 +1130,7 @@ function syncEntityReportModal() {
   }
 
   modal.classList.remove("hidden");
-  modal.innerHTML = renderEntityReportModal(report, data.decks);
+  modal.innerHTML = renderEntityReportModal(report, data.decks, entityReportMatchupTab);
   bindWinRateLineCharts();
   void loadImagesIntoEntityReport(report.title);
 }

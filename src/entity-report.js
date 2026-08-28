@@ -400,11 +400,42 @@ function mergeDeckLists(ownedDecks, playedDecks) {
   return [...merged.values()].sort((a, b) => b.games - a.games || a.name.localeCompare(b.name));
 }
 
+/** @param {ReturnType<typeof buildEntityReport>} report @param {import('./store.js').Deck[]} decks @param {'players' | 'decks'} [activeMatchupTab] */
+function renderEntityMatchupsSection(report, decks, activeMatchupTab = "players") {
+  const tabs = [
+    { id: "players", label: "Player Matchups" },
+    { id: "decks", label: "Deck Matchups" },
+  ];
+
+  const tabButtons = tabs
+    .map(
+      (tab) =>
+        `<button type="button" role="tab" aria-selected="${tab.id === activeMatchupTab}" class="sub-tab ${tab.id === activeMatchupTab ? "active" : ""}" data-entity-matchup-tab="${tab.id}">${tab.label}</button>`
+    )
+    .join("");
+
+  const table =
+    activeMatchupTab === "decks"
+      ? renderMatchupTableWithCells(report.deckMatchups, (row) =>
+          renderMatchupOpponentCell(row, "deck", decks, report.playerScope)
+        )
+      : renderMatchupTableWithCells(report.playerMatchups, (row) =>
+          renderMatchupOpponentCell(row, "player", decks, report.playerScope)
+        );
+
+  return `
+    <div class="entity-report-section entity-report-matchups">
+      <div class="sub-tabs entity-report-matchup-tabs" role="tablist">${tabButtons}</div>
+      <div class="entity-report-matchup-panel" role="tabpanel">${table}</div>
+    </div>`;
+}
+
 /**
  * @param {ReturnType<typeof buildEntityReport>} report
  * @param {import('./store.js').Deck[]} decks
+ * @param {'players' | 'decks'} [activeMatchupTab]
  */
-export function renderEntityReportModal(report, decks) {
+export function renderEntityReportModal(report, decks, activeMatchupTab = "players") {
   const rootKey = report.title;
   const statsHtml = `
     ${statBlock("Games", report.stats.games)}
@@ -418,21 +449,7 @@ export function renderEntityReportModal(report, decks) {
       ? renderWinRateLineChart(computeWinRateSeries(report.chartGames), "")
       : `<p class="muted-text entity-report-empty">No games logged yet.</p>`;
 
-  const playerMatchupsSection = `
-    <div class="entity-report-section">
-      <h4>Player matchups</h4>
-      ${renderMatchupTableWithCells(report.playerMatchups, (row) =>
-        renderMatchupOpponentCell(row, "player", decks, report.playerScope)
-      )}
-    </div>`;
-
-  const deckMatchupsSection = `
-    <div class="entity-report-section">
-      <h4>Deck matchups</h4>
-      ${renderMatchupTableWithCells(report.deckMatchups, (row) =>
-        renderMatchupOpponentCell(row, "deck", decks, report.playerScope)
-      )}
-    </div>`;
+  const matchupsSection = renderEntityMatchupsSection(report, decks, activeMatchupTab);
 
   if (report.kind === "deck") {
     const commanders = commanderNames(report.title);
@@ -488,8 +505,7 @@ export function renderEntityReportModal(report, decks) {
           <div class="entity-report-chart">${chart}</div>
         </div>
 
-        ${playerMatchupsSection}
-        ${deckMatchupsSection}
+        ${matchupsSection}
       </div>`;
   }
 
@@ -526,8 +542,7 @@ export function renderEntityReportModal(report, decks) {
         <div class="entity-report-chart">${chart}</div>
       </div>
 
-      ${playerMatchupsSection}
-      ${deckMatchupsSection}
+      ${matchupsSection}
     </div>`;
 }
 
