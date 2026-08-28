@@ -36,7 +36,6 @@ import {
   colorViewLabel,
   cycleColorView,
 } from "./color-stats.js";
-import { renderDeckDetail } from "./deck-detail.js";
 import {
   deckKey,
   deckTitle,
@@ -47,22 +46,21 @@ import {
   deckTitleForKey,
 } from "./deck-identity.js";
 import {
-  renderCommanderDetail,
-  computeOpponentCommanderStats,
-} from "./commander-detail.js";
-import {
-  getCommanderColorIdentity,
-  warmCommanderColorCache,
-  collectOpponentCommanderNames,
-} from "./commander-colors.js";
-import { importDeckFromUrl } from "./deck-import.js";
-import { loadImagesIntoDeckDetail } from "./scryfall.js";
+  buildEntityReport,
+  renderEntityReportModal,
+  renderPlayerReportLink,
+  renderDeckReportLink,
+} from "./entity-report.js";
+import { loadImagesIntoEntityReport } from "./scryfall.js";
 import { bindPodAutocomplete, MY_PLAYER_NAME } from "./opponent-search.js";
 import {
   warmCommanderMatchupCache,
   collectPartnerCommanderNames,
-  getCommanderInfo,
 } from "./commander-names.js";
+import {
+  warmCommanderColorCache,
+  collectOpponentCommanderNames,
+} from "./commander-colors.js";
 import { bindModalBackdropDismiss } from "./modals.js";
 import {
   computeAllMatchups,
@@ -147,12 +145,8 @@ let gameModalOpen = false;
 let viewingGameId = null;
 let editingGameId = null;
 let editingDeckName = null;
-let selectedDeckName = null;
-/** @type {null | 'decks' | 'matchups'} */
-let deckDetailReturn = null;
-let selectedOpponentCommander = null;
-/** @type {null | 'matchups'} */
-let opponentDetailReturn = null;
+/** @type {{ kind: 'player' | 'deck', key: string, playerScope?: string | null } | null} */
+let entityReport = null;
 let deckSort = "normWr";
 let deckSortDir = "desc";
 let deckBracketFilter = "";
@@ -226,14 +220,6 @@ function resetStatsTabState(tab) {
     matchupBracketFilter = "";
     matchupSplitPartners = false;
     tableSort.matchups = { col: "normalizedMatchupImpact", dir: "desc" };
-    if (deckDetailReturn === "matchups") {
-      selectedDeckName = null;
-      deckDetailReturn = null;
-    }
-    if (opponentDetailReturn === "matchups") {
-      selectedOpponentCommander = null;
-      opponentDetailReturn = null;
-    }
   } else if (tab === "totals") {
     totalsTab = "decks";
     totalsSearch = "";
@@ -255,7 +241,6 @@ function resetDecksViewState() {
   deckBracketFilter = "";
   deckSort = "normWr";
   deckSortDir = "desc";
-  selectedDeckName = null;
   editingDeckName = null;
   tableSort["decks-main"] = { col: "normWr", dir: "desc" };
 }
@@ -268,22 +253,14 @@ function resetGamesViewState() {
   tableSort["game-log"] = { col: "date", dir: "desc" };
 }
 
-function findOwnedDeckName(subject, decks) {
-  const subjectCanonical = getCommanderInfo(subject).canonicalName;
-  for (const deck of decks) {
-    if (getCommanderInfo(deckLabel(deck)).canonicalName === subjectCanonical) {
-      return deckKey(deck);
-    }
-  }
-  return null;
-}
 
 function renderMatchupDeckCell(subject, decks) {
-  const owned = findOwnedDeckName(subject, decks);
-  if (owned) {
-    return `<button type="button" class="link-btn deck-link" data-deck-detail="${escapeHtml(owned)}">${escapeHtml(subject)}</button>`;
-  }
-  return escapeHtml(subject);
+  return renderDeckReportLink(subject, decks, { label: subject });
+}
+
+function openEntityReport(kind, key, playerScope = null) {
+  entityReport = { kind, key, playerScope };
+  syncEntityReportModal();
 }
 
 function getStatsScope() {
@@ -369,6 +346,10 @@ async function boot() {
       viewingGameId = null;
       render();
     },
+    entityReport: () => {
+      entityReport = null;
+      syncEntityReportModal();
+    },
   });
   renderNav();
   render();
@@ -384,6 +365,23 @@ async function boot() {
 }
 
 function bindEvents() {
+  document.addEventListener("click", (e) => {
+    const entityBtn = e.target.closest("[data-entity-report]");
+    if (entityBtn) {
+      openEntityReport(
+        entityBtn.dataset.entityReport,
+        entityBtn.dataset.entityKey,
+        entityBtn.dataset.entityPlayerScope || null
+      );
+      return;
+    }
+
+    if (e.target.id === "close-entity-report") {
+      entityReport = null;
+      syncEntityReportModal();
+    }
+  });
+
   document.getElementById("nav").addEventListener("click", (e) => {
     const btn = e.target.closest("[data-view]");
     if (!btn) return;
@@ -403,7 +401,6 @@ function bindEvents() {
       resetGamesViewState();
     }
     if (currentView !== "decks") {
-      selectedDeckName = null;
       editingDeckName = null;
     }
     renderNav();
@@ -578,14 +575,6 @@ function bindEvents() {
     const matchupBtn = e.target.closest("[data-matchup-tab]");
     if (matchupBtn) {
       const nextMatchupTab = matchupBtn.getAttribute("data-matchup-tab");
-      if (nextMatchupTab !== "decks" && deckDetailReturn === "matchups") {
-        selectedDeckName = null;
-        deckDetailReturn = null;
-      }
-      if (nextMatchupTab !== "decks" && opponentDetailReturn === "matchups") {
-        selectedOpponentCommander = null;
-        opponentDetailReturn = null;
-      }
       matchupTab = nextMatchupTab;
       render();
       return;
@@ -735,42 +724,6 @@ function bindEvents() {
       return;
     }
 
-    const deckDetailBtn = e.target.closest("[data-deck-detail]");
-    if (deckDetailBtn) {
-      selectedDeckName = deckDetailBtn.dataset.deckDetail;
-      selectedOpponentCommander = null;
-      opponentDetailReturn = null;
-      if (currentView === "stats" && statsTab === "matchups" && matchupTab === "decks") {
-        deckDetailReturn = "matchups";
-        render();
-        return;
-      }
-      deckDetailReturn = "decks";
-      currentView = "decks";
-      renderNav();
-      render();
-      return;
-    }
-
-    const opponentDetailBtn = e.target.closest("[data-opponent-detail]");
-    if (opponentDetailBtn) {
-      selectedOpponentCommander = opponentDetailBtn.dataset.opponentDetail;
-      selectedDeckName = null;
-      deckDetailReturn = null;
-      opponentDetailReturn = "matchups";
-      render();
-      return;
-    }
-
-    if (e.target.id === "deck-detail-back") {
-      selectedDeckName = null;
-      deckDetailReturn = null;
-      selectedOpponentCommander = null;
-      opponentDetailReturn = null;
-      render();
-      return;
-    }
-
     if (e.target.id === "add-deck-btn") {
       editingDeckName = null;
       render();
@@ -783,9 +736,9 @@ function bindEvents() {
       const key = editingDeckName;
       data.decks = data.decks.filter((d) => deckKey(d) !== key);
       data.games = data.games.filter((g) => g.deck !== key);
-      if (selectedDeckName === key) {
-        selectedDeckName = null;
-        deckDetailReturn = null;
+      if (entityReport?.kind === "deck" && entityReport.key === key) {
+        entityReport = null;
+        syncEntityReportModal();
       }
       editingDeckName = null;
       document.getElementById("deck-modal")?.classList.add("hidden");
@@ -879,9 +832,6 @@ function bindEvents() {
         el.disabled = false;
       });
       saveGameFromForm(new FormData(e.target));
-    } else if (e.target.id === "deck-list-form") {
-      e.preventDefault();
-      importDeckListForSelected(new FormData(e.target).get("listUrl"));
     } else if (e.target.id === "deck-form") {
       e.preventDefault();
       const fd = new FormData(e.target);
@@ -909,7 +859,9 @@ function bindEvents() {
           for (const game of data.games) {
             if (game.deck === originalKey) game.deck = deckKey(deck);
           }
-          if (selectedDeckName === originalKey) selectedDeckName = deckKey(deck);
+          if (entityReport?.kind === "deck" && entityReport.key === originalKey) {
+            entityReport = { ...entityReport, key: deckKey(deck) };
+          }
           if (editingDeckName === originalKey) editingDeckName = deckKey(deck);
         }
         editingDeckName = null;
@@ -1146,6 +1098,33 @@ function getStats() {
   };
 }
 
+function syncEntityReportModal() {
+  let modal = document.getElementById("entity-report-modal");
+  if (!entityReport) {
+    modal?.remove();
+    return;
+  }
+
+  const report = buildEntityReport(data.games, data.decks, {
+    kind: entityReport.kind,
+    key: entityReport.key,
+    playerScope: entityReport.playerScope,
+    splitPartners: totalsSplitPartners,
+  });
+
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "entity-report-modal";
+    modal.className = "modal";
+    document.body.appendChild(modal);
+  }
+
+  modal.classList.remove("hidden");
+  modal.innerHTML = renderEntityReportModal(report, data.decks);
+  bindWinRateLineCharts();
+  void loadImagesIntoEntityReport(report.title);
+}
+
 function render() {
   const matchupSearchFocused = document.activeElement?.id === "matchup-search";
   const matchupSearchPos = matchupSearchFocused ? document.activeElement.selectionStart : null;
@@ -1171,9 +1150,7 @@ function render() {
     syncBracketFromDeck();
     bindPodAutocomplete(document.getElementById("add-game-form"), data.games);
   }
-  if (selectedDeckName || selectedOpponentCommander) {
-    loadImagesIntoDeckDetail(selectedDeckName || selectedOpponentCommander);
-  }
+  syncEntityReportModal();
 
   if (matchupSearchFocused) {
     const el = document.getElementById("matchup-search");
@@ -1231,7 +1208,7 @@ function renderPodium(podium, labelForDeck = deckLabel) {
       (deck, index) => `
       <div class="podium-slot podium-${index + 1}">
         <span class="podium-rank">${labels[index]}</span>
-        <strong class="podium-name">${escapeHtml(labelForDeck(deck))}</strong>
+        <strong class="podium-name">${renderDeckReportLink(deckKey(deck), data.decks, { label: labelForDeck(deck), playerScope: MY_PLAYER_NAME })}</strong>
         <span class="podium-meta">${deck.wins}W · ${deck.games}G · ${pct(deck.normalizedWr)} norm</span>
       </div>`
     )
@@ -1627,24 +1604,6 @@ function renderStats() {
       </div>
       ${renderChartSection(seatChart, "clear-seats-chart")}`;
   } else if (statsTab === "matchups") {
-    if (selectedDeckName && deckDetailReturn === "matchups" && matchupTab === "decks") {
-      const deck = data.decks.find((d) => deckKey(d) === selectedDeckName);
-      if (deck) {
-        const stats = getStats().deckStats.find((d) => deckKey(d) === selectedDeckName);
-        return `<section class="section">${subTabs(STATS_TABS, statsTab, "stats-tab")}${renderDeckDetail(deck, stats, { backLabel: "← Back to matchups" })}</section>`;
-      }
-      selectedDeckName = null;
-      deckDetailReturn = null;
-    }
-
-    if (selectedOpponentCommander && opponentDetailReturn === "matchups" && matchupTab === "decks") {
-      const profile = computeOpponentCommanderStats(data.games, selectedOpponentCommander, {
-        splitPartners: matchupSplitPartners,
-      });
-      const colors = getCommanderColorIdentity(selectedOpponentCommander);
-      return `<section class="section">${subTabs(STATS_TABS, statsTab, "stats-tab")}${renderCommanderDetail({ ...profile, colors }, { backLabel: "← Back to matchups" })}</section>`;
-    }
-
     const isDeckTab = matchupTab === "decks";
     const isColorTab = matchupTab === "colors";
     const query = matchupSearch.trim().toLowerCase();
@@ -1768,10 +1727,10 @@ function renderStats() {
               }
               ${
                 isDeckTab
-                  ? `<td class="matchup-deck-col"><button type="button" class="link-btn deck-link" data-opponent-detail="${escapeHtml(row.opponent)}">${escapeHtml(row.opponent)}</button></td>`
+                  ? `<td class="matchup-deck-col">${renderDeckReportLink(row.opponent, data.decks, { label: row.opponent })}</td>`
                   : isColorTab
                     ? `<td class="matchup-color-col"><span class="color-label">${colorBadge(row.opponentColors || [])}</span></td>`
-                    : `<td>${escapeHtml(row.opponent)}</td>`
+                    : `<td>${renderPlayerReportLink(row.opponent)}</td>`
               }
               <td>${row.games}</td>
               <td>${row.wins}</td>
@@ -1863,10 +1822,10 @@ function renderStats() {
               <td class="col-rank">${row.rank}</td>
               ${
                 isDeckTab
-                  ? `<td class="totals-name-col">${escapeHtml(row.name)}</td><td class="totals-color-col"><span class="color-label">${colorBadge(row.colors || [])}</span></td>`
+                  ? `<td class="totals-name-col">${renderDeckReportLink(row.name, data.decks, { label: row.name })}</td><td class="totals-color-col"><span class="color-label">${colorBadge(row.colors || [])}</span></td>`
                   : isColorTab
                     ? `<td class="totals-color-col"><span class="color-label">${colorBadge(row.displayColors || [])}</span></td>`
-                    : `<td>${escapeHtml(row.name)}</td>`
+                    : `<td>${renderPlayerReportLink(row.name)}</td>`
               }
               ${
                 isDeckTab
@@ -1898,16 +1857,6 @@ function escapeHtml(str) {
 }
 
 function renderDecks() {
-  if (selectedDeckName) {
-    const deck = findDeck(data.decks, selectedDeckName);
-    if (!deck) {
-      selectedDeckName = null;
-    } else {
-      const stats = getStats().deckStats.find((d) => deckKey(d) === deckKey(deck));
-      return renderDeckDetail(deck, stats);
-    }
-  }
-
   const { deckStats } = getStats();
   let list = deckStats;
   if (decksTab === "active") list = list.filter((d) => !d.retired);
@@ -1975,7 +1924,7 @@ function renderDecks() {
             <th class="row-actions-col"></th>
           </tr></thead>
           <tbody>
-            ${list.length ? list.map((d) => `<tr><td class="deck-date">${dateCell(d)}</td><td class="deck-name"><button type="button" class="link-btn deck-link" data-deck-detail="${escapeHtml(deckKey(d))}">${escapeHtml(deckTitle(d))}</button></td><td class="deck-colors">${colorBadge(d.colors)}</td><td class="deck-tight">${d.bracket}</td><td class="deck-tight">${d.games}</td><td class="deck-tight">${d.wins}</td><td class="deck-stat">${d.games ? pctCell(d.normalizedWr) : "—"}</td><td class="deck-stat">${d.games ? pctCell(d.winRate) : "—"}</td><td class="row-actions"><button type="button" class="btn-icon edit-deck" data-name="${escapeHtml(deckKey(d))}" title="Edit deck">✎</button></td></tr>`).join("") : '<tr><td colspan="9"></td></tr>'}
+            ${list.length ? list.map((d) => `<tr><td class="deck-date">${dateCell(d)}</td><td class="deck-name">${renderDeckReportLink(deckKey(d), data.decks, { label: deckTitle(d) })}</td><td class="deck-colors">${colorBadge(d.colors)}</td><td class="deck-tight">${d.bracket}</td><td class="deck-tight">${d.games}</td><td class="deck-tight">${d.wins}</td><td class="deck-stat">${d.games ? pctCell(d.normalizedWr) : "—"}</td><td class="deck-stat">${d.games ? pctCell(d.winRate) : "—"}</td><td class="row-actions"><button type="button" class="btn-icon edit-deck" data-name="${escapeHtml(deckKey(d))}" title="Edit deck">✎</button></td></tr>`).join("") : '<tr><td colspan="9"></td></tr>'}
           </tbody>
         </table>
       </div>
@@ -2089,6 +2038,18 @@ function fieldValue(value, placeholder = "—") {
   return `<span class="field-value">${escapeHtml(text)}</span>`;
 }
 
+/** @param {string} value @param {'player' | 'deck'} [kind] @param {import('./store.js').Game | null} [game] @param {number | null} [seat] */
+function fieldValueLink(value, kind = "player", game = null, seat = null) {
+  if (value == null || value === "") {
+    return fieldValue("—");
+  }
+  if (kind === "player") {
+    return `<span class="field-value">${renderPlayerReportLink(value)}</span>`;
+  }
+  const playerScope = game && seat ? podPlayerName(game, seat) : null;
+  return `<span class="field-value">${renderDeckReportLink(value, data.decks, { label: value, playerScope })}</span>`;
+}
+
 function podPlayerName(game, seat) {
   if (Number(game.mySeat) === seat) return MY_PLAYER_NAME;
   return playerName(game, seat);
@@ -2125,8 +2086,8 @@ function renderGameDetail(game) {
           .map(
             (seat) => `
           <div class="pod-seat-row ${seatOutcomeClass(game, seat)}">
-            <label class="pod-player">Player ${seat}${fieldValue(podPlayerName(game, seat))}</label>
-            <label class="pod-commander">Commander${fieldValue(podCommanderName(game, seat))}</label>
+            <label class="pod-player">Player ${seat}${fieldValueLink(podPlayerName(game, seat))}</label>
+            <label class="pod-commander">Commander${fieldValueLink(podCommanderName(game, seat), "deck", game, seat)}</label>
           </div>`
           )
           .join("")}
@@ -2249,7 +2210,7 @@ function gameRow(g) {
   const cls = g.result === "Win" ? "win" : "loss";
   const deckDisplay = deckLabelForKey(g.deck, data.decks);
   return `<tr data-deck="${escapeHtml(g.deck)}" data-result="${g.result}" data-year="${gameYear(g.date)}">
-    <td><button type="button" class="link-btn view-game" data-id="${g.id}">${formatDate(g.date)}</button></td><td class="deck-name"><button type="button" class="link-btn deck-link" data-deck-detail="${escapeHtml(g.deck)}">${escapeHtml(deckDisplay)}</button></td>
+    <td><button type="button" class="link-btn view-game" data-id="${g.id}">${formatDate(g.date)}</button></td><td class="deck-name">${renderDeckReportLink(g.deck, data.decks, { label: deckDisplay, playerScope: MY_PLAYER_NAME })}</td>
     <td>${g.mySeat || "—"}</td><td>${g.turn || "—"}</td>
     <td><span class="result-pill ${cls}">${g.result}</span></td>
     <td class="row-actions">
@@ -2380,28 +2341,6 @@ function syncResultFromSeats() {
     const isWin = winnerSeat === mySeat;
     if (winInput) winInput.checked = isWin;
     if (lossInput) lossInput.checked = !isWin;
-  }
-}
-
-async function importDeckListForSelected(url) {
-  if (!selectedDeckName) return;
-  const deck = findDeck(data.decks, selectedDeckName);
-  if (!deck) return;
-
-  const trimmed = String(url || "").trim();
-  if (!trimmed) return toast("Paste a deck link", true);
-
-  try {
-    const result = await importDeckFromUrl(trimmed);
-    deck.listUrl = result.url;
-    deck.listSource = result.source;
-    deck.cards = result.cards;
-    deck.listSyncedAt = todayISO();
-    saveData(data);
-    toast(`Imported ${result.cards.length} cards`);
-    render();
-  } catch (err) {
-    toast(err.message || "Import failed", true);
   }
 }
 

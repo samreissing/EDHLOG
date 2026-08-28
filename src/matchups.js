@@ -261,7 +261,7 @@ function filterGamesForColorMatchups(games, decks, deckFilter, bracketFilter) {
     if (deckFilter === "active" && deck?.retired) return false;
     if (deckFilter === "retired" && !deck?.retired) return false;
     if (bracketFilter) {
-      const bracket = deck?.bracket ?? game.bracket;
+      const bracket = game.bracket ?? deck?.bracket ?? 4;
       if (String(bracket) !== bracketFilter) return false;
     }
     return true;

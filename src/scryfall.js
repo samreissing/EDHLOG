@@ -120,9 +120,8 @@ export async function fetchCardImages(names) {
   return out;
 }
 
-/** @param {string} deckName */
-export async function loadImagesIntoDeckDetail(deckName) {
-  const root = document.querySelector(`[data-deck-detail-root="${CSS.escape(deckName)}"]`);
+/** @param {ParentNode | Document} root */
+export async function loadImagesIntoRoot(root) {
   if (!root) return;
 
   const imgs = root.querySelectorAll("img[data-card-name]");
@@ -139,4 +138,16 @@ export async function loadImagesIntoDeckDetail(deckName) {
       img.classList.add("missing");
     }
   }
+}
+
+/** @param {string} deckName */
+export async function loadImagesIntoDeckDetail(deckName) {
+  const root = document.querySelector(`[data-deck-detail-root="${CSS.escape(deckName)}"]`);
+  return loadImagesIntoRoot(root);
+}
+
+/** @param {string} reportKey */
+export async function loadImagesIntoEntityReport(reportKey) {
+  const root = document.querySelector(`[data-entity-report-root="${CSS.escape(reportKey)}"]`);
+  return loadImagesIntoRoot(root);
 }
