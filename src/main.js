@@ -295,13 +295,18 @@ function getStatsScope() {
   return { statsDecks, statsGames, filteredDeckStats };
 }
 
-function renderDateRangeFilters(idPrefix, bounds, range, { deckFilter = false } = {}) {
+function renderStatsToolbar(idPrefix, bounds, range, { deckFilter = false, extra = "" } = {}) {
   return `
     <div class="filters inline stats-range-toolbar seat-range-filters">
-      ${deckFilter ? renderStatsDeckFilterToggle() : ""}
       <label>From <input type="date" id="${idPrefix}-range-start" min="${bounds.min}" max="${bounds.max}" value="${range.start}" /></label>
       <label>To <input type="date" id="${idPrefix}-range-end" min="${bounds.min}" max="${bounds.max}" value="${range.end}" /></label>
+      ${deckFilter ? renderStatsDeckFilterToggle() : ""}
+      ${extra}
     </div>`;
+}
+
+function renderDateRangeFilters(idPrefix, bounds, range, options = {}) {
+  return renderStatsToolbar(idPrefix, bounds, range, options);
 }
 
 function renderStatsDeckFilterToggle() {
@@ -1337,11 +1342,12 @@ function renderStats() {
     const colorsPie = getPieRenderState(pieSlices, "colors");
 
     body = `
-      ${renderDateRangeFilters("colors", chartRange.bounds, chartRange, { deckFilter: true })}
-      <div class="filters inline color-mode-filters">
+      ${renderStatsToolbar("colors", chartRange.bounds, chartRange, {
+        deckFilter: true,
+        extra: `
         <button type="button" class="btn btn-ghost btn-sm" id="color-view-toggle">${colorViewLabel(colorView)}</button>
-        <button type="button" class="btn btn-ghost btn-sm" id="color-agg-toggle">${colorAgg === "inclusive" ? "Inclusive" : "Exclusive"}</button>
-      </div>
+        <button type="button" class="btn btn-ghost btn-sm" id="color-agg-toggle">${colorAgg === "inclusive" ? "Inclusive" : "Exclusive"}</button>`,
+      })}
       <div class="chart-table-row">
         <div class="chart-table-grow">
           <table class="table compact sortable-table">
@@ -1837,6 +1843,7 @@ function renderStats() {
       <table class="table compact sortable-table totals-table">
         <thead><tr>
           <th class="col-rank">#</th>
+          ${isDeckTab ? `<th class="totals-ci-col">CI</th>` : ""}
           ${sortHeader(tableId, "name", nameHeader, tableSort[tableId])}
           ${extraHeader}
           ${sortHeader(tableId, "games", "G", tableSort[tableId])}
@@ -1852,7 +1859,7 @@ function renderStats() {
               <td class="col-rank">${row.rank}</td>
               ${
                 isDeckTab
-                  ? `<td class="totals-name-col">${row.colors?.length ? `<span class="color-label">${colorBadge(row.colors)}</span> ` : ""}${escapeHtml(row.name)}</td>`
+                  ? `<td class="totals-color-col"><span class="color-label">${colorBadge(row.colors || [])}</span></td><td class="totals-name-col">${escapeHtml(row.name)}</td>`
                   : isColorTab
                     ? `<td class="totals-color-col"><span class="color-label">${colorBadge(row.displayColors || [])}</span></td>`
                     : `<td>${escapeHtml(row.name)}</td>`
