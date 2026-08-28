@@ -1,4 +1,9 @@
 /** @param {import('./store.js').Deck} deck */
+export function deckId(deck) {
+  return String(deck?.id || "").trim();
+}
+
+/** @param {import('./store.js').Deck} deck */
 export function deckKey(deck) {
   return String(deck?.commander || deck?.name || "").trim();
 }
@@ -19,11 +24,21 @@ export function deckLabel(deck) {
   return deckCommander(deck);
 }
 
-/** @param {string} key @param {import('./store.js').Deck[]} decks */
-export function findDeck(decks, key) {
-  const trimmed = String(key || "").trim();
+/** @param {import('./store.js').Game} game @param {import('./store.js').Deck[]} decks */
+export function resolveMyCommander(game, decks) {
+  const snapshot = String(game.myCommander || "").trim();
+  if (snapshot) return snapshot;
+  const deck = findDeck(decks, game.deck);
+  if (deck) return deckCommander(deck);
+  return String(game.deck || "").trim();
+}
+
+/** @param {string} ref @param {import('./store.js').Deck[]} decks */
+export function findDeck(decks, ref) {
+  const trimmed = String(ref || "").trim();
   if (!trimmed) return null;
   return (
+    decks.find((deck) => deckId(deck) === trimmed) ||
     decks.find((deck) => deckKey(deck) === trimmed) ||
     decks.find((deck) => String(deck.name || "").trim() === trimmed) ||
     null
@@ -34,6 +49,8 @@ export function findDeck(decks, key) {
 export function deckMapByKey(decks) {
   const map = new Map();
   for (const deck of decks) {
+    const id = deckId(deck);
+    if (id) map.set(id, deck);
     const key = deckKey(deck);
     if (key) map.set(key, deck);
     const name = String(deck.name || "").trim();

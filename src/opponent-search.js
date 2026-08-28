@@ -80,7 +80,7 @@ export function collectPlayerCommanderLinks(games) {
 
   for (const game of games) {
     if (game.mySeat && game.deck) {
-      link(MY_PLAYER_NAME, game.deck, gameSortKey(game));
+      link(MY_PLAYER_NAME, game.myCommander || game.deck, gameSortKey(game));
     }
     for (const opp of game.opponents || []) {
       link(opp.player, opp.name, gameSortKey(game));

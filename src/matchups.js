@@ -16,7 +16,7 @@ export const MATCHUP_TABS = [
   { id: "colors", label: "Color Matchups" },
 ];
 
-/** @typedef {{ seat: number, player: string, deck: string, commander: string, didWin: boolean }} GameSeat */
+/** @typedef {{ seat: number, player: string, deck: string, commander: string, deckSlotId?: string, didWin: boolean }} GameSeat */
 
 function normalizeKey(value) {
   return String(value || "")
@@ -35,14 +35,16 @@ export function parseGameSeats(game) {
 
   if (game.mySeat || game.deck) {
     const player = game.myPlayer?.trim() || MY_PLAYER_NAME;
-    const deck = game.deck;
+    const deckSlotId = game.deck;
+    const commander = String(game.myCommander || "").trim() || deckSlotId;
     const seat = Number(game.mySeat) || 0;
     const winnerSeat = winnerSeatForGame(game);
     seats.push({
       seat,
       player,
-      deck,
-      commander: deck,
+      deck: commander,
+      deckSlotId,
+      commander,
       didWin: winnerSeat ? winnerSeat === seat : game.result === "Win",
     });
   }
@@ -300,7 +302,8 @@ export function buildColorMatchupRows(games, options) {
     if (!mySeat) continue;
 
     const myDeck = deckMap.get(game.deck);
-    const myIdentities = getCommanderMatchupIdentities(game.deck, { splitPartners });
+    const myCommander = game.myCommander || myDeck?.commander || "";
+    const myIdentities = getCommanderMatchupIdentities(myCommander, { splitPartners });
 
     for (const opponentSeat of seats) {
       if (opponentSeat === mySeat) continue;

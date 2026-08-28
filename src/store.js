@@ -1,10 +1,11 @@
 import { normalizeDate, todayISO } from "./dates.js";
+import { deckKey, deckCommander } from "./deck-identity.js";
 
 const STORAGE_KEY = "edhlog-data-v1";
 
 /** @typedef {{ name: string, qty: number, board: string }} DeckCard */
-/** @typedef {{ name: string, commander: string, bracket: number, colors: string[], retired: boolean, createdAt?: string, listUrl?: string, listSource?: 'moxfield' | 'deckstats', listSyncedAt?: string, cards?: DeckCard[] }} Deck */
-/** @typedef {{ id: string, date: string, time?: string, deck: string, result: 'Win' | 'Loss', source?: 'local', bracket?: number, mySeat?: number, myPlayer?: string, winnerSeat?: number, turn?: number, opponents?: { seat: number, name: string, player?: string }[] }} Game */
+/** @typedef {{ id?: string, name: string, commander: string, bracket: number, colors: string[], retired: boolean, createdAt?: string, listUrl?: string, listSource?: 'moxfield' | 'deckstats', listSyncedAt?: string, cards?: DeckCard[] }} Deck */
+/** @typedef {{ id: string, date: string, time?: string, deck: string, myCommander?: string, result: 'Win' | 'Loss', source?: 'local', bracket?: number, mySeat?: number, myPlayer?: string, winnerSeat?: number, turn?: number, opponents?: { seat: number, name: string, player?: string }[] }} Game */
 /** @typedef {{ seedHash?: string, seedGames?: number }} DataMeta */
 /** @typedef {{ meta?: DataMeta, decks: Deck[], games: Game[] }} AppData */
 
@@ -38,6 +39,65 @@ function migrateDeckCommanders(data) {
   return changed;
 }
 
+function migrateDeckIds(data) {
+  let changed = false;
+
+  /** @param {import('./store.js').AppData} appData */
+  function allocDeckId(appData) {
+    const nums = appData.decks
+      .map((deck) => deck.id)
+      .filter(Boolean)
+      .map((id) => {
+        const match = /^d-(\d+)$/.exec(id);
+        return match ? Number(match[1]) : 0;
+      });
+    const max = nums.length ? Math.max(...nums) : 0;
+    return `d-${max + 1}`;
+  }
+
+  for (const deck of data.decks) {
+    if (!deck.id) {
+      deck.id = allocDeckId(data);
+      changed = true;
+    }
+  }
+
+  /** @type {Map<string, string>} */
+  const refToId = new Map();
+  for (const deck of data.decks) {
+    const id = deck.id;
+    if (!id) continue;
+    refToId.set(id, id);
+    refToId.set(deckKey(deck), id);
+    refToId.set(deckCommander(deck), id);
+    const name = String(deck.name || "").trim();
+    if (name) refToId.set(name, id);
+  }
+
+  for (const game of data.games) {
+    const oldRef = game.deck;
+    const resolved = refToId.get(oldRef) || (data.decks.some((deck) => deck.id === oldRef) ? oldRef : null);
+    if (!resolved) continue;
+
+    if (!game.myCommander) {
+      if (oldRef !== resolved && !/^d-\d+$/.test(oldRef)) {
+        game.myCommander = oldRef;
+      } else {
+        const deck = data.decks.find((entry) => entry.id === resolved);
+        if (deck) game.myCommander = deckCommander(deck);
+      }
+      changed = true;
+    }
+
+    if (game.deck !== resolved) {
+      game.deck = resolved;
+      changed = true;
+    }
+  }
+
+  return changed;
+}
+
 function migrateDecks(data) {
   let changed = migrateDeckCommanders(data);
   const firstGameByDeck = new Map();
@@ -47,10 +107,11 @@ function migrateDecks(data) {
   }
   for (const deck of data.decks) {
     if (!deck.createdAt) {
-      deck.createdAt = firstGameByDeck.get(deck.commander) || firstGameByDeck.get(deck.name) || "2024-04-15";
+      deck.createdAt = firstGameByDeck.get(deck.id) || firstGameByDeck.get(deck.commander) || firstGameByDeck.get(deck.name) || "2024-04-15";
       changed = true;
     }
   }
+  if (migrateDeckIds(data)) changed = true;
   return changed;
 }
 
@@ -189,4 +250,17 @@ export function nextGameId(games) {
     .filter((n) => !Number.isNaN(n));
   const max = nums.length ? Math.max(...nums) : 0;
   return `game-${max + 1}`;
+}
+
+/** @param {import('./store.js').AppData} data */
+export function nextDeckId(data) {
+  const nums = data.decks
+    .map((deck) => deck.id)
+    .filter(Boolean)
+    .map((id) => {
+      const match = /^d-(\d+)$/.exec(id);
+      return match ? Number(match[1]) : 0;
+    });
+  const max = nums.length ? Math.max(...nums) : 0;
+  return `d-${max + 1}`;
 }
