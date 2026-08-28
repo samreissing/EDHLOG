@@ -36,6 +36,7 @@ import {
   colorColumnSortLabel,
   colorViewLabel,
   cycleColorView,
+  colorMatchupRowMatchesSearch,
 } from "./color-stats.js";
 import {
   deckKey,
@@ -1711,9 +1712,7 @@ function renderStats() {
         );
       }
       if (isColorTab) {
-        return (
-          row.opponent.toLowerCase().includes(query) || row.subject.toLowerCase().includes(query)
-        );
+        return colorMatchupRowMatchesSearch(row, query);
       }
       return row.opponent.toLowerCase().includes(query);
     });
@@ -1722,7 +1721,7 @@ function renderStats() {
     const searchPlaceholder = isDeckTab
       ? "Search my or opponent decks"
       : isColorTab
-        ? "Search my or opponent colors"
+        ? 'Search Color: "WUB"'
         : "Search opponents";
 
     const colorToolbarControls = isColorTab
