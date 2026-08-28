@@ -650,6 +650,15 @@ th.sortable.sorted {
 
 .matchup-filters {
   margin: 0.75rem 0 0;
+  width: 100%;
+}
+
+.matchup-filters .matchup-search {
+  margin-left: auto;
+}
+
+.matchup-split-players {
+  white-space: nowrap;
 }
 
 .matchup-search {
@@ -1146,6 +1155,11 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 
 .totals-filters {
   margin-bottom: 0.75rem;
+  width: 100%;
+}
+
+.totals-filters .totals-search {
+  margin-left: auto;
 }
 
 .totals-color-toolbar {
@@ -1154,7 +1168,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 }
 
 .totals-color-toolbar .totals-search {
-  flex: 1;
+  flex: 0 1 20rem;
   min-width: 8rem;
   max-width: 20rem;
   margin-left: auto;
