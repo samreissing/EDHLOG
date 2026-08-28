@@ -1143,11 +1143,6 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   margin-right: 0.35rem;
 }
 
-.matchup-color-filters,
-.matchup-bracket-filters {
-  margin-bottom: 0.75rem;
-}
-
 .matchup-split-partners {
   margin-right: 0.75rem;
   white-space: nowrap;
