@@ -23,7 +23,9 @@ export function winRate(wins, games) {
 }
 
 export function pct(n, digits = 2) {
-  return `${(n * 100).toFixed(digits)}%`;
+  const fixed = (n * 100).toFixed(digits);
+  const trimmed = digits > 0 ? fixed.replace(/\.?0+$/, "") : fixed;
+  return `${trimmed}%`;
 }
 
 /** Add 20 games (5W / 15L) to every deck before calculating win rate. */
