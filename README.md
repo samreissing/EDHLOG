@@ -12,6 +12,18 @@ Three pages with sub-tabs and filters:
 
 MTG mana symbol images for color identity. Data in **localStorage** with JSON export/import.
 
+**Important:** Game data is stored **per browser and per site**. Logging games on `localhost` is separate from [the live site](https://samreissing.github.io/EDHLOG/). Use **Export JSON** before switching devices or URLs, then **Import JSON** on the new site to restore logged games.
+
+### Recover games lost when moving to GitHub Pages
+
+If you logged games in the dev app (`npm run dev`) but they disappeared on the live site:
+
+1. On the **same computer/browser** where you used localhost, run `npm run dev` and open http://localhost:5173
+2. Click **Export JSON** in the footer (or run `copy(localStorage.getItem('edhlog-data-v1'))` in the browser console and save the clipboard to a `.json` file)
+3. On https://samreissing.github.io/EDHLOG/, click **Import JSON** and choose that file — import **merges** with the spreadsheet seed without wiping existing games
+
+The live site only has spreadsheet games until you import. Pod details and games logged only in the app are not in the Google Sheet.
+
 ## Quick Start
 
 ```bash
@@ -50,7 +62,7 @@ Deploy the `dist/` folder, or use the GitHub Actions workflow above.
 
 ## Data
 
-- `public/data/seed.json` — imported from your Google Sheet (904 games, 27 decks)
+- `public/data/seed.json` — imported from your Google Sheet (923 games, 27 decks)
 - To re-import from the spreadsheet:
 
 ```bash
