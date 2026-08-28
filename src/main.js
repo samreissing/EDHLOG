@@ -19,6 +19,7 @@ import {
   pct,
 } from "./stats.js";
 import { formatDate, gameSortKey, gameYear, normalizeTime, nowTime, todayISO, compareGamesChronologically } from "./dates.js";
+import { colorIdentitySortIndex } from "./color-identity.js";
 import { pctCell, valueCell, colorStatAverage } from "./wr-color.js";
 import { sortHeader, applySort, toggleSort } from "./table.js";
 import {
@@ -1795,6 +1796,7 @@ function renderStats() {
       tableSort[tableId],
       {
         name: (r) => r.name,
+        colors: (r) => colorIdentitySortIndex(r.colors || []),
         pilotCount: (r) => r.pilotCount ?? 0,
         commanderCount: (r) => r.commanderCount ?? 0,
         playerCount: (r) => r.playerCount ?? 0,
@@ -1843,8 +1845,8 @@ function renderStats() {
       <table class="table compact sortable-table totals-table">
         <thead><tr>
           <th class="col-rank">#</th>
-          ${isDeckTab ? `<th class="totals-ci-col">CI</th>` : ""}
           ${sortHeader(tableId, "name", nameHeader, tableSort[tableId])}
+          ${isDeckTab ? sortHeader(tableId, "colors", "Color Identity", tableSort[tableId], "totals-ci-col") : ""}
           ${extraHeader}
           ${sortHeader(tableId, "games", "G", tableSort[tableId])}
           ${sortHeader(tableId, "wins", "W", tableSort[tableId])}
@@ -1859,7 +1861,7 @@ function renderStats() {
               <td class="col-rank">${row.rank}</td>
               ${
                 isDeckTab
-                  ? `<td class="totals-color-col"><span class="color-label">${colorBadge(row.colors || [])}</span></td><td class="totals-name-col">${escapeHtml(row.name)}</td>`
+                  ? `<td class="totals-name-col">${escapeHtml(row.name)}</td><td class="totals-color-col"><span class="color-label">${colorBadge(row.colors || [])}</span></td>`
                   : isColorTab
                     ? `<td class="totals-color-col"><span class="color-label">${colorBadge(row.displayColors || [])}</span></td>`
                     : `<td>${escapeHtml(row.name)}</td>`
