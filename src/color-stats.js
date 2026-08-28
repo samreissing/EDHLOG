@@ -29,6 +29,71 @@ export function colorKeyLabel(key, view) {
   return rowLabel(key);
 }
 
+const COLOR_SEARCH_ALIASES = {
+  white: "W",
+  blue: "U",
+  black: "B",
+  red: "R",
+  green: "G",
+  colorless: "C",
+};
+
+function normalizeColorIdentityKey(key) {
+  if (!key || key === "C") return "C";
+  return [...key.toUpperCase().replace(/[^WUBRGC]/g, "")]
+    .filter((c, index, chars) => chars.indexOf(c) === index)
+    .sort((a, b) => colorOrderIndex(a) - colorOrderIndex(b))
+    .join("");
+}
+
+function parseColorSearchLetters(query) {
+  const text = String(query || "").trim().toLowerCase();
+  if (!text) return "";
+
+  const found = new Set();
+  for (const [name, letter] of Object.entries(COLOR_SEARCH_ALIASES)) {
+    if (text.includes(name)) found.add(letter);
+  }
+  for (const char of text.toUpperCase()) {
+    if ("WUBRGC".includes(char)) found.add(char);
+  }
+  return normalizeColorIdentityKey([...found].join(""));
+}
+
+/** @param {string} identityKey @param {string} query */
+export function colorIdentityKeyMatchesSearch(identityKey, query) {
+  const searchLetters = parseColorSearchLetters(query);
+  const text = String(query || "").trim().toLowerCase();
+  if (!searchLetters && !text) return true;
+
+  const key = normalizeColorIdentityKey(String(identityKey || ""));
+
+  if (searchLetters) {
+    if (key === searchLetters) return true;
+    if ([...searchLetters].every((color) => key.includes(color))) return true;
+    if (key.length === 1 && searchLetters.includes(key)) return true;
+  }
+
+  if (text) {
+    const label = rowLabel(key).toLowerCase();
+    if (label.includes(text)) return true;
+    if (key === "C" && text.includes("colorless")) return true;
+  }
+
+  return false;
+}
+
+/** @param {{ subjectKey?: string, opponentKey?: string }} row @param {string} query */
+export function colorMatchupRowMatchesSearch(row, query) {
+  if (!String(query || "").trim()) return true;
+  const subjectKey = String(row.subjectKey || "").replace(/^ci:/, "");
+  const opponentKey = String(row.opponentKey || "").replace(/^oci:/, "");
+  return (
+    colorIdentityKeyMatchesSearch(subjectKey, query) ||
+    colorIdentityKeyMatchesSearch(opponentKey, query)
+  );
+}
+
 /** @param {string[]} rowColors @param {string[]} deckColors @param {'inclusive'|'exclusive'} mode */
 export function rowMatchesDeck(rowColors, deckColors, mode) {
   const deck = deckColors || [];
