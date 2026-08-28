@@ -34,7 +34,7 @@ export function normalizedWinRate(wins, games) {
 export function computeDeckStats(decks, games) {
   const map = new Map();
   for (const deck of decks) {
-    map.set(deck.name, {
+    map.set(deckKey(deck), {
       ...deck,
       games: 0,
       wins: 0,
@@ -43,20 +43,23 @@ export function computeDeckStats(decks, games) {
     });
   }
   for (const game of games) {
-    if (!map.has(game.deck)) {
-      map.set(game.deck, {
-        name: game.deck,
-        bracket: 4,
-        colors: [],
-        retired: false,
-        createdAt: game.date,
+    const key = game.deck;
+    if (!map.has(key)) {
+      const owned = findDeck(decks, key);
+      map.set(key, {
+        name: owned?.name || "",
+        commander: owned?.commander || key,
+        bracket: owned?.bracket ?? 4,
+        colors: owned?.colors ?? [],
+        retired: owned?.retired ?? false,
+        createdAt: owned?.createdAt || game.date,
         games: 0,
         wins: 0,
         losses: 0,
         lastPlayed: null,
       });
     }
-    const d = map.get(game.deck);
+    const d = map.get(key);
     d.games += 1;
     if (game.result === "Win") d.wins += 1;
     else d.losses += 1;
@@ -100,7 +103,7 @@ export function computeTurnAverages(games) {
 
 /** @param {import('./store.js').Game[]} games @param {import('./store.js').Deck[]} decks @param {string} bracketFilter "" for all, else "1"-"5" @param {string[]|null} [selectedBrackets] */
 export function computeBracketDetail(games, decks, bracketFilter = "", selectedBrackets = null) {
-  const deckMap = new Map(decks.map((d) => [d.name, d]));
+  const deckMap = deckMapByKey(decks);
   const allowed = selectedBrackets?.length
     ? new Set(selectedBrackets.map(String))
     : bracketFilter
@@ -154,7 +157,7 @@ export function computeColorStats(deckStats) {
 }
 
 export function computeBracketStats(games, deckStats) {
-  const deckMap = new Map(deckStats.map((d) => [d.name, d]));
+  const deckMap = new Map(deckStats.map((d) => [deckKey(d), d]));
   const brackets = [1, 2, 3, 4, 5].map((b) => ({ bracket: b, games: 0, wins: 0 }));
   for (const game of games) {
     const deck = deckMap.get(game.deck);
@@ -172,6 +175,7 @@ export function computeBracketStats(games, deckStats) {
 
 import { compareGamesChronologically, gameYear } from "./dates.js";
 import { canonicalizeColors, colorIdentitySortIndex } from "./color-identity.js";
+import { deckKey, deckMapByKey, deckTitle, findDeck } from "./deck-identity.js";
 
 export function computeYearStats(games) {
   const byYear = new Map();
@@ -273,14 +277,14 @@ export function sortDeckList(list, sortKey, dir) {
   function comparePlayedDecks(a, b, compare) {
     const aEmpty = !a.games;
     const bEmpty = !b.games;
-    if (aEmpty && bEmpty) return a.name.localeCompare(b.name);
+    if (aEmpty && bEmpty) return deckTitle(a).localeCompare(deckTitle(b));
     if (aEmpty) return 1;
     if (bEmpty) return -1;
-    return compare() || a.name.localeCompare(b.name);
+    return compare() || deckTitle(a).localeCompare(deckTitle(b));
   }
 
   return [...list].sort((a, b) => {
-    if (sortKey === "name") return mul * a.name.localeCompare(b.name);
+    if (sortKey === "name") return mul * deckTitle(a).localeCompare(deckTitle(b));
     if (sortKey === "games") {
       return comparePlayedDecks(a, b, () => mul * (a.games - b.games));
     }
@@ -290,25 +294,25 @@ export function sortDeckList(list, sortKey, dir) {
     if (sortKey === "normWr") {
       return comparePlayedDecks(a, b, () => mul * (a.normalizedWr - b.normalizedWr));
     }
-    if (sortKey === "bracket") return mul * (a.bracket - b.bracket) || a.name.localeCompare(b.name);
+    if (sortKey === "bracket") return mul * (a.bracket - b.bracket) || deckTitle(a).localeCompare(deckTitle(b));
     if (sortKey === "wins") {
       return comparePlayedDecks(a, b, () => mul * (a.wins - b.wins));
     }
-    if (sortKey === "losses") return mul * (a.losses - b.losses) || a.name.localeCompare(b.name);
+    if (sortKey === "losses") return mul * (a.losses - b.losses) || deckTitle(a).localeCompare(deckTitle(b));
     if (sortKey === "newest" || sortKey === "createdAt") {
       const ad = a.createdAt || "";
       const bd = b.createdAt || "";
-      return mul * ad.localeCompare(bd) || a.name.localeCompare(b.name);
+      return mul * ad.localeCompare(bd) || deckTitle(a).localeCompare(deckTitle(b));
     }
     if (sortKey === "recent" || sortKey === "lastPlayed") {
       const ad = a.lastPlayed || "";
       const bd = b.lastPlayed || "";
-      return mul * ad.localeCompare(bd) || a.name.localeCompare(b.name);
+      return mul * ad.localeCompare(bd) || deckTitle(a).localeCompare(deckTitle(b));
     }
     if (sortKey === "colors" || sortKey === "colorIdentity") {
       return (
         mul * (colorIdentitySortIndex(a.colors) - colorIdentitySortIndex(b.colors)) ||
-        a.name.localeCompare(b.name)
+        deckTitle(a).localeCompare(deckTitle(b))
       );
     }
     return 0;

@@ -2,6 +2,7 @@ import { compareGamesChronologically, normalizeDate } from "./dates.js";
 import { gameBracket } from "./stats.js";
 import { mixManaColors, MANA_HEX } from "./mana-colors.js";
 import { rowColorsFromKey, rowMatchesDeck } from "./color-stats.js";
+import { deckMapByKey } from "./deck-identity.js";
 
 export function lineColorForColorKey(key) {
   const colors = rowColorsFromKey(key);
@@ -53,7 +54,7 @@ function gamesInDateRange(games, startDate, endDate) {
  * @param {string} endDate
  */
 export function gamesForColorSeries(games, decks, colorKey, agg, startDate, endDate) {
-  const deckMap = new Map(decks.map((d) => [d.name, d]));
+  const deckMap = deckMapByKey(decks);
   const rowColors = rowColorsFromKey(colorKey);
   const dated = gamesInDateRange(games, startDate, endDate);
   return dated.filter((game) => {
@@ -70,7 +71,7 @@ export function gamesForColorSeries(games, decks, colorKey, agg, startDate, endD
  * @param {string} endDate
  */
 export function gamesForBracketSeries(games, decks, bracket, startDate, endDate) {
-  const deckMap = new Map(decks.map((d) => [d.name, d]));
+  const deckMap = deckMapByKey(decks);
   const dated = gamesInDateRange(games, startDate, endDate);
   return dated.filter((game) => gameBracket(game, deckMap) === bracket);
 }

@@ -1,6 +1,7 @@
 import { parseGameSeats } from "./matchups.js";
 import { getCommanderInfo, getCommanderMatchupIdentities } from "./commander-names.js";
 import { resolveCommanderColors } from "./commander-colors.js";
+import { deckKey, deckCommander, findDeck } from "./deck-identity.js";
 import { winRate, normalizedWinRate } from "./stats.js";
 import {
   colorKeysForIdentity,
@@ -24,7 +25,7 @@ function normalizeKey(value) {
 function findOwnedDeck(commander, decks) {
   const target = getCommanderInfo(commander).canonicalName;
   for (const deck of decks) {
-    if (getCommanderInfo(deck.name).canonicalName === target) {
+    if (getCommanderInfo(deckCommander(deck)).canonicalName === target) {
       return deck;
     }
   }

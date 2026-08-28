@@ -3,7 +3,7 @@ import { normalizeDate, todayISO } from "./dates.js";
 const STORAGE_KEY = "edhlog-data-v1";
 
 /** @typedef {{ name: string, qty: number, board: string }} DeckCard */
-/** @typedef {{ name: string, bracket: number, colors: string[], retired: boolean, createdAt?: string, listUrl?: string, listSource?: 'moxfield' | 'deckstats', listSyncedAt?: string, cards?: DeckCard[] }} Deck */
+/** @typedef {{ name: string, commander: string, bracket: number, colors: string[], retired: boolean, createdAt?: string, listUrl?: string, listSource?: 'moxfield' | 'deckstats', listSyncedAt?: string, cards?: DeckCard[] }} Deck */
 /** @typedef {{ id: string, date: string, time?: string, deck: string, result: 'Win' | 'Loss', source?: 'local', bracket?: number, mySeat?: number, myPlayer?: string, winnerSeat?: number, turn?: number, opponents?: { seat: number, name: string, player?: string }[] }} Game */
 /** @typedef {{ seedHash?: string, seedGames?: number }} DataMeta */
 /** @typedef {{ meta?: DataMeta, decks: Deck[], games: Game[] }} AppData */
@@ -27,8 +27,19 @@ export async function loadSeed() {
   return /** @type {AppData} */ (await res.json());
 }
 
-function migrateDecks(data) {
+function migrateDeckCommanders(data) {
   let changed = false;
+  for (const deck of data.decks) {
+    if (deck.commander) continue;
+    deck.commander = deck.name || "";
+    deck.name = "";
+    changed = true;
+  }
+  return changed;
+}
+
+function migrateDecks(data) {
+  let changed = migrateDeckCommanders(data);
   const firstGameByDeck = new Map();
   for (const game of data.games) {
     const existing = firstGameByDeck.get(game.deck);
@@ -36,7 +47,7 @@ function migrateDecks(data) {
   }
   for (const deck of data.decks) {
     if (!deck.createdAt) {
-      deck.createdAt = firstGameByDeck.get(deck.name) || "2024-04-15";
+      deck.createdAt = firstGameByDeck.get(deck.commander) || firstGameByDeck.get(deck.name) || "2024-04-15";
       changed = true;
     }
   }
@@ -82,8 +93,8 @@ export function syncFromSeed(local, seed) {
     local.games.push({ ...game, id: `game-${nextNum++}`, source: "local" });
   }
 
-  const seedDeckNames = new Set(seed.decks.map((deck) => deck.name));
-  const localOnlyDecks = local.decks.filter((deck) => !seedDeckNames.has(deck.name));
+  const seedDeckKeys = new Set(seed.decks.map((deck) => deck.commander || deck.name));
+  const localOnlyDecks = local.decks.filter((deck) => !seedDeckKeys.has(deck.commander || deck.name));
   local.decks = seed.decks.map((deck) => ({ ...deck, colors: [...(deck.colors || [])] }));
   for (const deck of localOnlyDecks) {
     local.decks.push({ ...deck, colors: [...(deck.colors || [])] });
