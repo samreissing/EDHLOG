@@ -418,20 +418,20 @@ export function renderEntityReportModal(report, decks) {
       ? renderWinRateLineChart(computeWinRateSeries(report.chartGames), "")
       : `<p class="muted-text entity-report-empty">No games logged yet.</p>`;
 
-  const matchupsHtml = `
-    <div class="entity-report-matchups">
-      <div class="entity-report-matchup-col">
-        <h4>Player matchups</h4>
-        ${renderMatchupTableWithCells(report.playerMatchups, (row) =>
-          renderMatchupOpponentCell(row, "player", decks, report.playerScope)
-        )}
-      </div>
-      <div class="entity-report-matchup-col">
-        <h4>Deck matchups</h4>
-        ${renderMatchupTableWithCells(report.deckMatchups, (row) =>
-          renderMatchupOpponentCell(row, "deck", decks, report.playerScope)
-        )}
-      </div>
+  const playerMatchupsSection = `
+    <div class="entity-report-section">
+      <h4>Player matchups</h4>
+      ${renderMatchupTableWithCells(report.playerMatchups, (row) =>
+        renderMatchupOpponentCell(row, "player", decks, report.playerScope)
+      )}
+    </div>`;
+
+  const deckMatchupsSection = `
+    <div class="entity-report-section">
+      <h4>Deck matchups</h4>
+      ${renderMatchupTableWithCells(report.deckMatchups, (row) =>
+        renderMatchupOpponentCell(row, "deck", decks, report.playerScope)
+      )}
     </div>`;
 
   if (report.kind === "deck") {
@@ -488,7 +488,8 @@ export function renderEntityReportModal(report, decks) {
           <div class="entity-report-chart">${chart}</div>
         </div>
 
-        ${matchupsHtml}
+        ${playerMatchupsSection}
+        ${deckMatchupsSection}
       </div>`;
   }
 
@@ -525,7 +526,8 @@ export function renderEntityReportModal(report, decks) {
         <div class="entity-report-chart">${chart}</div>
       </div>
 
-      ${matchupsHtml}
+      ${playerMatchupsSection}
+      ${deckMatchupsSection}
     </div>`;
 }
 
