@@ -1,4 +1,4 @@
-/** @typedef {{ deck?: () => void, game?: () => void, gameDetail?: () => void }} ModalDismissHandlers */
+/** @typedef {{ deck?: () => void, game?: () => void, gameDetail?: () => void, entityReport?: () => void }} ModalDismissHandlers */
 
 /** @param {ModalDismissHandlers} handlers */
 export function bindModalBackdropDismiss(handlers) {
@@ -27,5 +27,6 @@ export function bindModalBackdropDismiss(handlers) {
     if (id === "deck-modal") handlers.deck?.();
     else if (id === "game-modal") handlers.game?.();
     else if (id === "game-detail-modal") handlers.gameDetail?.();
+    else if (id === "entity-report-modal") handlers.entityReport?.();
   });
 }

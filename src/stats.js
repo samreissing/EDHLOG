@@ -162,8 +162,7 @@ export function computeBracketStats(games, deckStats) {
   const deckMap = new Map(deckStats.map((d) => [deckKey(d), d]));
   const brackets = [1, 2, 3, 4, 5].map((b) => ({ bracket: b, games: 0, wins: 0 }));
   for (const game of games) {
-    const deck = deckMap.get(game.deck);
-    const b = deck?.bracket ?? 4;
+    const b = gameBracket(game, deckMap);
     const slot = brackets.find((x) => x.bracket === b) ?? brackets[3];
     slot.games += 1;
     if (game.result === "Win") slot.wins += 1;
