@@ -300,7 +300,11 @@ export function sortDeckList(list, sortKey, dir) {
     }
     if (sortKey === "bracket") return mul * (a.bracket - b.bracket) || deckTitle(a).localeCompare(deckTitle(b));
     if (sortKey === "wins") {
-      return comparePlayedDecks(a, b, () => mul * (a.wins - b.wins));
+      return comparePlayedDecks(
+        a,
+        b,
+        () => mul * (a.wins - b.wins) || mul * (a.winRate - b.winRate)
+      );
     }
     if (sortKey === "losses") return mul * (a.losses - b.losses) || deckTitle(a).localeCompare(deckTitle(b));
     if (sortKey === "newest" || sortKey === "createdAt") {

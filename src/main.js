@@ -22,7 +22,7 @@ import {
 import { formatDate, gameSortKey, gameYear, normalizeTime, nowTime, todayISO, compareGamesChronologically } from "./dates.js";
 import { colorIdentitySortIndex } from "./color-identity.js";
 import { pctCell, valueCell, colorStatAverage } from "./wr-color.js";
-import { sortHeader, applySort, toggleSort } from "./table.js";
+import { sortHeader, applySort, toggleSort, WINS_SORT_TIE_BREAKERS } from "./table.js";
 import {
   getBracketColor,
   renderPieChart,
@@ -1342,14 +1342,19 @@ function renderStats() {
   } else if (statsTab === "colors") {
     const { statsDecks, statsGames } = getStatsScope();
     const sortCol = tableSort["color-stats"]?.col || "colorOrder";
-    const colors = applySort(s.colorStats, tableSort["color-stats"], {
-      colorOrder: (c) => c.colorOrder,
-      name: (c) => c.name,
-      decks: (c) => c.decks,
-      games: (c) => c.games,
-      wins: (c) => c.wins,
-      winRate: (c) => c.winRate,
-    });
+    const colors = applySort(
+      s.colorStats,
+      tableSort["color-stats"],
+      {
+        colorOrder: (c) => c.colorOrder,
+        name: (c) => c.name,
+        decks: (c) => c.decks,
+        games: (c) => c.games,
+        wins: (c) => c.wins,
+        winRate: (c) => c.winRate,
+      },
+      WINS_SORT_TIE_BREAKERS
+    );
     const pieSlices = pieSlicesFromRows(colors, sortCol, (c) => ({
       colors: c.displayColors,
       color: c.key !== "C" && c.displayColors.length === 1 ? c.displayColors[0] : undefined,
@@ -1434,7 +1439,8 @@ function renderStats() {
         games: (b) => b.games,
         wins: (b) => b.wins,
         winRate: (b) => b.winRate,
-      }
+      },
+      WINS_SORT_TIE_BREAKERS
     );
     const pieSlices = pieSlicesFromRows(brackets, sortCol, (b) => ({
       bracket: b.bracket,
@@ -1687,6 +1693,7 @@ function renderStats() {
         outcomeTieRank: (r) => r.sharedLosses - r.losses,
       },
       {
+        ...WINS_SORT_TIE_BREAKERS,
         matchupImpact: ["outcomeTieRank", "games"],
         normalizedMatchupImpact: ["outcomeTieRank", "games"],
         opponentMatchupImpact: "games",
@@ -1825,7 +1832,8 @@ function renderStats() {
         wins: (r) => r.wins,
         winRate: (r) => r.winRate,
         normalizedWr: (r) => r.normalizedWr,
-      }
+      },
+      WINS_SORT_TIE_BREAKERS
     )
       .map((row, index) => ({ ...row, rank: index + 1 }))
       .filter((row) => !query || row.name.toLowerCase().includes(query));
