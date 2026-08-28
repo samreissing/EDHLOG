@@ -1185,7 +1185,7 @@ function syncEntityReportModal() {
   modal.classList.remove("hidden");
   modal.innerHTML = renderEntityReportModal(report, data.decks, entityReportMatchupTab);
   bindWinRateLineCharts();
-  void loadImagesIntoEntityReport(report.displayCommander || report.title);
+  void loadImagesIntoEntityReport(report.title);
 }
 
 function render() {
