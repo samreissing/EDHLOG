@@ -313,15 +313,16 @@ export function buildColorMatchupRows(games, options) {
       for (const myIdentity of myIdentities) {
         const myColors = resolveCommanderColors(myIdentity, {
           splitPartners,
-          ownedColors: myDeck?.colors,
+          ownedDeck: myDeck,
         });
         const subjectKeys = colorKeysForIdentity(myColors, view, agg);
 
         for (const subjectKey of subjectKeys) {
           for (const oppIdentity of oppIdentities) {
+            const oppDeck = deckMap.get(oppIdentity);
             const oppColors = resolveCommanderColors(oppIdentity, {
               splitPartners,
-              ownedColors: deckMap.get(oppIdentity)?.colors,
+              ownedDeck: oppDeck,
             });
             const opponentKeys = colorKeysForIdentity(oppColors, view, agg);
 

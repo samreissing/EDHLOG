@@ -1,8 +1,9 @@
 import { fetchCardMetadata } from "./scryfall.js";
 import { getCommanderInfo, isPartnerPartName, splitCommanderName } from "./commander-names.js";
 import { canonicalizeColors } from "./color-identity.js";
+import { deckCommander } from "./deck-identity.js";
 
-const CACHE_KEY = "edhlog:commander-colors:v2";
+const CACHE_KEY = "edhlog:commander-colors:v3";
 
 /** @type {Map<string, string[]>} */
 const colorCache = loadCache();
@@ -46,7 +47,8 @@ async function resolveCommanderColorIdentity(fullName) {
 
   if (info.kind === "partner" && parts.length === 1) {
     const meta = await fetchCardMetadata(trimmed);
-    const colors = meta?.colorIdentity ?? [];
+    if (!meta) return [];
+    const colors = meta.colorIdentity ?? [];
     storeColors(trimmed, colors);
     saveCache();
     return colors;
@@ -58,7 +60,8 @@ async function resolveCommanderColorIdentity(fullName) {
       let partColors = colorCache.get(cacheKey(part));
       if (!partColors) {
         const meta = await fetchCardMetadata(part);
-        partColors = meta?.colorIdentity ?? [];
+        if (!meta) continue;
+        partColors = meta.colorIdentity ?? [];
         storeColors(part, partColors);
       }
       for (const color of partColors) union.add(color);
@@ -71,7 +74,8 @@ async function resolveCommanderColorIdentity(fullName) {
   }
 
   const meta = await fetchCardMetadata(info.canonicalName);
-  const colors = meta?.colorIdentity ?? [];
+  if (!meta) return [];
+  const colors = meta.colorIdentity ?? [];
   storeColors(info.canonicalName, colors);
   storeColors(trimmed, colors);
   saveCache();
@@ -99,15 +103,23 @@ export function getCommanderColorIdentity(name) {
   return colorCache.get(cacheKey(info.canonicalName)) ?? [];
 }
 
+/** @param {import('./store.js').Deck | null | undefined} deck */
+export function getDeckColors(deck) {
+  if (!deck) return [];
+  if (deck.colors?.length) return deck.colors;
+  return getCommanderColorIdentity(deckCommander(deck));
+}
+
 /**
  * Prefer owned deck colors unless split-partner mode needs a single card's identity.
  * @param {string} name
- * @param {{ splitPartners?: boolean, ownedColors?: string[] | null }} [options]
+ * @param {{ splitPartners?: boolean, ownedColors?: string[] | null, ownedDeck?: import('./store.js').Deck | null }} [options]
  */
 export function resolveCommanderColors(name, options = {}) {
-  const { splitPartners = false, ownedColors = null } = options;
-  if (ownedColors?.length && !(splitPartners && isPartnerPartName(name))) {
-    return ownedColors;
+  const { splitPartners = false, ownedColors = null, ownedDeck = null } = options;
+  const deckColors = ownedDeck ? getDeckColors(ownedDeck) : ownedColors;
+  if (deckColors?.length && !(splitPartners && isPartnerPartName(name))) {
+    return deckColors;
   }
   return getCommanderColorIdentity(name);
 }
@@ -122,6 +134,29 @@ export function collectOpponentCommanderNames(games) {
     }
   }
   return [...names];
+}
+
+/** @param {import('./store.js').Deck[]} decks */
+export function collectOwnedDeckCommanderNames(decks) {
+  const names = new Set();
+  for (const deck of decks) {
+    const commander = deckCommander(deck);
+    if (commander) names.add(commander);
+  }
+  return [...names];
+}
+
+/** @param {import('./store.js').Deck[]} decks */
+export function backfillDeckColorIdentities(decks) {
+  let changed = false;
+  for (const deck of decks) {
+    if (deck.colors?.length) continue;
+    const colors = getCommanderColorIdentity(deckCommander(deck));
+    if (!colors.length) continue;
+    deck.colors = [...colors];
+    changed = true;
+  }
+  return changed;
 }
 
 /** @param {string[]} names */

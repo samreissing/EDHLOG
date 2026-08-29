@@ -117,7 +117,7 @@ export function buildPodDeckRankings(games, decks, options = {}) {
         ...row,
         colors: resolveCommanderColors(row.name, {
           splitPartners,
-          ownedColors: owned?.colors,
+          ownedDeck: owned,
         }),
         bracket: owned?.bracket,
         isOwned: !!owned,
@@ -209,7 +209,7 @@ export function buildPodColorRankings(games, decks, options = {}) {
         const owned = findOwnedDeck(commander, decks);
         const colors = resolveCommanderColors(commander, {
           splitPartners,
-          ownedColors: owned?.colors,
+          ownedDeck: owned,
         });
         const colorKeys = colorKeysForIdentity(colors, view, agg);
 
