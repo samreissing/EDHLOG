@@ -341,6 +341,77 @@ function chartGamesForDeckSlot(games, deckSlotId) {
 
 /**
  * @param {import('./store.js').Game[]} games
+ * @param {string} commanderName
+ * @param {{ splitPartners?: boolean }} [options]
+ */
+function computeDeckPilotStats(games, commanderName, options = {}) {
+  const { splitPartners = false } = options;
+  /** @type {Map<string, { player: string, games: number, wins: number }>} */
+  const rows = new Map();
+
+  for (const game of games) {
+    const seats = parseGameSeats(game);
+    for (const seat of seats) {
+      if (!seat.player) continue;
+      if (!commanderMatchesTarget(seat.commander, commanderName, { splitPartners })) continue;
+
+      const playerKey = normalizeEntityKey(seat.player);
+      const row =
+        rows.get(playerKey) ??
+        ({
+          player: seat.player,
+          games: 0,
+          wins: 0,
+        });
+
+      row.games += 1;
+      if (seat.didWin) row.wins += 1;
+      rows.set(playerKey, row);
+    }
+  }
+
+  return [...rows.values()]
+    .map((row) => ({
+      ...row,
+      winRate: winRate(row.wins, row.games),
+      normalizedWr: normalizedWinRate(row.wins, row.games),
+    }))
+    .sort((a, b) => {
+      if (b.normalizedWr !== a.normalizedWr) return b.normalizedWr - a.normalizedWr;
+      if (b.games !== a.games) return b.games - a.games;
+      return a.player.localeCompare(b.player, undefined, { numeric: true });
+    });
+}
+
+function renderPilotTable(pilots) {
+  if (!pilots.length) return "";
+
+  return `
+    <table class="table compact entity-matchup-table entity-pilot-table">
+      <thead><tr>
+        <th>Player</th>
+        <th>G</th>
+        <th>W</th>
+        <th>Norm WR</th>
+      </tr></thead>
+      <tbody>
+        ${pilots
+          .map(
+            (row) => `
+          <tr>
+            <td>${renderPlayerReportLink(row.player)}</td>
+            <td>${row.games}</td>
+            <td>${row.wins}</td>
+            <td>${pctCell(row.normalizedWr)}</td>
+          </tr>`
+          )
+          .join("")}
+      </tbody>
+    </table>`;
+}
+
+/**
+ * @param {import('./store.js').Game[]} games
  * @param {import('./store.js').Deck[]} decks
  * @param {{ kind: 'player' | 'deck', key: string, playerScope?: string | null, splitPartners?: boolean, deckSlotId?: string | null }} request
  */
@@ -462,18 +533,9 @@ export function buildEntityReport(games, decks, request) {
     ownedColors: owned?.colors,
   });
 
-  /** @type {Map<string, number>} */
-  const pilots = new Map();
-  if (!playerScope) {
-    for (const game of games) {
-      const seats = parseGameSeats(game);
-      for (const seat of seats) {
-        if (!seat.player) continue;
-        if (!commanderMatchesTarget(seat.commander, commanderName, { splitPartners })) continue;
-        pilots.set(seat.player, (pilots.get(seat.player) || 0) + 1);
-      }
-    }
-  }
+  const pilotStats = playerScope
+    ? []
+    : computeDeckPilotStats(games, commanderName, { splitPartners });
 
   return {
     kind,
@@ -483,9 +545,7 @@ export function buildEntityReport(games, decks, request) {
     stats,
     chartGames,
     deckList: [],
-    pilots: [...pilots.entries()]
-      .map(([player, count]) => ({ player, games: count }))
-      .sort((a, b) => b.games - a.games || a.player.localeCompare(b.player)),
+    pilots: pilotStats,
     playerMatchups: buildEntityMatchupRows(games, "players", seatFilter),
     deckMatchups: buildEntityMatchupRows(games, "decks", seatFilter, { splitPartners }),
     playerScope,
@@ -574,14 +634,7 @@ export function renderEntityReportModal(report, decks, activeMatchupTab = "playe
       !report.playerScope && report.pilots.length
         ? `<div class="entity-report-section entity-report-pilots">
             <h4>Piloted by</h4>
-            <ul class="entity-report-links">
-              ${report.pilots
-                .map(
-                  (row) =>
-                    `<li>${renderPlayerReportLink(row.player)} · ${row.games} game${row.games === 1 ? "" : "s"}</li>`
-                )
-                .join("")}
-            </ul>
+            ${renderPilotTable(report.pilots)}
           </div>`
         : "";
 
