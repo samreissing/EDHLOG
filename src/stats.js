@@ -40,6 +40,7 @@ export function computeDeckStats(decks, games) {
     map.set(id, {
       ...deck,
       id,
+      colors: getDeckColors(deck),
       games: 0,
       wins: 0,
       losses: 0,
@@ -55,7 +56,7 @@ export function computeDeckStats(decks, games) {
         name: owned?.name || "",
         commander: owned?.commander || game.myCommander || key,
         bracket: owned?.bracket ?? 4,
-        colors: owned?.colors ?? [],
+        colors: owned ? getDeckColors(owned) : [],
         retired: owned?.retired ?? false,
         createdAt: owned?.createdAt || game.date,
         games: 0,
@@ -180,6 +181,7 @@ export function computeBracketStats(games, deckStats) {
 import { compareGamesChronologically, gameYear } from "./dates.js";
 import { canonicalizeColors, colorIdentitySortIndex } from "./color-identity.js";
 import { deckId, deckKey, deckMapByKey, deckTitle, findDeck } from "./deck-identity.js";
+import { getDeckColors } from "./commander-colors.js";
 
 export function computeYearStats(games) {
   const byYear = new Map();

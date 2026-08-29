@@ -499,7 +499,7 @@ export function buildEntityReport(games, decks, request) {
     };
     const colors = resolveCommanderColors(commanderName, {
       splitPartners,
-      ownedColors: deck?.colors,
+      ownedDeck: deck,
     });
 
     return {
@@ -532,7 +532,7 @@ export function buildEntityReport(games, decks, request) {
   const owned = findDeck(decks, key);
   const colors = resolveCommanderColors(commanderName, {
     splitPartners,
-    ownedColors: owned?.colors,
+    ownedDeck: owned,
   });
 
   const pilotStats = playerScope

@@ -65,6 +65,9 @@ import {
 import {
   warmCommanderColorCache,
   collectOpponentCommanderNames,
+  collectOwnedDeckCommanderNames,
+  backfillDeckColorIdentities,
+  getCommanderColorIdentity,
 } from "./commander-colors.js";
 import { bindModalBackdropDismiss } from "./modals.js";
 import {
@@ -368,9 +371,14 @@ async function boot() {
     warmCommanderColorCache([
       ...collectOpponentCommanderNames(data.games),
       ...collectPartnerCommanderNames(data.games),
+      ...collectOwnedDeckCommanderNames(data.decks),
     ]),
   ]).then(() => {
+    if (backfillDeckColorIdentities(data.decks)) {
+      saveData(data);
+    }
     if (currentView === "stats" && (statsTab === "matchups" || statsTab === "totals")) render();
+    else render();
   });
   bindModalBackdropDismiss({
     deck: () => {
@@ -897,12 +905,16 @@ function bindEvents() {
       const fd = new FormData(e.target);
       const commander = String(fd.get("commander") || "").trim();
       if (!commander) return toast("Commander is required", true);
+      let colors = fd.getAll("color");
+      if (!colors.length) {
+        colors = getCommanderColorIdentity(commander);
+      }
       const deck = {
         id: nextDeckId(data),
         name: String(fd.get("name") || "").trim(),
         commander,
         bracket: Number(fd.get("bracket")),
-        colors: fd.getAll("color"),
+        colors,
         retired: fd.get("retired") === "on",
         createdAt: fd.get("createdAt") || todayISO(),
       };
