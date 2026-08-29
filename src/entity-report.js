@@ -166,10 +166,10 @@ function finalizeEntityMatchupRow(row) {
  * @param {import('./store.js').Game[]} games
  * @param {'players' | 'decks'} tabId
  * @param {(seat: import('./matchups.js').GameSeat, seats: import('./matchups.js').GameSeat[], game: import('./store.js').Game) => boolean} entitySeatFilter
- * @param {{ splitPartners?: boolean }} [options]
+ * @param {{ splitPartners?: boolean, groupByOpponent?: boolean }} [options]
  */
 function buildEntityMatchupRows(games, tabId, entitySeatFilter, options = {}) {
-  const { splitPartners = false } = options;
+  const { splitPartners = false, groupByOpponent = false } = options;
   const rows = new Map();
 
   for (const game of games) {
@@ -195,11 +195,13 @@ function buildEntityMatchupRows(games, tabId, entitySeatFilter, options = {}) {
 
         for (const { subject, opponent } of pairs) {
           if (!subject || !opponent) continue;
-          const mapKey = `${normalizeEntityKey(subject)}__${normalizeEntityKey(opponent)}`;
+          const mapKey = groupByOpponent
+            ? normalizeEntityKey(opponent)
+            : `${normalizeEntityKey(subject)}__${normalizeEntityKey(opponent)}`;
           const row =
             rows.get(mapKey) ??
             ({
-              subject,
+              subject: groupByOpponent ? "" : subject,
               opponent,
               games: 0,
               wins: 0,
@@ -546,8 +548,14 @@ export function buildEntityReport(games, decks, request) {
     chartGames,
     deckList: [],
     pilots: pilotStats,
-    playerMatchups: buildEntityMatchupRows(games, "players", seatFilter),
-    deckMatchups: buildEntityMatchupRows(games, "decks", seatFilter, { splitPartners }),
+    playerMatchups: buildEntityMatchupRows(games, "players", seatFilter, {
+      splitPartners,
+      groupByOpponent: true,
+    }),
+    deckMatchups: buildEntityMatchupRows(games, "decks", seatFilter, {
+      splitPartners,
+      groupByOpponent: true,
+    }),
     playerScope,
     deckSlotId: null,
     displayCommander: commanderName,
