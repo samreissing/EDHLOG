@@ -4,13 +4,18 @@ import { canonicalizeColors } from "./color-identity.js";
 import { deckCommander } from "./deck-identity.js";
 
 const CACHE_KEY = "edhlog:commander-colors:v3";
+const LEGACY_CACHE_KEY = "edhlog:commander-colors:v2";
 
 /** @type {Map<string, string[]>} */
 const colorCache = loadCache();
 
 function loadCache() {
   try {
-    const raw = localStorage.getItem(CACHE_KEY);
+    let raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) {
+      raw = localStorage.getItem(LEGACY_CACHE_KEY);
+      if (raw) localStorage.setItem(CACHE_KEY, raw);
+    }
     if (!raw) return new Map();
     const parsed = JSON.parse(raw);
     return new Map(Object.entries(parsed).map(([key, value]) => [key, value]));
@@ -140,6 +145,7 @@ export function collectOpponentCommanderNames(games) {
 export function collectOwnedDeckCommanderNames(decks) {
   const names = new Set();
   for (const deck of decks) {
+    if (deck.colors?.length) continue;
     const commander = deckCommander(deck);
     if (commander) names.add(commander);
   }
@@ -170,8 +176,8 @@ export async function warmCommanderColorCache(names) {
     }
   }
   for (const name of pending) {
-    if (!colorCache.has(cacheKey(name))) {
-      await resolveCommanderColorIdentity(name);
-    }
+    const key = cacheKey(name);
+    if (colorCache.has(key)) continue;
+    await resolveCommanderColorIdentity(name);
   }
 }
