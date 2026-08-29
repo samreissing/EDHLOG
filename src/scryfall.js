@@ -25,6 +25,27 @@ function cardImage(card) {
   return card.image_uris?.normal || card.card_faces?.[0]?.image_uris?.normal || null;
 }
 
+/** @param {string} name @param {object} card */
+function rememberCard(name, card) {
+  const key = String(name || "").trim();
+  if (!key || !card) return null;
+
+  const image = cardImage(card);
+  if (image) {
+    imageCache.set(key, image);
+    if (card.name && card.name !== key) imageCache.set(card.name, image);
+  }
+
+  const meta = {
+    layout: card.layout,
+    faceNames: (card.card_faces || []).map((face) => face.name),
+    colorIdentity: parseColorIdentity(card),
+  };
+  metadataCache.set(key, meta);
+  if (card.name && card.name !== key) metadataCache.set(card.name, meta);
+  return meta;
+}
+
 /** @param {string} name */
 export async function fetchCardMetadata(name) {
   const key = String(name || "").trim();
@@ -41,18 +62,15 @@ export async function fetchCardMetadata(name) {
   }
 
   const card = await res.json();
-  const meta = {
-    layout: card.layout,
-    faceNames: (card.card_faces || []).map((face) => face.name),
-    colorIdentity: parseColorIdentity(card),
-  };
-  metadataCache.set(key, meta);
-  return meta;
+  return rememberCard(key, card);
 }
 
 /** @param {string} name */
 export async function fetchCardByName(name) {
   if (imageCache.has(name)) return imageCache.get(name);
+
+  const cachedMeta = metadataCache.get(name);
+  if (cachedMeta && imageCache.has(name)) return imageCache.get(name);
 
   await throttle();
   const res = await fetch(
@@ -64,9 +82,8 @@ export async function fetchCardByName(name) {
   }
 
   const card = await res.json();
-  const image = cardImage(card);
-  imageCache.set(name, image);
-  return image;
+  rememberCard(name, card);
+  return imageCache.get(name) ?? null;
 }
 
 /** @param {string[]} names */
@@ -99,21 +116,20 @@ export async function fetchCardImages(names) {
     }
 
     const body = await res.json();
-    const found = new Set();
-    for (const card of body.data || []) {
-      const image = cardImage(card);
-      imageCache.set(card.name, image);
-      out.set(card.name, image);
-      found.add(card.name);
+    for (const name of chunk) {
+      const card = (body.data || []).find(
+        (entry) => entry.name?.toLowerCase() === name.toLowerCase()
+      );
+      if (card) rememberCard(name, card);
     }
 
     for (const name of chunk) {
-      if (!found.has(name)) {
-        const image = await fetchCardByName(name);
-        out.set(name, image);
-      } else if (!out.has(name)) {
-        out.set(name, imageCache.get(name) ?? null);
+      if (imageCache.has(name)) {
+        out.set(name, imageCache.get(name));
+        continue;
       }
+      const image = await fetchCardByName(name);
+      out.set(name, image);
     }
   }
 

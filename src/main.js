@@ -68,6 +68,7 @@ import {
   collectOwnedDeckCommanderNames,
   backfillDeckColorIdentities,
   getCommanderColorIdentity,
+  getDeckColors,
 } from "./commander-colors.js";
 import { bindModalBackdropDismiss } from "./modals.js";
 import {
@@ -366,20 +367,22 @@ async function boot() {
   data = await initData();
   const sync = getLastSeedSync();
   bindEvents();
-  void Promise.all([
-    warmCommanderMatchupCache(collectPartnerCommanderNames(data.games)),
-    warmCommanderColorCache([
-      ...collectOpponentCommanderNames(data.games),
-      ...collectPartnerCommanderNames(data.games),
-      ...collectOwnedDeckCommanderNames(data.decks),
-    ]),
-  ]).then(() => {
-    if (backfillDeckColorIdentities(data.decks)) {
-      saveData(data);
-    }
-    if (currentView === "stats" && (statsTab === "matchups" || statsTab === "totals")) render();
-    else render();
-  });
+  renderNav();
+  render();
+  setTimeout(() => {
+    void Promise.all([
+      warmCommanderMatchupCache(collectPartnerCommanderNames(data.games)),
+      warmCommanderColorCache([
+        ...collectOpponentCommanderNames(data.games),
+        ...collectPartnerCommanderNames(data.games),
+        ...collectOwnedDeckCommanderNames(data.decks),
+      ]),
+    ]).then(() => {
+      const changed = backfillDeckColorIdentities(data.decks);
+      if (changed) saveData(data);
+      render();
+    });
+  }, 0);
   bindModalBackdropDismiss({
     deck: () => {
       editingDeckName = null;
@@ -399,8 +402,6 @@ async function boot() {
       syncEntityReportModal();
     },
   });
-  renderNav();
-  render();
   if (sync) {
     if (sync.removed > 0) {
       toast(`Removed ${sync.removed} duplicate games — now at ${sync.games + sync.keptLocal} total`);
@@ -2010,7 +2011,7 @@ function renderDecks() {
             <th class="row-actions-col"></th>
           </tr></thead>
           <tbody>
-            ${list.length ? list.map((d) => `<tr><td class="deck-date">${dateCell(d)}</td><td class="deck-name">${renderDeckReportLink(deckCommander(d), data.decks, { label: deckTitle(d), deckSlotId: deckId(d) })}</td><td class="deck-colors">${colorBadge(d.colors)}</td><td class="deck-tight">${d.bracket}</td><td class="deck-tight">${d.games}</td><td class="deck-tight">${d.wins}</td><td class="deck-stat">${d.games ? pctCell(d.normalizedWr) : "—"}</td><td class="deck-stat">${d.games ? pctCell(d.winRate) : "—"}</td><td class="row-actions"><button type="button" class="btn-icon edit-deck" data-name="${escapeHtml(deckId(d))}" title="Edit deck">✎</button></td></tr>`).join("") : '<tr><td colspan="9"></td></tr>'}
+            ${list.length ? list.map((d) => `<tr><td class="deck-date">${dateCell(d)}</td><td class="deck-name">${renderDeckReportLink(deckCommander(d), data.decks, { label: deckTitle(d), deckSlotId: deckId(d) })}</td><td class="deck-colors">${colorBadge(getDeckColors(d))}</td><td class="deck-tight">${d.bracket}</td><td class="deck-tight">${d.games}</td><td class="deck-tight">${d.wins}</td><td class="deck-stat">${d.games ? pctCell(d.normalizedWr) : "—"}</td><td class="deck-stat">${d.games ? pctCell(d.winRate) : "—"}</td><td class="row-actions"><button type="button" class="btn-icon edit-deck" data-name="${escapeHtml(deckId(d))}" title="Edit deck">✎</button></td></tr>`).join("") : '<tr><td colspan="9"></td></tr>'}
           </tbody>
         </table>
       </div>
@@ -2282,7 +2283,7 @@ function renderLogForm() {
           .map(
             (d) => `
           <div class="quick-deck">
-            <span class="quick-name">${colorBadge(d.colors)} ${escapeHtml(deckLabel(d))}</span>
+            <span class="quick-name">${colorBadge(getDeckColors(d))} ${escapeHtml(deckLabel(d))}</span>
             <button type="button" class="btn btn-sm win quick-win" data-deck="${escapeHtml(deckId(d))}">W</button>
             <button type="button" class="btn btn-sm loss quick-loss" data-deck="${escapeHtml(deckId(d))}">L</button>
           </div>`
