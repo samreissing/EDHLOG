@@ -67,6 +67,18 @@ export function parseGameSeats(game) {
   return seats;
 }
 
+/** @param {import('./store.js').Game[]} games */
+export function collectAllPodCommanderNames(games) {
+  const names = new Set();
+  for (const game of games) {
+    for (const seat of parseGameSeats(game)) {
+      const commander = String(seat.commander || "").trim();
+      if (commander) names.add(commander);
+    }
+  }
+  return [...names];
+}
+
 /** @param {import('./store.js').Game} game */
 function winnerSeatForGame(game) {
   if (game.winnerSeat) return Number(game.winnerSeat);

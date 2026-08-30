@@ -45,7 +45,7 @@ async function resolveCommanderColorIdentity(fullName) {
   if (!trimmed) return [];
 
   const cached = colorCache.get(cacheKey(trimmed));
-  if (cached) return cached;
+  if (cached?.length) return cached;
 
   const info = getCommanderInfo(trimmed);
   const parts = splitCommanderName(trimmed);
@@ -63,7 +63,7 @@ async function resolveCommanderColorIdentity(fullName) {
     const union = new Set();
     for (const part of info.parts) {
       let partColors = colorCache.get(cacheKey(part));
-      if (!partColors) {
+      if (!partColors?.length) {
         const meta = await fetchCardMetadata(part);
         if (!meta) continue;
         partColors = meta.colorIdentity ?? [];
@@ -98,14 +98,18 @@ export function getCommanderColorIdentity(name) {
   if (isPartnerPartName(trimmed)) {
     const matchedPart = info.parts.find((part) => cacheKey(part) === trimmedKey);
     if (matchedPart) {
-      return colorCache.get(cacheKey(matchedPart)) ?? [];
+      const partColors = colorCache.get(cacheKey(matchedPart));
+      if (partColors?.length) return partColors;
     }
   }
 
   const direct = colorCache.get(trimmedKey);
-  if (direct) return direct;
+  if (direct?.length) return direct;
 
-  return colorCache.get(cacheKey(info.canonicalName)) ?? [];
+  const canonical = colorCache.get(cacheKey(info.canonicalName));
+  if (canonical?.length) return canonical;
+
+  return [];
 }
 
 /** @param {import('./store.js').Deck | null | undefined} deck */
@@ -177,7 +181,8 @@ export async function warmCommanderColorCache(names) {
   }
   for (const name of pending) {
     const key = cacheKey(name);
-    if (colorCache.has(key)) continue;
+    const cached = colorCache.get(key);
+    if (cached?.length) continue;
     await resolveCommanderColorIdentity(name);
   }
 }

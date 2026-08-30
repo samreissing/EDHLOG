@@ -64,7 +64,6 @@ import {
 } from "./commander-names.js";
 import {
   warmCommanderColorCache,
-  collectOpponentCommanderNames,
   collectOwnedDeckCommanderNames,
   backfillDeckColorIdentities,
   getCommanderColorIdentity,
@@ -76,6 +75,7 @@ import {
   formatMatchupImpact,
   matchupImpactClass,
   MATCHUP_TABS,
+  collectAllPodCommanderNames,
 } from "./matchups.js";
 import { computeAllTotals, TOTALS_TABS } from "./totals.js";
 import {
@@ -363,6 +363,20 @@ function renderChartSection(chartHtml, clearButtonId) {
     </div>`;
 }
 
+async function refreshCommanderColorCache() {
+  await Promise.all([
+    warmCommanderMatchupCache(collectPartnerCommanderNames(data.games)),
+    warmCommanderColorCache([
+      ...collectAllPodCommanderNames(data.games),
+      ...collectPartnerCommanderNames(data.games),
+      ...collectOwnedDeckCommanderNames(data.decks),
+    ]),
+  ]);
+  const changed = backfillDeckColorIdentities(data.decks);
+  if (changed) saveData(data);
+  render();
+}
+
 async function boot() {
   data = await initData();
   const sync = getLastSeedSync();
@@ -370,18 +384,7 @@ async function boot() {
   renderNav();
   render();
   setTimeout(() => {
-    void Promise.all([
-      warmCommanderMatchupCache(collectPartnerCommanderNames(data.games)),
-      warmCommanderColorCache([
-        ...collectOpponentCommanderNames(data.games),
-        ...collectPartnerCommanderNames(data.games),
-        ...collectOwnedDeckCommanderNames(data.decks),
-      ]),
-    ]).then(() => {
-      const changed = backfillDeckColorIdentities(data.decks);
-      if (changed) saveData(data);
-      render();
-    });
+    void refreshCommanderColorCache();
   }, 0);
   bindModalBackdropDismiss({
     deck: () => {
@@ -936,8 +939,8 @@ function bindEvents() {
         saveData(data);
         document.getElementById("deck-modal")?.classList.add("hidden");
         e.target.reset();
-        render();
         toast("Deck saved");
+        void refreshCommanderColorCache();
         return;
       }
 
@@ -952,8 +955,8 @@ function bindEvents() {
       saveData(data);
       document.getElementById("deck-modal")?.classList.add("hidden");
       e.target.reset();
-      render();
       toast(`Added ${deckTitle(deck)}`);
+      void refreshCommanderColorCache();
     }
   });
 
@@ -2401,7 +2404,7 @@ function saveGameFromForm(fd) {
     gameModalOpen = false;
     saveData(data);
     toast("Game saved");
-    render();
+    void refreshCommanderColorCache();
     return;
   }
 
@@ -2410,7 +2413,7 @@ function saveGameFromForm(fd) {
   saveData(data);
   gameModalOpen = false;
   toast(`${payload.result} logged`);
-  render();
+  void refreshCommanderColorCache();
 }
 
 function fillLogForm({ deck, result }) {
