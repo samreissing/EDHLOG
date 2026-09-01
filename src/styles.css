@@ -1756,6 +1756,15 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   display: none;
 }
 
+.modal.deck-modal-layer {
+  z-index: 120;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: max(1rem, env(safe-area-inset-top, 0px)) 1rem 1rem;
+  overflow-y: auto;
+}
+
 .modal-content {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -1775,8 +1784,21 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   overflow-y: auto;
 }
 
-.modal-content-deck {
-  width: min(420px, 90vw);
+.modal.deck-modal-layer .modal-content-deck {
+  width: min(420px, 100%);
+  max-height: none;
+  overflow: visible;
+  margin: auto 0;
+}
+
+.deck-form .form-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  background: var(--surface);
+  padding-top: 0.75rem;
+  margin-top: 1rem;
+  border-top: 1px solid var(--border);
 }
 
 .modal-content-wide .form-actions--split .btn {
