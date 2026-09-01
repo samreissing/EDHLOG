@@ -2169,6 +2169,151 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   min-width: 0;
 }
 
+.entity-report-tablist {
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+}
+
+.entity-report-tab-panel {
+  min-width: 0;
+}
+
+.entity-deck-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.entity-deck-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface-2, var(--surface));
+}
+
+.entity-deck-card-art {
+  aspect-ratio: 5 / 7;
+  overflow: hidden;
+  background: var(--surface-3, rgba(0, 0, 0, 0.15));
+}
+
+.entity-deck-card-art .commander-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.entity-deck-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.5rem;
+  min-width: 0;
+}
+
+.entity-deck-card-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.25;
+  min-width: 0;
+}
+
+.entity-deck-card-name .link-btn {
+  white-space: normal;
+  text-align: left;
+}
+
+.entity-deck-card-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.5rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.entity-game-pod-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.entity-game-pod-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface-2, var(--surface));
+}
+
+.entity-game-pod-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.entity-game-pod-seats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+  padding: 0.75rem;
+}
+
+.entity-game-seat-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+  padding: 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 0.75rem;
+}
+
+.entity-game-seat-num {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+
+.entity-game-seat-player {
+  font-weight: 600;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.entity-game-seat-commander {
+  color: var(--muted);
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.entity-game-seat-box.entity-game-seat-win {
+  border-color: color-mix(in srgb, var(--win, #22c55e) 55%, var(--border));
+  background: color-mix(in srgb, var(--win, #22c55e) 12%, var(--surface));
+}
+
+.entity-game-seat-box.entity-game-seat-loss {
+  border-color: color-mix(in srgb, var(--loss, #ef4444) 55%, var(--border));
+  background: color-mix(in srgb, var(--loss, #ef4444) 12%, var(--surface));
+}
+
+.entity-games-table {
+  margin-top: 0.25rem;
+}
+
 .entity-report-links {
   list-style: none;
   margin: 0;
@@ -2207,6 +2352,11 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 @media (max-width: 720px) {
   .entity-report-deck-hero {
     grid-template-columns: 1fr;
+  }
+
+  .entity-deck-grid,
+  .entity-game-pod-seats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

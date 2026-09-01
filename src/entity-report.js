@@ -8,8 +8,8 @@ import {
 } from "./matchups.js";
 import { getCommanderInfo, getCommanderMatchupIdentities, commanderMatchesTarget } from "./commander-names.js";
 import { resolveCommanderColors } from "./commander-colors.js";
-import { deckKey, deckCommander, deckId, deckTitle, findDeck, deckLabelForKey, deckTitleForKey } from "./deck-identity.js";
-import { winRate, normalizedWinRate, computeTurnAverages } from "./stats.js";
+import { deckKey, deckCommander, deckId, deckTitle, findDeck, deckLabelForKey, deckTitleForKey, deckMapByKey } from "./deck-identity.js";
+import { winRate, normalizedWinRate, computeTurnAverages, gameBracket } from "./stats.js";
 import { compareGamesChronologically, formatDate } from "./dates.js";
 import { commanderNames } from "./scryfall.js";
 import { computeWinRateSeries, renderWinRateLineChart } from "./trends-chart.js";
@@ -28,6 +28,21 @@ export function normalizeEntityKey(value) {
   return String(value || "")
     .trim()
     .toLowerCase();
+}
+
+/** @param {import('./store.js').Game} game */
+export function gameHasPodDetail(game) {
+  if (!game.mySeat) return false;
+  const opponents = game.opponents || [];
+  if (!opponents.length) return false;
+  return opponents.some(
+    (o) => String(o.name || "").trim() || String(o.player || "").trim()
+  );
+}
+
+/** @param {import('./store.js').Game[]} games */
+function sortEntityGames(games) {
+  return [...games].sort((a, b) => compareGamesChronologically(b, a));
 }
 
 /** @param {import('./store.js').Game[]} games @param {string} playerName */
@@ -426,7 +441,7 @@ export function buildEntityReport(games, decks, request) {
     const seatFilter = (seat) => normalizeEntityKey(seat.player) === playerKey;
     const stats = computeSeatStats(games, seatFilter);
     const chartGames = appearanceGamesForChart(games, seatFilter);
-    /** @type {Map<string, { name: string, games: number, ownedKey: string | null }>} */
+    /** @type {Map<string, { name: string, games: number, wins: number, ownedKey: string | null }>} */
     const deckRows = new Map();
 
     for (const game of games) {
@@ -439,23 +454,33 @@ export function buildEntityReport(games, decks, request) {
           ({
             name: seat.commander,
             games: 0,
+            wins: 0,
             ownedKey: findOwnedDeckKey(seat.commander, decks),
           });
         row.games += 1;
+        if (seat.didWin) row.wins += 1;
         deckRows.set(canonical, row);
       }
     }
 
     const isMe = playerKey === normalizeEntityKey(MY_PLAYER_NAME);
     const ownedDecks = isMe
-      ? decks.map((deck) => ({
-          key: deckId(deck),
-          name: deckTitle(deck),
-          commander: deckCommander(deck),
-          deckSlotId: deckId(deck),
-          games: games.filter((g) => g.deck === deckId(deck)).length,
-          owned: true,
-        }))
+      ? decks.map((deck) => {
+          const slotId = deckId(deck);
+          const deckGames = games.filter((g) => g.deck === slotId);
+          const wins = deckGames.filter((g) => g.result === "Win").length;
+          const gamesCount = deckGames.length;
+          return {
+            key: slotId,
+            name: deckTitle(deck),
+            commander: deckCommander(deck),
+            deckSlotId: slotId,
+            games: gamesCount,
+            wins,
+            winRate: winRate(wins, gamesCount),
+            owned: true,
+          };
+        })
       : [];
 
     const playedDecks = [...deckRows.values()]
@@ -463,11 +488,15 @@ export function buildEntityReport(games, decks, request) {
       .map((row) => ({
         key: row.ownedKey || row.name,
         name: row.name,
+        commander: row.name,
         games: row.games,
+        wins: row.wins,
+        winRate: winRate(row.wins, row.games),
         owned: !!row.ownedKey,
       }));
 
     const deckList = mergeDeckLists(ownedDecks, playedDecks);
+    const entityGames = sortEntityGames(gamesForPlayer(games, playerName));
 
     return {
       kind,
@@ -477,6 +506,7 @@ export function buildEntityReport(games, decks, request) {
       stats,
       chartGames,
       deckList,
+      entityGames,
       pilots: [],
       playerMatchups: buildEntityMatchupRows(games, "players", seatFilter),
       deckMatchups: buildEntityMatchupRows(games, "decks", seatFilter, { splitPartners }),
@@ -510,6 +540,7 @@ export function buildEntityReport(games, decks, request) {
       stats: slotStats,
       chartGames: slotChartGames,
       deckList: [],
+      entityGames: sortEntityGames(games.filter((game) => game.deck === deckSlotId)),
       pilots: [],
       playerMatchups: buildEntityMatchupRows(games, "players", seatFilter),
       deckMatchups: buildEntityMatchupRows(games, "decks", seatFilter, { splitPartners }),
@@ -547,6 +578,9 @@ export function buildEntityReport(games, decks, request) {
     stats,
     chartGames,
     deckList: [],
+    entityGames: sortEntityGames(
+      gamesForDeck(games, commanderName, { playerScope, splitPartners })
+    ),
     pilots: pilotStats,
     playerMatchups: buildEntityMatchupRows(games, "players", seatFilter, {
       splitPartners,
@@ -562,36 +596,188 @@ export function buildEntityReport(games, decks, request) {
   };
 }
 
-/** @param {{ key: string, name: string, games: number, owned: boolean }[]} ownedDecks @param {{ key: string, name: string, games: number, owned: boolean }[]} playedDecks */
+/** @param {{ key: string, name: string, commander?: string, games: number, wins?: number, winRate?: number, owned: boolean, deckSlotId?: string | null }[]} ownedDecks @param {{ key: string, name: string, commander?: string, games: number, wins?: number, winRate?: number, owned: boolean }[]} playedDecks */
 function mergeDeckLists(ownedDecks, playedDecks) {
   const merged = new Map();
   for (const row of [...ownedDecks, ...playedDecks]) {
-    const canonical = getCommanderInfo(row.name).canonicalName;
+    const canonical = getCommanderInfo(row.commander || row.name).canonicalName;
     const existing = merged.get(canonical);
     if (existing) {
-      existing.games = Math.max(existing.games, row.games);
+      if (row.games >= existing.games) {
+        existing.games = row.games;
+        existing.wins = row.wins ?? 0;
+        existing.winRate = row.winRate ?? winRate(existing.wins, existing.games);
+      }
       existing.owned = existing.owned || row.owned;
+      if (row.deckSlotId) existing.deckSlotId = row.deckSlotId;
+      if (row.commander) existing.commander = row.commander;
     } else {
-      merged.set(canonical, { ...row });
+      merged.set(canonical, {
+        ...row,
+        wins: row.wins ?? 0,
+        winRate: row.winRate ?? winRate(row.wins ?? 0, row.games),
+      });
     }
   }
   return [...merged.values()].sort((a, b) => b.games - a.games || a.name.localeCompare(b.name));
 }
 
-/** @param {ReturnType<typeof buildEntityReport>} report @param {import('./store.js').Deck[]} decks @param {'players' | 'decks'} [activeMatchupTab] */
-function renderEntityMatchupsSection(report, decks, activeMatchupTab = "players") {
+/** @param {import('./store.js').Game} game @param {import('./store.js').Deck[]} decks @param {ReturnType<typeof buildEntityReport>} report */
+function entityGameResultClass(game, report) {
+  if (report.kind === "player") {
+    const playerKey = normalizeEntityKey(report.title);
+    const seat = parseGameSeats(game).find((s) => normalizeEntityKey(s.player) === playerKey);
+    if (!seat) return "";
+    return seat.didWin ? "win" : "loss";
+  }
+  if (report.deckSlotId) {
+    return game.result === "Win" ? "win" : "loss";
+  }
+  const commanderName = report.displayCommander || report.title;
+  const seat = parseGameSeats(game).find((s) =>
+    commanderMatchesTarget(s.commander, commanderName, { splitPartners: false })
+  );
+  if (!seat) return game.result === "Win" ? "win" : "loss";
+  return seat.didWin ? "win" : "loss";
+}
+
+/** @param {import('./store.js').Game} game @param {import('./store.js').Deck[]} decks @param {ReturnType<typeof buildEntityReport>} report */
+function renderEntityGamePodCard(game, decks, report) {
+  const seatsByNumber = new Map(parseGameSeats(game).map((seat) => [seat.seat, seat]));
+  const seatBoxes = [1, 2, 3, 4]
+    .map((seatNum) => {
+      const seat = seatsByNumber.get(seatNum);
+      const outcomeClass = seat ? (seat.didWin ? "entity-game-seat-win" : "entity-game-seat-loss") : "";
+      const playerLabel = seat?.player ? escapeHtml(seat.player) : "—";
+      const commanderLabel = seat?.commander
+        ? escapeHtml(seat.commander)
+        : "—";
+      return `
+        <div class="entity-game-seat-box ${outcomeClass}">
+          <span class="entity-game-seat-num">Seat ${seatNum}</span>
+          <span class="entity-game-seat-player">${playerLabel}</span>
+          <span class="entity-game-seat-commander">${commanderLabel}</span>
+        </div>`;
+    })
+    .join("");
+
+  const deckMap = deckMapByKey(decks);
+  const resultCls = entityGameResultClass(game, report);
+
+  return `
+    <article class="entity-game-pod-card">
+      <div class="entity-game-pod-header">
+        <span>${formatDate(game.date)}</span>
+        <span>Turn ${game.turn || "—"}</span>
+        <span>Bracket ${gameBracket(game, deckMap)}</span>
+        <span class="result-pill ${resultCls}">${resultCls === "win" ? "Win" : "Loss"}</span>
+      </div>
+      <div class="entity-game-pod-seats">${seatBoxes}</div>
+    </article>`;
+}
+
+/** @param {import('./store.js').Game[]} games @param {import('./store.js').Deck[]} decks @param {ReturnType<typeof buildEntityReport>} report */
+function renderEntityGamesTable(games, decks, report) {
+  if (!games.length) return "";
+  const deckMap = deckMapByKey(decks);
+  const showDeckCol = report.kind === "player";
+  const showPlayerCol = report.kind === "deck";
+
+  return `
+    <table class="table compact entity-games-table">
+      <thead><tr>
+        <th>Date</th>
+        ${showDeckCol ? "<th>Deck</th>" : ""}
+        ${showPlayerCol ? "<th>Player</th>" : ""}
+        <th>Seat</th>
+        <th>Turn</th>
+        <th>Bracket</th>
+        <th>Result</th>
+      </tr></thead>
+      <tbody>
+        ${games
+          .map((game) => {
+            const resultCls = entityGameResultClass(game, report);
+            const playerKey = report.kind === "player" ? normalizeEntityKey(report.title) : null;
+            const seat =
+              report.kind === "player"
+                ? parseGameSeats(game).find((s) => normalizeEntityKey(s.player) === playerKey)
+                : parseGameSeats(game).find((s) =>
+                    commanderMatchesTarget(
+                      s.commander,
+                      report.displayCommander || report.title,
+                      { splitPartners: false }
+                    )
+                  );
+            const deckCell = showDeckCol
+              ? `<td>${renderDeckReportLink(
+                  seat?.commander || game.deck,
+                  decks,
+                  {
+                    label: seat?.commander || deckTitleForKey(game.deck, decks),
+                    playerScope: report.title,
+                    deckSlotId: seat?.deckSlotId || game.deck || null,
+                  }
+                )}</td>`
+              : "";
+            const playerCell = showPlayerCol
+              ? `<td>${seat?.player ? renderPlayerReportLink(seat.player) : "—"}</td>`
+              : "";
+            const seatNum =
+              report.kind === "player"
+                ? seat?.seat || game.mySeat || "—"
+                : seat?.seat || "—";
+
+            return `
+            <tr>
+              <td>${formatDate(game.date)}</td>
+              ${deckCell}
+              ${playerCell}
+              <td>${seatNum}</td>
+              <td>${game.turn || "—"}</td>
+              <td>${gameBracket(game, deckMap)}</td>
+              <td><span class="result-pill ${resultCls}">${resultCls === "win" ? "Win" : "Loss"}</span></td>
+            </tr>`;
+          })
+          .join("")}
+      </tbody>
+    </table>`;
+}
+
+/** @param {ReturnType<typeof buildEntityReport>} report @param {import('./store.js').Deck[]} decks */
+function renderEntityGamesSection(report, decks) {
+  const games = report.entityGames || [];
+  if (!games.length) {
+    return `<p class="muted-text entity-report-empty">No games logged yet.</p>`;
+  }
+
+  const podGames = games.filter(gameHasPodDetail);
+  const simpleGames = games.filter((game) => !gameHasPodDetail(game));
+  const podCards = podGames.map((game) => renderEntityGamePodCard(game, decks, report)).join("");
+  const tableGames = simpleGames.length ? simpleGames : podGames.length ? [] : games;
+  const tableHtml = tableGames.length ? renderEntityGamesTable(tableGames, decks, report) : "";
+
+  return `
+    ${podGames.length ? `<div class="entity-game-pod-list">${podCards}</div>` : ""}
+    ${tableHtml}`;
+}
+
+/** @param {ReturnType<typeof buildEntityReport>} report @param {import('./store.js').Deck[]} decks @param {'games' | 'decks' | 'players'} [activeTab] */
+function renderEntityTabsSection(report, decks, activeTab = "games") {
   const tabs = [
-    { id: "players", label: "Player Matchups" },
+    { id: "games", label: "Games" },
     { id: "decks", label: "Deck Matchups" },
+    { id: "players", label: "Player Matchups" },
   ];
 
   const tabButtons = tabs
     .map(
       (tab) =>
-        `<button type="button" role="tab" aria-selected="${tab.id === activeMatchupTab}" class="sub-tab ${tab.id === activeMatchupTab ? "active" : ""}" data-entity-matchup-tab="${tab.id}">${tab.label}</button>`
+        `<button type="button" role="tab" aria-selected="${tab.id === activeTab}" class="sub-tab ${tab.id === activeTab ? "active" : ""}" data-entity-report-tab="${tab.id}">${tab.label}</button>`
     )
     .join("");
 
+  const gamesPanel = renderEntityGamesSection(report, decks);
   const playerPanel = renderMatchupTableWithCells(report.playerMatchups, (row) =>
     renderMatchupOpponentCell(row, "player", decks, report.playerScope)
   );
@@ -600,19 +786,54 @@ function renderEntityMatchupsSection(report, decks, activeMatchupTab = "players"
   );
 
   return `
-    <div class="entity-report-section entity-report-matchups">
-      <div class="sub-tabs entity-report-matchup-tabs" role="tablist">${tabButtons}</div>
-      <div class="entity-report-matchup-panel" data-entity-matchup-panel="players" role="tabpanel" ${activeMatchupTab === "players" ? "" : "hidden"}>${playerPanel}</div>
-      <div class="entity-report-matchup-panel" data-entity-matchup-panel="decks" role="tabpanel" ${activeMatchupTab === "decks" ? "" : "hidden"}>${deckPanel}</div>
+    <div class="entity-report-section entity-report-tabs-section">
+      <div class="sub-tabs entity-report-tablist" role="tablist">${tabButtons}</div>
+      <div class="entity-report-tab-panel" data-entity-report-panel="games" role="tabpanel" ${activeTab === "games" ? "" : "hidden"}>${gamesPanel}</div>
+      <div class="entity-report-tab-panel" data-entity-report-panel="decks" role="tabpanel" ${activeTab === "decks" ? "" : "hidden"}>${deckPanel}</div>
+      <div class="entity-report-tab-panel" data-entity-report-panel="players" role="tabpanel" ${activeTab === "players" ? "" : "hidden"}>${playerPanel}</div>
+    </div>`;
+}
+
+/** @param {{ key: string, name: string, commander?: string, games: number, wins?: number, winRate?: number, owned: boolean, deckSlotId?: string | null }[]} deckList @param {import('./store.js').Deck[]} decks @param {string} playerScope */
+function renderPlayerDeckGrid(deckList, decks, playerScope) {
+  if (!deckList.length) return "";
+
+  return `
+    <div class="entity-deck-grid">
+      ${deckList
+        .map((row) => {
+          const commander = row.commander || row.name;
+          const commanders = commanderNames(commander);
+          const imgName = commanders[0] || commander;
+          return `
+        <div class="entity-deck-card">
+          <div class="entity-deck-card-art">
+            <img class="commander-img loading" data-card-name="${escapeHtml(imgName)}" alt="${escapeHtml(commander)}" />
+          </div>
+          <div class="entity-deck-card-body">
+            <div class="entity-deck-card-name">${renderDeckReportLink(commander, decks, {
+              label: row.name,
+              playerScope,
+              deckSlotId: row.deckSlotId || null,
+            })}</div>
+            <div class="entity-deck-card-stats">
+              <span>${row.games} game${row.games === 1 ? "" : "s"}</span>
+              <span>${row.wins ?? 0} win${row.wins === 1 ? "" : "s"}</span>
+              <span>${row.games ? pctCell(row.winRate ?? winRate(row.wins ?? 0, row.games)) : "—"}</span>
+            </div>
+          </div>
+        </div>`;
+        })
+        .join("")}
     </div>`;
 }
 
 /**
  * @param {ReturnType<typeof buildEntityReport>} report
  * @param {import('./store.js').Deck[]} decks
- * @param {'players' | 'decks'} [activeMatchupTab]
+ * @param {'games' | 'decks' | 'players'} [activeTab]
  */
-export function renderEntityReportModal(report, decks, activeMatchupTab = "players") {
+export function renderEntityReportModal(report, decks, activeTab = "games") {
   const rootKey = report.title;
   const statsHtml = `
     ${statBlock("Games", report.stats.games)}
@@ -627,7 +848,7 @@ export function renderEntityReportModal(report, decks, activeMatchupTab = "playe
       ? renderWinRateLineChart(computeWinRateSeries(report.chartGames), "")
       : `<p class="muted-text entity-report-empty">No games logged yet.</p>`;
 
-  const matchupsSection = renderEntityMatchupsSection(report, decks, activeMatchupTab);
+  const tabsSection = renderEntityTabsSection(report, decks, activeTab);
 
   if (report.kind === "deck") {
     const commanders = commanderNames(report.displayCommander || report.title);
@@ -649,7 +870,6 @@ export function renderEntityReportModal(report, decks, activeMatchupTab = "playe
     return `
       <div class="modal-content modal-content-wide modal-content-report entity-report-deck" data-entity-report-root="${escapeHtml(rootKey)}">
         <div class="entity-report-header">
-          <button type="button" class="btn btn-ghost btn-sm" id="close-entity-report">Close</button>
           <div>
             <h3 class="entity-report-title">${escapeHtml(report.title)}</h3>
             ${
@@ -676,32 +896,20 @@ export function renderEntityReportModal(report, decks, activeMatchupTab = "playe
           <div class="entity-report-chart">${chart}</div>
         </div>
 
-        ${matchupsSection}
+        ${tabsSection}
       </div>`;
   }
 
   const deckSection = report.deckList.length
     ? `<div class="entity-report-section">
         <h4>Decks</h4>
-        <ul class="entity-report-links">
-          ${report.deckList
-            .map(
-                (row) =>
-                  `<li>${renderDeckReportLink(row.commander || row.key, decks, {
-                    label: row.name,
-                    playerScope: report.title,
-                    deckSlotId: row.deckSlotId || null,
-                  })} · ${row.games} game${row.games === 1 ? "" : "s"}</li>`
-            )
-            .join("")}
-        </ul>
+        ${renderPlayerDeckGrid(report.deckList, decks, report.title)}
       </div>`
     : "";
 
   return `
     <div class="modal-content modal-content-wide modal-content-report entity-report-player" data-entity-report-root="${escapeHtml(rootKey)}">
       <div class="entity-report-header">
-        <button type="button" class="btn btn-ghost btn-sm" id="close-entity-report">Close</button>
         <h3 class="entity-report-title">${escapeHtml(report.title)}</h3>
       </div>
 
@@ -714,7 +922,7 @@ export function renderEntityReportModal(report, decks, activeMatchupTab = "playe
         <div class="entity-report-chart">${chart}</div>
       </div>
 
-      ${matchupsSection}
+      ${tabsSection}
     </div>`;
 }
 
