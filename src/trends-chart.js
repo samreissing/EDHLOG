@@ -1,5 +1,5 @@
-import { formatDate, normalizeDate } from "./dates.js";
-import { pct } from "./stats.js";
+import { compareGamesChronologically, formatDate, normalizeDate } from "./dates.js";
+import { pct, winRate } from "./stats.js";
 
 /**
  * One point per calendar day. Multiple games on the same day are combined into
@@ -305,6 +305,132 @@ export function renderMultiWinRateLineChart(seriesList, range, title = "") {
           )
           .join("")}`,
     })}`;
+}
+
+const RECENT_FORM_GAMES = 20;
+const MIN_ROLLING_WINDOW_GAMES = 20;
+
+/**
+ * @param {import('./store.js').Game[]} games
+ * @param {{ windows?: Array<{ label: string, games: number, wins: number, winRate: number }> }} [rolling]
+ */
+export function computeTrendsSummary(games, rolling = { windows: [] }) {
+  const sorted = [...games].sort(compareGamesChronologically);
+  let longestWinStreak = 0;
+  let longestLossStreak = 0;
+  let runningWin = 0;
+  let runningLoss = 0;
+
+  for (const game of sorted) {
+    if (game.result === "Win") {
+      runningWin += 1;
+      runningLoss = 0;
+      longestWinStreak = Math.max(longestWinStreak, runningWin);
+    } else {
+      runningLoss += 1;
+      runningWin = 0;
+      longestLossStreak = Math.max(longestLossStreak, runningLoss);
+    }
+  }
+
+  /** @type {{ type: "win" | "loss" | null, length: number }} */
+  let currentStreak = { type: null, length: 0 };
+  if (sorted.length) {
+    const lastResult = sorted[sorted.length - 1].result === "Win" ? "win" : "loss";
+    let length = 0;
+    for (let i = sorted.length - 1; i >= 0; i -= 1) {
+      const isWin = sorted[i].result === "Win";
+      if ((lastResult === "win" && isWin) || (lastResult === "loss" && !isWin)) {
+        length += 1;
+      } else {
+        break;
+      }
+    }
+    currentStreak = { type: lastResult, length };
+  }
+
+  const recentSlice = sorted.slice(-RECENT_FORM_GAMES);
+  const recentWins = recentSlice.filter((game) => game.result === "Win").length;
+  const recentForm = recentSlice.length
+    ? {
+        games: recentSlice.length,
+        wins: recentWins,
+        losses: recentSlice.length - recentWins,
+        winRate: winRate(recentWins, recentSlice.length),
+      }
+    : null;
+
+  const fullWindows = (rolling.windows || []).filter((window) => window.games === 100);
+  const rollingCandidates = fullWindows.length
+    ? fullWindows
+    : (rolling.windows || []).filter((window) => window.games >= MIN_ROLLING_WINDOW_GAMES);
+  const bestWindow = rollingCandidates.length
+    ? rollingCandidates.reduce((best, window) => (window.winRate > best.winRate ? window : best))
+    : null;
+
+  return {
+    longestWinStreak,
+    longestLossStreak,
+    currentStreak,
+    recentForm,
+    bestWindow,
+    totalGames: sorted.length,
+  };
+}
+
+function formatStreakCount(value) {
+  return value > 0 ? String(value) : "—";
+}
+
+function formatCurrentStreak(streak) {
+  if (!streak.type || !streak.length) return "—";
+  return `${streak.type === "win" ? "W" : "L"}${streak.length}`;
+}
+
+/**
+ * @param {ReturnType<typeof computeTrendsSummary>} summary
+ */
+export function renderTrendsSummaryStats(summary) {
+  const currentClass =
+    summary.currentStreak.type === "win"
+      ? " trends-streak-win"
+      : summary.currentStreak.type === "loss"
+        ? " trends-streak-loss"
+        : "";
+  const recentDetail = summary.recentForm
+    ? `${summary.recentForm.wins}W · ${summary.recentForm.losses}L · last ${summary.recentForm.games}`
+    : "";
+  const bestWindowDetail = summary.bestWindow ? `Games ${summary.bestWindow.label}` : "";
+
+  return `
+    <div class="stat-grid trends-summary-stats">
+      <div class="stat-card">
+        <span class="stat-label">Longest Win Streak</span>
+        <span class="stat-value trends-streak-win">${formatStreakCount(summary.longestWinStreak)}</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Longest Losing Streak</span>
+        <span class="stat-value trends-streak-loss">${formatStreakCount(summary.longestLossStreak)}</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Current Streak</span>
+        <span class="stat-value${currentClass}">${formatCurrentStreak(summary.currentStreak)}</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Recent Form</span>
+        <span class="stat-value">${summary.recentForm ? pct(summary.recentForm.winRate) : "—"}</span>
+        ${recentDetail ? `<span class="stat-sub">${escAttr(recentDetail)}</span>` : ""}
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Best 100-Game Window</span>
+        <span class="stat-value">${summary.bestWindow ? pct(summary.bestWindow.winRate) : "—"}</span>
+        ${bestWindowDetail ? `<span class="stat-sub">${escAttr(bestWindowDetail)}</span>` : ""}
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Total Games</span>
+        <span class="stat-value">${summary.totalGames || "—"}</span>
+      </div>
+    </div>`;
 }
 
 function escAttr(str) {
