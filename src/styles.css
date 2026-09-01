@@ -182,6 +182,18 @@ main {
   color: var(--muted);
 }
 
+.trends-summary-stats {
+  margin-bottom: 1.25rem;
+}
+
+.trends-streak-win {
+  color: var(--green);
+}
+
+.trends-streak-loss {
+  color: var(--red);
+}
+
 /* Tables */
 .table-wrap {
   overflow-x: auto;

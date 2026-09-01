@@ -80,6 +80,8 @@ import {
 import { computeAllTotals, TOTALS_TABS } from "./totals.js";
 import {
   computeWinRateSeries,
+  computeTrendsSummary,
+  renderTrendsSummaryStats,
   renderWinRateLineChart,
   renderMultiWinRateLineChart,
   bindWinRateLineCharts,
@@ -1545,6 +1547,7 @@ function renderStats() {
       ${renderChartSection(bracketChart, "clear-brackets-chart")}`;
   } else if (statsTab === "trends") {
     const { statsGames } = getStatsScope();
+    const trendsSummary = renderTrendsSummaryStats(computeTrendsSummary(statsGames, s.rolling));
     const windowsForChart = s.rolling.windows.length
       ? applySort(s.rolling.windows, tableSort["trends-windows"], {
           label: (w) => w.label,
@@ -1586,7 +1589,7 @@ function renderStats() {
     }
 
     if (!s.rolling.windows.length) {
-      body = `${renderDateRangeFilters("trends", chartRange.bounds, chartRange, { deckFilter: true })}${renderChartSection(chart, "clear-trends-chart")}`;
+      body = `${trendsSummary}${renderDateRangeFilters("trends", chartRange.bounds, chartRange, { deckFilter: true })}${renderChartSection(chart, "clear-trends-chart")}`;
     } else {
       const windows = windowsForChart;
       const cumulative = applySort(s.rolling.cumulative, tableSort["trends-cumulative"], {
@@ -1596,6 +1599,7 @@ function renderStats() {
       });
 
       body = `
+        ${trendsSummary}
         ${renderDateRangeFilters("trends", chartRange.bounds, chartRange, { deckFilter: true })}
         <h3 class="section-sub">By Year</h3>
         <div class="year-row">
