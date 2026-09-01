@@ -2200,10 +2200,12 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   background: var(--surface-3, rgba(0, 0, 0, 0.15));
 }
 
-.entity-deck-card-art .commander-img {
+.entity-deck-card-art .commander-img,
+.entity-deck-card-art .commander-art-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: top center;
   display: block;
 }
 
