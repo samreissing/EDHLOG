@@ -4,7 +4,8 @@ import { deckKey, deckCommander } from "./deck-identity.js";
 const STORAGE_KEY = "edhlog-data-v1";
 
 /** @typedef {{ name: string, qty: number, board: string }} DeckCard */
-/** @typedef {{ id?: string, name: string, commander: string, bracket: number, colors: string[], retired: boolean, createdAt?: string, listUrl?: string, listSource?: 'moxfield' | 'deckstats', listSyncedAt?: string, cards?: DeckCard[] }} Deck */
+/** @typedef {{ commander: string, name?: string, bracket: number, colors?: string[], changedAt: string }} DeckHistoryEntry */
+/** @typedef {{ id?: string, name: string, commander: string, bracket: number, colors: string[], retired: boolean, createdAt?: string, history?: DeckHistoryEntry[], listUrl?: string, listSource?: 'moxfield' | 'deckstats', listSyncedAt?: string, cards?: DeckCard[] }} Deck */
 /** @typedef {{ id: string, date: string, time?: string, deck: string, myCommander?: string, result: 'Win' | 'Loss', source?: 'local', bracket?: number, mySeat?: number, myPlayer?: string, winnerSeat?: number, turn?: number, opponents?: { seat: number, name: string, player?: string }[] }} Game */
 /** @typedef {{ seedHash?: string, seedGames?: number }} DataMeta */
 /** @typedef {{ meta?: DataMeta, decks: Deck[], games: Game[] }} AppData */
@@ -212,8 +213,14 @@ export async function initData() {
 
 /** @param {AppData} data */
 export function saveData(data) {
-  cache = data;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  try {
+    cache = data;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    return true;
+  } catch (err) {
+    console.error("EDHLOG save failed", err);
+    return false;
+  }
 }
 
 export async function resetToSeed() {
