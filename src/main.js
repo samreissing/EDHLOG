@@ -65,6 +65,7 @@ import { bindPodAutocomplete, MY_PLAYER_NAME } from "./opponent-search.js";
 import {
   warmCommanderMatchupCache,
   collectPartnerCommanderNames,
+  getCommanderInfo,
 } from "./commander-names.js";
 import {
   warmCommanderColorCache,
@@ -453,35 +454,6 @@ function bindEvents() {
       switchEntityReportTab(entityReportTabBtn.dataset.entityReportTab);
       return;
     }
-
-    if (e.target.closest("#save-deck-btn")) {
-      const form = document.getElementById("deck-form");
-      if (form) form.requestSubmit();
-      return;
-    }
-
-    if (e.target.closest("#delete-deck-modal")) {
-      if (!editingDeckName) return;
-      if (!confirm("Delete this deck?")) return;
-      const key = editingDeckName;
-      data.decks = data.decks.filter((d) => deckId(d) !== key);
-      data.games = data.games.filter((g) => g.deck !== key);
-      if (entityReport?.deckSlotId === key || entityReport?.key === key) {
-        entityReport = null;
-        syncEntityReportModal();
-      }
-      closeDeckModal();
-      saveData(data);
-      render();
-      toast("Deleted");
-      return;
-    }
-  });
-
-  document.addEventListener("submit", (e) => {
-    if (e.target.id !== "deck-form") return;
-    e.preventDefault();
-    saveDeckFromForm();
   });
 
   document.getElementById("nav").addEventListener("click", (e) => {
@@ -859,13 +831,44 @@ function bindEvents() {
     }
 
     if (e.target.id === "add-deck-btn") {
-      openDeckModal();
+      editingDeckName = null;
+      editingDeckIndex = -1;
+      entityReport = null;
+      syncEntityReportModal();
+      deckModalOpen = true;
+      render();
+      return;
+    }
+
+    if (e.target.id === "delete-deck-modal") {
+      const originalId = document.getElementById("deck-form")?.querySelector('[name="originalId"]')?.value;
+      const key = String(originalId || editingDeckName || "").trim();
+      if (!key) return;
+      if (!confirm("Delete this deck?")) return;
+      data.decks = data.decks.filter((d) => deckId(d) !== key);
+      data.games = data.games.filter((g) => g.deck !== key);
+      if (entityReport?.deckSlotId === key || entityReport?.key === key) {
+        entityReport = null;
+        syncEntityReportModal();
+      }
+      closeDeckModal();
+      saveData(data);
+      render();
+      toast("Deleted");
       return;
     }
 
     const editDeckBtn = e.target.closest(".edit-deck");
     if (editDeckBtn) {
-      openDeckModal(editDeckBtn.dataset.name);
+      const ref = editDeckBtn.dataset.name;
+      const deck = findDeck(data.decks, ref);
+      if (deck && ensureDeckHasId(deck)) saveData(data);
+      editingDeckIndex = deck ? data.decks.indexOf(deck) : -1;
+      editingDeckName = deck ? deckId(deck) : ref;
+      entityReport = null;
+      syncEntityReportModal();
+      deckModalOpen = true;
+      render();
       return;
     }
 
@@ -945,6 +948,9 @@ function bindEvents() {
         el.disabled = false;
       });
       saveGameFromForm(new FormData(e.target));
+    } else if (e.target.id === "deck-form") {
+      e.preventDefault();
+      saveDeckFromForm(e.target);
     }
   });
 
@@ -1252,76 +1258,6 @@ function closeDeckModal() {
   deckModalOpen = false;
   editingDeckName = null;
   editingDeckIndex = -1;
-  document.getElementById("deck-modal")?.remove();
-}
-
-/** @param {string | null | undefined} [deckIdToEdit] */
-function openDeckModal(deckIdToEdit = null) {
-  editingDeckIndex = -1;
-  editingDeckName = null;
-
-  if (deckIdToEdit) {
-    editingDeckIndex = resolveEditingDeckIndex(deckIdToEdit);
-    const deck = editingDeckIndex >= 0 ? data.decks[editingDeckIndex] : findDeck(data.decks, deckIdToEdit);
-    if (deck) {
-      if (ensureDeckHasId(deck)) saveData(data);
-      editingDeckIndex = data.decks.indexOf(deck);
-      editingDeckName = deckId(deck) || deckIdToEdit;
-    } else {
-      editingDeckName = deckIdToEdit;
-    }
-  }
-
-  entityReport = null;
-  deckModalOpen = true;
-  syncEntityReportModal();
-  showDeckModal();
-}
-
-function showDeckModal() {
-  document.getElementById("deck-modal")?.remove();
-
-  const modal = document.createElement("div");
-  modal.id = "deck-modal";
-  modal.className = "modal deck-modal-layer";
-  modal.innerHTML = renderDeckModalContent();
-  document.body.appendChild(modal);
-
-  const form = modal.querySelector("#deck-form");
-  form?.addEventListener("submit", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    saveDeckFromForm(form);
-  });
-
-  modal.addEventListener("click", (e) => {
-    if (e.target.closest("#delete-deck-modal")) {
-      e.preventDefault();
-      e.stopPropagation();
-      if (editingDeckIndex < 0 && !editingDeckName) return;
-      if (!confirm("Delete this deck?")) return;
-      const key = editingDeckName || deckId(data.decks[editingDeckIndex]);
-      data.decks = data.decks.filter((d) => deckId(d) !== key);
-      data.games = data.games.filter((g) => g.deck !== key);
-      if (entityReport?.deckSlotId === key || entityReport?.key === key) {
-        entityReport = null;
-        syncEntityReportModal();
-      }
-      closeDeckModal();
-      if (!saveData(data)) {
-        toast("Failed to delete deck", true);
-        return;
-      }
-      render();
-      toast("Deleted");
-    }
-  });
-
-  const nameInput = modal.querySelector('input[name="name"]');
-  nameInput?.focus();
-  if (nameInput && editingDeckName) {
-    nameInput.select();
-  }
 }
 
 function saveDeckFromForm(formOverride = null) {
@@ -1428,33 +1364,6 @@ function saveDeckFromForm(formOverride = null) {
   void refreshCommanderColorCache();
 }
 
-function renderDeckModalContent() {
-  const editingDeck = findEditingDeck();
-  const createdAtValue = editingDeck?.createdAt
-    ? normalizeDate(editingDeck.createdAt) || todayISO()
-    : todayISO();
-
-  return `
-    <div class="modal-content modal-content-deck">
-      <h3>${editingDeck ? "Edit Deck" : "Add Deck"}</h3>
-      <form id="deck-form" class="deck-form" novalidate>
-        ${editingDeck ? `<input type="hidden" name="originalId" value="${escapeHtml(deckId(editingDeck))}" />` : ""}
-        <label>Name<input name="name" placeholder="Optional deck name" value="${editingDeck ? escapeHtml(editingDeck.name || "") : ""}" /></label>
-        <label>Commander<input name="commander" value="${editingDeck ? escapeHtml(deckLabel(editingDeck)) : ""}" /></label>
-        <label>Created<input type="date" name="createdAt" value="${createdAtValue}" /></label>
-        <label>Bracket<select name="bracket">${[1, 2, 3, 4, 5].map((b) => `<option value="${b}" ${(editingDeck ? editingDeck.bracket : 4) === b ? "selected" : ""}>${b}</option>`).join("")}</select></label>
-        <fieldset class="color-fieldset"><legend>Colors</legend>
-          ${["W", "U", "B", "R", "G"].map((c) => `<label class="checkbox mana-check"><input type="checkbox" name="color" value="${c}" ${editingDeck?.colors?.includes(c) ? "checked" : ""} />${colorBadge([c])}</label>`).join("")}
-        </fieldset>
-        <label class="checkbox"><input type="checkbox" name="retired" ${editingDeck?.retired ? "checked" : ""} /> Retired</label>
-        <div class="form-actions${editingDeck ? " form-actions--split" : ""}">
-          ${editingDeck ? `<button type="button" class="btn btn-danger" id="delete-deck-modal">Delete</button>` : ""}
-          <button type="submit" class="btn btn-primary" id="save-deck-btn">${editingDeck ? "Save" : "Add Deck"}</button>
-        </div>
-      </form>
-    </div>`;
-}
-
 function render() {
   const matchupSearchFocused = document.activeElement?.id === "matchup-search";
   const matchupSearchPos = matchupSearchFocused ? document.activeElement.selectionStart : null;
@@ -1496,6 +1405,12 @@ function render() {
       el.focus();
       if (totalsSearchPos != null) el.setSelectionRange(totalsSearchPos, totalsSearchPos);
     }
+  }
+
+  if (currentView === "decks" && deckModalOpen) {
+    const nameInput = document.querySelector('#deck-form input[name="name"]');
+    nameInput?.focus();
+    if (editingDeckName) nameInput?.select();
   }
 }
 
@@ -2240,6 +2155,11 @@ function renderDecks() {
   const dateCell = (d) =>
     showLastPlayed ? (d.lastPlayed ? formatDate(d.lastPlayed) : "—") : formatDate(d.createdAt);
 
+  const editingDeck = editingDeckName ? findEditingDeck() : null;
+  const createdAtValue = editingDeck?.createdAt
+    ? normalizeDate(editingDeck.createdAt) || todayISO()
+    : todayISO();
+
   return `
     <section class="section">
       <div class="section-header">
@@ -2282,11 +2202,31 @@ function renderDecks() {
             <th class="row-actions-col"></th>
           </tr></thead>
           <tbody>
-            ${list.length ? list.map((d) => `<tr><td class="deck-date">${dateCell(d)}</td><td class="deck-name">${renderDeckReportLink(deckCommander(d), data.decks, { label: deckTitle(d), deckSlotId: deckId(d) })}</td><td class="deck-colors">${colorBadge(getDeckColors(d))}</td><td class="deck-tight">${d.bracket}</td><td class="deck-tight">${d.games}</td><td class="deck-tight">${d.wins}</td><td class="deck-stat">${d.games ? pctCell(d.normalizedWr) : "—"}</td><td class="deck-stat">${d.games ? pctCell(d.winRate) : "—"}</td><td class="row-actions"><button type="button" class="btn-icon edit-deck" data-name="${escapeHtml(deckId(d))}" title="Edit deck">✎</button></td></tr>`).join("") : '<tr><td colspan="9"></td></tr>'}
+            ${list.length ? list.map((d) => `<tr><td class="deck-date">${dateCell(d)}</td><td class="deck-name">${renderDeckReportLink(deckCommander(d), data.decks, { label: deckTitle(d), deckSlotId: deckId(d) })}</td><td class="deck-colors">${colorBadge(getDeckColors(d))}</td><td class="deck-tight">${d.bracket}</td><td class="deck-tight">${d.games}</td><td class="deck-tight">${d.wins}</td><td class="deck-stat">${d.games ? pctCell(d.normalizedWr) : "—"}</td><td class="deck-stat">${d.games ? pctCell(d.winRate) : "—"}</td><td class="row-actions"><button type="button" class="btn-icon edit-deck" data-name="${escapeHtml(deckId(d) || deckKey(d))}" title="Edit deck">✎</button></td></tr>`).join("") : '<tr><td colspan="9"></td></tr>'}
           </tbody>
         </table>
       </div>
-    </section>`;
+    </section>
+    <div id="deck-modal" class="modal${deckModalOpen ? "" : " hidden"}">
+      <div class="modal-content modal-content-deck">
+        <h3>${editingDeck ? "Edit Deck" : "Add Deck"}</h3>
+        <form id="deck-form" class="deck-form" novalidate>
+          ${editingDeck ? `<input type="hidden" name="originalId" value="${escapeHtml(deckId(editingDeck))}" />` : ""}
+          <label>Name<input name="name" placeholder="Optional deck name" value="${editingDeck ? escapeHtml(editingDeck.name || "") : ""}" /></label>
+          <label>Commander<input name="commander" value="${editingDeck ? escapeHtml(deckLabel(editingDeck)) : ""}" /></label>
+          <label>Created<input type="date" name="createdAt" value="${createdAtValue}" /></label>
+          <label>Bracket<select name="bracket">${[1, 2, 3, 4, 5].map((b) => `<option value="${b}" ${(editingDeck ? editingDeck.bracket : 4) === b ? "selected" : ""}>${b}</option>`).join("")}</select></label>
+          <fieldset class="color-fieldset"><legend>Colors</legend>
+            ${["W", "U", "B", "R", "G"].map((c) => `<label class="checkbox mana-check"><input type="checkbox" name="color" value="${c}" ${editingDeck?.colors?.includes(c) ? "checked" : ""} />${colorBadge([c])}</label>`).join("")}
+          </fieldset>
+          <label class="checkbox"><input type="checkbox" name="retired" ${editingDeck?.retired ? "checked" : ""} /> Retired</label>
+          <div class="form-actions${editingDeck ? " form-actions--split" : ""}">
+            ${editingDeck ? `<button type="button" class="btn btn-danger" id="delete-deck-modal">Delete</button>` : ""}
+            <button type="submit" class="btn btn-primary">${editingDeck ? "Save" : "Add Deck"}</button>
+          </div>
+        </form>
+      </div>
+    </div>`;
 }
 
 function renderGames() {

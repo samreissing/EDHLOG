@@ -155,9 +155,41 @@ export function syncFromSeed(local, seed) {
     local.games.push({ ...game, id: `game-${nextNum++}`, source: "local" });
   }
 
-  const seedDeckKeys = new Set(seed.decks.map((deck) => deck.commander || deck.name));
-  const localOnlyDecks = local.decks.filter((deck) => !seedDeckKeys.has(deck.commander || deck.name));
-  local.decks = seed.decks.map((deck) => ({ ...deck, colors: [...(deck.colors || [])] }));
+  /** @param {Deck} deck */
+  const deckMergeKey = (deck) => String(deck.commander || deck.name || "").trim();
+
+  /** @type {Map<string, Deck>} */
+  const localDeckByKey = new Map();
+  for (const deck of local.decks) {
+    const key = deckMergeKey(deck);
+    if (key) localDeckByKey.set(key, deck);
+  }
+
+  const seedDeckKeys = new Set(seed.decks.map((deck) => deckMergeKey(deck)));
+  const localOnlyDecks = local.decks.filter((deck) => !seedDeckKeys.has(deckMergeKey(deck)));
+
+  local.decks = seed.decks.map((seedDeck) => {
+    const key = deckMergeKey(seedDeck);
+    const localDeck = localDeckByKey.get(key);
+    if (!localDeck) {
+      return { ...seedDeck, colors: [...(seedDeck.colors || [])] };
+    }
+    return {
+      ...seedDeck,
+      id: localDeck.id,
+      name: localDeck.name ?? seedDeck.name ?? "",
+      commander: seedDeck.commander || localDeck.commander,
+      bracket: localDeck.bracket ?? seedDeck.bracket ?? 4,
+      colors: [...(localDeck.colors?.length ? localDeck.colors : seedDeck.colors || [])],
+      retired: localDeck.retired ?? seedDeck.retired ?? false,
+      createdAt: localDeck.createdAt ?? seedDeck.createdAt,
+      history: localDeck.history ?? seedDeck.history,
+      listUrl: localDeck.listUrl ?? seedDeck.listUrl,
+      listSource: localDeck.listSource ?? seedDeck.listSource,
+      listSyncedAt: localDeck.listSyncedAt ?? seedDeck.listSyncedAt,
+      cards: localDeck.cards ?? seedDeck.cards,
+    };
+  });
   for (const deck of localOnlyDecks) {
     local.decks.push({ ...deck, colors: [...(deck.colors || [])] });
   }
@@ -199,8 +231,11 @@ export async function initData() {
   if (seedHash) {
     const beforeCount = data.games.length;
     const beforeMetaHash = data.meta?.seedHash;
+    const beforeDecksJson = JSON.stringify(data.decks);
     const result = syncFromSeed(data, seed);
-    if (beforeCount !== data.games.length || beforeMetaHash !== seedHash) {
+    const sanitized = sanitizeData(data);
+    const decksChanged = JSON.stringify(data.decks) !== beforeDecksJson;
+    if (beforeCount !== data.games.length || beforeMetaHash !== seedHash || decksChanged || sanitized) {
       saveData(data);
       if (result.removed > 0 || beforeMetaHash !== seedHash) {
         lastSeedSync = result;
