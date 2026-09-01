@@ -90,6 +90,7 @@ import {
   gamesForColorSeries,
   gamesForBracketSeries,
   gamesForTrendsWindowSeries,
+  gamesInChartRange,
   getEffectiveChartRange,
 } from "./chart-series.js";
 import {
@@ -1547,7 +1548,6 @@ function renderStats() {
       ${renderChartSection(bracketChart, "clear-brackets-chart")}`;
   } else if (statsTab === "trends") {
     const { statsGames } = getStatsScope();
-    const trendsSummary = renderTrendsSummaryStats(computeTrendsSummary(statsGames, s.rolling));
     const windowsForChart = s.rolling.windows.length
       ? applySort(s.rolling.windows, tableSort["trends-windows"], {
           label: (w) => w.label,
@@ -1561,6 +1561,8 @@ function renderStats() {
       chartGames.length ? chartGames : statsGames,
       trendsChartRange
     );
+    const summaryGames = gamesInChartRange(statsGames, chartRange);
+    const trendsSummary = renderTrendsSummaryStats(computeTrendsSummary(summaryGames));
 
     let chart = "";
     if (trendsWindowSelection.size && windowsForChart.length) {
@@ -1589,7 +1591,7 @@ function renderStats() {
     }
 
     if (!s.rolling.windows.length) {
-      body = `${trendsSummary}${renderDateRangeFilters("trends", chartRange.bounds, chartRange, { deckFilter: true })}${renderChartSection(chart, "clear-trends-chart")}`;
+      body = `${renderDateRangeFilters("trends", chartRange.bounds, chartRange, { deckFilter: true })}${trendsSummary}${renderChartSection(chart, "clear-trends-chart")}`;
     } else {
       const windows = windowsForChart;
       const cumulative = applySort(s.rolling.cumulative, tableSort["trends-cumulative"], {
@@ -1599,8 +1601,8 @@ function renderStats() {
       });
 
       body = `
-        ${trendsSummary}
         ${renderDateRangeFilters("trends", chartRange.bounds, chartRange, { deckFilter: true })}
+        ${trendsSummary}
         <h3 class="section-sub">By Year</h3>
         <div class="year-row">
           <button type="button" class="year-chip trends-selectable ${trendsFilter.kind === "all" ? "active" : ""}" data-trends-all>

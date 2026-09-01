@@ -182,8 +182,18 @@ main {
   color: var(--muted);
 }
 
-.trends-summary-stats {
-  margin-bottom: 1.25rem;
+.trends-summary-section {
+  margin: 1rem 0 1.25rem;
+  overflow-x: auto;
+}
+
+.trends-summary-section .stat-grid {
+  grid-template-columns: repeat(8, minmax(120px, 1fr));
+  min-width: min(100%, 960px);
+}
+
+.trends-summary-stats .stat-value {
+  font-size: 1.5rem;
 }
 
 .trends-streak-win {

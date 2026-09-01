@@ -45,6 +45,11 @@ function gamesInDateRange(games, startDate, endDate) {
   });
 }
 
+/** @param {import('./store.js').Game[]} games @param {{ start: string, end: string }} range */
+export function gamesInChartRange(games, range) {
+  return gamesInDateRange(games, range.start, range.end);
+}
+
 /**
  * @param {import('./store.js').Game[]} games
  * @param {import('./store.js').Deck[]} decks

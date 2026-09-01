@@ -308,13 +308,84 @@ export function renderMultiWinRateLineChart(seriesList, range, title = "") {
 }
 
 const RECENT_FORM_GAMES = 20;
-const MIN_ROLLING_WINDOW_GAMES = 20;
+
+function formatMonthLabel(monthKey) {
+  const [year, month] = monthKey.split("-");
+  if (!year || !month) return monthKey;
+  return new Date(Number(year), Number(month) - 1, 1).toLocaleDateString("en-US", {
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function computeBounceBackRate(sorted) {
+  let gamesAfterLoss = 0;
+  let bounceWins = 0;
+
+  for (let i = 1; i < sorted.length; i += 1) {
+    if (sorted[i - 1].result !== "Loss") continue;
+    gamesAfterLoss += 1;
+    if (sorted[i].result === "Win") bounceWins += 1;
+  }
+
+  return gamesAfterLoss
+    ? {
+        wins: bounceWins,
+        games: gamesAfterLoss,
+        rate: winRate(bounceWins, gamesAfterLoss),
+      }
+    : null;
+}
+
+function computeMostActiveMonth(sorted) {
+  /** @type {Map<string, number>} */
+  const byMonth = new Map();
+
+  for (const game of sorted) {
+    const date = normalizeDate(game.date);
+    if (!date) continue;
+    const month = date.slice(0, 7);
+    byMonth.set(month, (byMonth.get(month) || 0) + 1);
+  }
+
+  if (!byMonth.size) return null;
+
+  let best = null;
+  for (const [month, games] of byMonth) {
+    if (!best || games > best.games) {
+      best = { month, games };
+    }
+  }
+
+  return best;
+}
+
+function computeLongestBreak(sorted) {
+  const dates = [...new Set(sorted.map((game) => normalizeDate(game.date)).filter(Boolean))].sort();
+  if (dates.length < 2) return null;
+
+  let maxDays = 0;
+  let from = dates[0];
+  let to = dates[1];
+
+  for (let i = 1; i < dates.length; i += 1) {
+    const prevMs = new Date(`${dates[i - 1]}T00:00:00`).getTime();
+    const currMs = new Date(`${dates[i]}T00:00:00`).getTime();
+    const days = Math.round((currMs - prevMs) / (1000 * 60 * 60 * 24));
+    if (days > maxDays) {
+      maxDays = days;
+      from = dates[i - 1];
+      to = dates[i];
+    }
+  }
+
+  return { days: maxDays, from, to };
+}
 
 /**
  * @param {import('./store.js').Game[]} games
- * @param {{ windows?: Array<{ label: string, games: number, wins: number, winRate: number }> }} [rolling]
  */
-export function computeTrendsSummary(games, rolling = { windows: [] }) {
+export function computeTrendsSummary(games) {
   const sorted = [...games].sort(compareGamesChronologically);
   let longestWinStreak = 0;
   let longestLossStreak = 0;
@@ -360,20 +431,14 @@ export function computeTrendsSummary(games, rolling = { windows: [] }) {
       }
     : null;
 
-  const fullWindows = (rolling.windows || []).filter((window) => window.games === 100);
-  const rollingCandidates = fullWindows.length
-    ? fullWindows
-    : (rolling.windows || []).filter((window) => window.games >= MIN_ROLLING_WINDOW_GAMES);
-  const bestWindow = rollingCandidates.length
-    ? rollingCandidates.reduce((best, window) => (window.winRate > best.winRate ? window : best))
-    : null;
-
   return {
     longestWinStreak,
     longestLossStreak,
     currentStreak,
     recentForm,
-    bestWindow,
+    bounceBack: computeBounceBackRate(sorted),
+    mostActiveMonth: computeMostActiveMonth(sorted),
+    longestBreak: computeLongestBreak(sorted),
     totalGames: sorted.length,
   };
 }
@@ -400,37 +465,55 @@ export function renderTrendsSummaryStats(summary) {
   const recentDetail = summary.recentForm
     ? `${summary.recentForm.wins}W · ${summary.recentForm.losses}L · last ${summary.recentForm.games}`
     : "";
-  const bestWindowDetail = summary.bestWindow ? `Games ${summary.bestWindow.label}` : "";
+  const bounceBackDetail = summary.bounceBack
+    ? `${summary.bounceBack.wins}W · ${summary.bounceBack.games}G after loss`
+    : "";
+  const activeMonthDetail = summary.mostActiveMonth ? `${summary.mostActiveMonth.games} games` : "";
+  const longestBreakDetail = summary.longestBreak
+    ? `${formatDate(summary.longestBreak.from)} – ${formatDate(summary.longestBreak.to)}`
+    : "";
 
   return `
-    <div class="stat-grid trends-summary-stats">
-      <div class="stat-card">
-        <span class="stat-label">Longest Win Streak</span>
-        <span class="stat-value trends-streak-win">${formatStreakCount(summary.longestWinStreak)}</span>
+    <section class="trends-summary-section">
+      <div class="stat-grid trends-summary-stats">
+        <div class="stat-card">
+          <span class="stat-label">Longest Win Streak</span>
+          <span class="stat-value trends-streak-win">${formatStreakCount(summary.longestWinStreak)}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Longest Losing Streak</span>
+          <span class="stat-value trends-streak-loss">${formatStreakCount(summary.longestLossStreak)}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Current Streak</span>
+          <span class="stat-value${currentClass}">${formatCurrentStreak(summary.currentStreak)}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Recent Form</span>
+          <span class="stat-value">${summary.recentForm ? pct(summary.recentForm.winRate) : "—"}</span>
+          ${recentDetail ? `<span class="stat-sub">${escAttr(recentDetail)}</span>` : ""}
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Bounce-Back Rate</span>
+          <span class="stat-value">${summary.bounceBack ? pct(summary.bounceBack.rate) : "—"}</span>
+          ${bounceBackDetail ? `<span class="stat-sub">${escAttr(bounceBackDetail)}</span>` : ""}
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Most Active Month</span>
+          <span class="stat-value">${summary.mostActiveMonth ? escAttr(formatMonthLabel(summary.mostActiveMonth.month)) : "—"}</span>
+          ${activeMonthDetail ? `<span class="stat-sub">${escAttr(activeMonthDetail)}</span>` : ""}
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Longest Break</span>
+          <span class="stat-value">${summary.longestBreak ? `${summary.longestBreak.days} days` : "—"}</span>
+          ${longestBreakDetail ? `<span class="stat-sub">${escAttr(longestBreakDetail)}</span>` : ""}
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Total Games</span>
+          <span class="stat-value">${summary.totalGames || "—"}</span>
+        </div>
       </div>
-      <div class="stat-card">
-        <span class="stat-label">Longest Losing Streak</span>
-        <span class="stat-value trends-streak-loss">${formatStreakCount(summary.longestLossStreak)}</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">Current Streak</span>
-        <span class="stat-value${currentClass}">${formatCurrentStreak(summary.currentStreak)}</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">Recent Form</span>
-        <span class="stat-value">${summary.recentForm ? pct(summary.recentForm.winRate) : "—"}</span>
-        ${recentDetail ? `<span class="stat-sub">${escAttr(recentDetail)}</span>` : ""}
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">Best 100-Game Window</span>
-        <span class="stat-value">${summary.bestWindow ? pct(summary.bestWindow.winRate) : "—"}</span>
-        ${bestWindowDetail ? `<span class="stat-sub">${escAttr(bestWindowDetail)}</span>` : ""}
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">Total Games</span>
-        <span class="stat-value">${summary.totalGames || "—"}</span>
-      </div>
-    </div>`;
+    </section>`;
 }
 
 function escAttr(str) {
