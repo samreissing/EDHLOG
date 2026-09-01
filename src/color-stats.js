@@ -208,15 +208,16 @@ export function computeColorStatsAdvanced(deckStats, { view, agg, sortOrder }) {
 
   const rows = rowKeys.map((key) => {
     const rowColors = rowColorsFromKey(key);
-    const decks = deckStats.filter((d) => rowMatchesDeck(rowColors, d.colors || [], matchMode));
-    const games = decks.reduce((s, d) => s + d.games, 0);
-    const wins = decks.reduce((s, d) => s + d.wins, 0);
+    const matchingDecks = deckStats.filter((d) => rowMatchesDeck(rowColors, d.colors || [], matchMode));
+    const activeDecks = matchingDecks.filter((d) => d.games > 0);
+    const games = activeDecks.reduce((s, d) => s + d.games, 0);
+    const wins = activeDecks.reduce((s, d) => s + d.wins, 0);
     return {
       key,
       colors: rowColors,
       name: view === "wubrgc" && key !== "C" ? COLOR_NAMES[key] : rowLabel(key),
       displayColors: rowColors,
-      decks: decks.length,
+      decks: activeDecks.length,
       games,
       wins,
       winRate: winRate(wins, games),
