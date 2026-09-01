@@ -318,25 +318,6 @@ function formatMonthLabel(monthKey) {
   });
 }
 
-function computeBounceBackRate(sorted) {
-  let gamesAfterLoss = 0;
-  let bounceWins = 0;
-
-  for (let i = 1; i < sorted.length; i += 1) {
-    if (sorted[i - 1].result !== "Loss") continue;
-    gamesAfterLoss += 1;
-    if (sorted[i].result === "Win") bounceWins += 1;
-  }
-
-  return gamesAfterLoss
-    ? {
-        wins: bounceWins,
-        games: gamesAfterLoss,
-        rate: winRate(bounceWins, gamesAfterLoss),
-      }
-    : null;
-}
-
 function computeMostActiveMonth(sorted) {
   /** @type {Map<string, number>} */
   const byMonth = new Map();
@@ -436,7 +417,6 @@ export function computeTrendsSummary(games) {
     longestLossStreak,
     currentStreak,
     recentForm,
-    bounceBack: computeBounceBackRate(sorted),
     mostActiveMonth: computeMostActiveMonth(sorted),
     longestBreak: computeLongestBreak(sorted),
   };
@@ -465,9 +445,6 @@ export function renderTrendsSummaryStats(summary, options = {}) {
         : "";
   const recentDetail = summary.recentForm
     ? `${summary.recentForm.wins}W · ${summary.recentForm.losses}L · last ${summary.recentForm.games}`
-    : "";
-  const bounceBackDetail = summary.bounceBack
-    ? `${summary.bounceBack.wins}W · ${summary.bounceBack.games}G after loss`
     : "";
   const activeMonthDetail = summary.mostActiveMonth ? `${summary.mostActiveMonth.games} games` : "";
   const longestBreakDetail = summary.longestBreak
@@ -501,11 +478,6 @@ export function renderTrendsSummaryStats(summary, options = {}) {
           <span class="stat-label">Recent Form</span>
           <span class="stat-value">${summary.recentForm ? pct(summary.recentForm.winRate) : "—"}</span>
           ${recentDetail ? `<span class="stat-sub">${escAttr(recentDetail)}</span>` : ""}
-        </div>
-        <div class="stat-card">
-          <span class="stat-label">Bounce-Back Rate</span>
-          <span class="stat-value">${summary.bounceBack ? pct(summary.bounceBack.rate) : "—"}</span>
-          ${bounceBackDetail ? `<span class="stat-sub">${escAttr(bounceBackDetail)}</span>` : ""}
         </div>
         <div class="stat-card">
           <span class="stat-label">Most Active Month</span>
