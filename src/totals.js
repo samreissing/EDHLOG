@@ -3,7 +3,7 @@ import { MY_PLAYER_NAME } from "./opponent-search.js";
 import { getCommanderInfo, getCommanderMatchupIdentities } from "./commander-names.js";
 import { resolveCommanderColors } from "./commander-colors.js";
 import { deckKey, deckCommander, findDeck } from "./deck-identity.js";
-import { winRate, normalizedWinRate } from "./stats.js";
+import { winRate, normalizedWinRate, filterGamesByBracket } from "./stats.js";
 import {
   colorKeysForIdentity,
   rowColorsFromKey,
@@ -261,9 +261,12 @@ export function buildPodColorRankings(games, decks, options = {}) {
  * @param {object} [options]
  */
 export function computeAllTotals(games, decks, options = {}) {
+  const { bracketFilter = "", ...rankingOptions } = options;
+  const filteredGames = filterGamesByBracket(games, decks, bracketFilter);
+
   return {
-    decks: buildPodDeckRankings(games, decks, options),
-    players: buildPodPlayerRankings(games, options),
-    colors: buildPodColorRankings(games, decks, options),
+    decks: buildPodDeckRankings(filteredGames, decks, rankingOptions),
+    players: buildPodPlayerRankings(filteredGames, rankingOptions),
+    colors: buildPodColorRankings(filteredGames, decks, rankingOptions),
   };
 }

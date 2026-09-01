@@ -139,6 +139,27 @@ export function gameBracket(game, deckMap) {
   return game.bracket ?? deck?.bracket ?? 4;
 }
 
+export const BRACKET_FILTER_OPTIONS = ["", "1", "2", "3", "4", "5"];
+
+/** @param {string} [bracketFilter] */
+export function bracketFilterLabel(bracketFilter = "") {
+  return bracketFilter ? `Bracket ${bracketFilter}` : "All Brackets";
+}
+
+/** @param {string} [current] */
+export function cycleBracketFilter(current = "") {
+  const idx = BRACKET_FILTER_OPTIONS.indexOf(String(current || ""));
+  const nextIndex = (idx + 1) % BRACKET_FILTER_OPTIONS.length;
+  return BRACKET_FILTER_OPTIONS[nextIndex];
+}
+
+/** @param {import('./store.js').Game[]} games @param {import('./store.js').Deck[]} decks @param {string} [bracketFilter] */
+export function filterGamesByBracket(games, decks, bracketFilter = "") {
+  if (!bracketFilter) return games;
+  const deckMap = deckMapByKey(decks);
+  return games.filter((game) => String(gameBracket(game, deckMap)) === String(bracketFilter));
+}
+
 export function computeColorStats(deckStats) {
   return COLOR_ORDER.map((color) => {
     const withColor =

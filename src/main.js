@@ -18,6 +18,8 @@ import {
   colorBadge,
   sortDeckList,
   pct,
+  bracketFilterLabel,
+  cycleBracketFilter,
   gameBracket,
 } from "./stats.js";
 import { formatDate, gameSortKey, gameYear, normalizeDate, normalizeTime, nowTime, todayISO, compareGamesChronologically } from "./dates.js";
@@ -149,6 +151,7 @@ let totalsTab = "decks";
 let totalsSearch = "";
 let totalsSplitPartners = false;
 let totalsExcludeMe = false;
+let totalsBracketFilter = "";
 let totalsColorView = "exact";
 let totalsColorAgg = "exclusive";
 /** @type {{ kind: 'all' } | { kind: 'window', rangeStart: number, rangeEnd: number } | { kind: 'cumulative', rangeEnd: number } | { kind: 'year', year: string }} */
@@ -245,6 +248,7 @@ function resetStatsTabState(tab) {
     totalsSearch = "";
     totalsSplitPartners = false;
     totalsExcludeMe = false;
+    totalsBracketFilter = "";
     totalsColorView = "exact";
     totalsColorAgg = "exclusive";
     tableSort["totals-decks"] = { col: "normalizedWr", dir: "desc" };
@@ -344,16 +348,9 @@ function renderStatsDeckFilterToggle() {
   return `<button type="button" class="btn btn-ghost btn-sm stats-deck-filter-toggle" id="stats-deck-filter-toggle">${statsDeckFilterLabel(statsDeckFilter)}</button>`;
 }
 
-function renderBracketFilterButtons() {
-  return ["", "1", "2", "3", "4", "5"]
-    .map((b) => {
-      const active = bracketsChartMode !== "table" && statsBracketFilter === b;
-      return `
-          <button type="button" class="btn btn-ghost btn-sm bracket-filter-btn ${active ? "active" : ""}" data-bracket-filter="${b}">
-            ${b ? `Bracket ${b}` : "All Brackets"}
-          </button>`;
-    })
-    .join("");
+function renderBracketFilterToggle(buttonId, bracketFilter) {
+  const active = !!bracketFilter;
+  return `<button type="button" class="btn btn-ghost btn-sm bracket-filter-btn ${active ? "active" : ""}" id="${buttonId}">${bracketFilterLabel(bracketFilter)}</button>`;
 }
 
 function chartSeriesRowStyle(color) {
@@ -632,11 +629,16 @@ function bindEvents() {
       return;
     }
 
-    const bracketFilterBtn = e.target.closest("[data-bracket-filter]");
-    if (bracketFilterBtn) {
-      statsBracketFilter = bracketFilterBtn.getAttribute("data-bracket-filter") || "";
+    if (e.target.id === "overview-bracket-filter-toggle") {
+      statsBracketFilter = cycleBracketFilter(statsBracketFilter);
       bracketsChartSelection = newChartSelection();
-      bracketsChartMode = "filter";
+      bracketsChartMode = statsBracketFilter ? "filter" : null;
+      render();
+      return;
+    }
+
+    if (e.target.id === "totals-bracket-filter-toggle") {
+      totalsBracketFilter = cycleBracketFilter(totalsBracketFilter);
       render();
       return;
     }
@@ -1129,6 +1131,7 @@ function getStats() {
       excludeMyPlayer: totalsExcludeMe,
       view: totalsColorView,
       agg: totalsColorAgg,
+      bracketFilter: totalsBracketFilter,
     }),
   };
 }
@@ -1426,7 +1429,7 @@ function renderStats() {
     body = `
       <div class="filters inline overview-toolbar">
         ${renderStatsDeckFilterToggle()}
-        <div class="bracket-filter-row overview-bracket-filters">${renderBracketFilterButtons()}</div>
+        ${renderBracketFilterToggle("overview-bracket-filter-toggle", statsBracketFilter)}
       </div>
       <div class="stat-grid">
         ${statCard("Games", bracketDetail.overview.games)}
@@ -1964,9 +1967,14 @@ function renderStats() {
     </label>`;
 
     const totalsSearchInput = `<input type="search" id="totals-search" class="input totals-search" placeholder="Search ${nameHeader.toLowerCase()}" value="${escapeHtml(totalsSearch)}" />`;
+    const bracketFilterControl = renderBracketFilterToggle(
+      "totals-bracket-filter-toggle",
+      totalsBracketFilter
+    );
 
     const totalsToolbar = isColorTab
       ? `<div class="filters inline totals-filters totals-color-toolbar">
+        ${bracketFilterControl}
         <button type="button" class="btn btn-ghost btn-sm" id="totals-color-view-toggle">${colorViewLabel(totalsColorView)}</button>
         <button type="button" class="btn btn-ghost btn-sm" id="totals-color-agg-toggle">${totalsColorAgg === "inclusive" ? "Inclusive" : "Exclusive"}</button>
         ${splitPartnersControl}
@@ -1974,6 +1982,7 @@ function renderStats() {
         ${totalsSearchInput}
       </div>`
       : `<div class="filters inline totals-filters">
+        ${bracketFilterControl}
         ${splitPartnersControl}
         ${excludeMeControl}
         ${totalsSearchInput}
