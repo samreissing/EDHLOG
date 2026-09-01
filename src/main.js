@@ -21,6 +21,7 @@ import {
   bracketFilterLabel,
   cycleBracketFilter,
   gameBracket,
+  filterGamesByBracket,
 } from "./stats.js";
 import { formatDate, gameSortKey, gameYear, normalizeDate, normalizeTime, nowTime, todayISO, compareGamesChronologically } from "./dates.js";
 import { colorIdentitySortIndex } from "./color-identity.js";
@@ -144,7 +145,6 @@ let matchupTab = "players";
 let matchupSearch = "";
 let matchupColorView = "wubrgc";
 let matchupColorAgg = "inclusive";
-let matchupBracketFilter = "";
 let matchupSplitPartners = false;
 let matchupSplitPlayers = false;
 let totalsTab = "decks";
@@ -244,7 +244,6 @@ function resetStatsTabState(tab) {
     matchupSearch = "";
     matchupColorView = "wubrgc";
     matchupColorAgg = "inclusive";
-    matchupBracketFilter = "";
     matchupSplitPartners = false;
     matchupSplitPlayers = false;
     tableSort.matchups = { col: "normalizedMatchupImpact", dir: "desc" };
@@ -329,7 +328,11 @@ function switchEntityReportTab(tabId) {
 
 function getStatsScope() {
   const statsDecks = filterDecksForStats(data.decks, statsDeckFilter);
-  const statsGames = filterGamesForStats(data.games, data.decks, statsDeckFilter);
+  const statsGames = filterGamesByBracket(
+    filterGamesForStats(data.games, data.decks, statsDeckFilter),
+    data.decks,
+    statsBracketFilter
+  );
   const filteredDeckStats = computeDeckStats(
     statsDeckFilter === "all" ? data.decks : statsDecks,
     statsGames
@@ -337,9 +340,10 @@ function getStatsScope() {
   return { statsDecks, statsGames, filteredDeckStats };
 }
 
-function renderStatsToolbar(idPrefix, bounds, range, { deckFilter = false, extra = "" } = {}) {
+function renderStatsToolbar(idPrefix, bounds, range, { bracketFilter = false, deckFilter = false, extra = "" } = {}) {
   return `
     <div class="filters inline stats-range-toolbar seat-range-filters">
+      ${bracketFilter ? renderBracketFilterToggle("stats-bracket-filter-toggle", statsBracketFilter) : ""}
       ${deckFilter ? renderStatsDeckFilterToggle() : ""}
       ${extra}
       <div class="stats-range-dates">
@@ -623,13 +627,6 @@ function bindEvents() {
       return;
     }
 
-    const matchupBracketBtn = e.target.closest("[data-matchup-bracket-filter]");
-    if (matchupBracketBtn) {
-      matchupBracketFilter = matchupBracketBtn.getAttribute("data-matchup-bracket-filter") || "";
-      render();
-      return;
-    }
-
     if (e.target.id === "color-order-toggle") {
       colorSortOrder = colorSortOrder === "wubrgc" ? "cgrbuw" : "wubrgc";
       tableSort["color-stats"] = { col: "colorOrder", dir: "asc" };
@@ -654,10 +651,16 @@ function bindEvents() {
       return;
     }
 
-    if (e.target.id === "overview-bracket-filter-toggle") {
+    if (e.target.id === "overview-bracket-filter-toggle" || e.target.id === "stats-bracket-filter-toggle") {
       statsBracketFilter = cycleBracketFilter(statsBracketFilter);
-      bracketsChartSelection = newChartSelection();
-      bracketsChartMode = statsBracketFilter ? "filter" : null;
+      if (statsTab === "brackets") {
+        bracketsChartSelection = newChartSelection();
+        bracketsChartMode = statsBracketFilter ? "filter" : null;
+      }
+      if (statsTab === "colors") {
+        colorsChartSelection = new Set();
+        pieAnimKey++;
+      }
       render();
       return;
     }
@@ -1123,7 +1126,11 @@ function filterGamesForStats(games, decks, filter) {
 function getStats() {
   const deckStats = computeDeckStats(data.decks, data.games);
   const statsDecks = filterDecksForStats(data.decks, statsDeckFilter);
-  const statsGames = filterGamesForStats(data.games, data.decks, statsDeckFilter);
+  const statsGames = filterGamesByBracket(
+    filterGamesForStats(data.games, data.decks, statsDeckFilter),
+    data.decks,
+    statsBracketFilter
+  );
   const filteredDeckStats = computeDeckStats(
     statsDeckFilter === "all" ? data.decks : statsDecks,
     statsGames
@@ -1146,7 +1153,7 @@ function getStats() {
       colorOptions: {
         decks: data.decks,
         deckFilter: statsDeckFilter,
-        bracketFilter: "",
+        bracketFilter: statsBracketFilter,
         view: matchupColorView,
         agg: matchupColorAgg,
       },
@@ -1564,6 +1571,7 @@ function renderStats() {
 
     body = `
       ${renderStatsToolbar("colors", chartRange.bounds, chartRange, {
+        bracketFilter: true,
         deckFilter: true,
         extra: `
         <button type="button" class="btn btn-ghost btn-sm" id="color-view-toggle">${colorViewLabel(colorView)}</button>
@@ -1744,7 +1752,7 @@ function renderStats() {
     }
 
     if (!s.rolling.windows.length) {
-      body = `${renderDateRangeFilters("trends", chartRange.bounds, chartRange, { deckFilter: true })}${trendsSummary}${renderChartSection(chart, "clear-trends-chart")}`;
+      body = `${renderDateRangeFilters("trends", chartRange.bounds, chartRange, { bracketFilter: true, deckFilter: true })}${trendsSummary}${renderChartSection(chart, "clear-trends-chart")}`;
     } else {
       const windows = windowsForChart;
       const cumulative = applySort(s.rolling.cumulative, tableSort["trends-cumulative"], {
@@ -1754,7 +1762,7 @@ function renderStats() {
       });
 
       body = `
-        ${renderDateRangeFilters("trends", chartRange.bounds, chartRange, { deckFilter: true })}
+        ${renderDateRangeFilters("trends", chartRange.bounds, chartRange, { bracketFilter: true, deckFilter: true })}
         ${trendsSummary}
         <h3 class="section-sub">By Year</h3>
         <div class="year-row">
@@ -1840,7 +1848,7 @@ function renderStats() {
     );
 
     body = `
-      ${renderDateRangeFilters("seats", bounds, range, { deckFilter: true })}
+      ${renderDateRangeFilters("seats", bounds, range, { bracketFilter: true, deckFilter: true })}
       <div class="seat-toggle-row">
         <button type="button" class="seat-toggle seat-view-toggle" data-seat-view-cycle title="Cycle seat perspective">
           <strong>${SEAT_VIEW_LABELS[seatViewMode]}</strong>
@@ -1943,6 +1951,7 @@ function renderStats() {
     body = `
       ${subTabs(MATCHUP_TABS, matchupTab, "matchup-tab")}
       <div class="filters inline matchup-filters">
+        ${renderBracketFilterToggle("stats-bracket-filter-toggle", statsBracketFilter)}
         ${renderStatsDeckFilterToggle()}
         ${colorToolbarControls}
         ${deckToolbarControls}
