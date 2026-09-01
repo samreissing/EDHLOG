@@ -439,7 +439,6 @@ export function computeTrendsSummary(games) {
     bounceBack: computeBounceBackRate(sorted),
     mostActiveMonth: computeMostActiveMonth(sorted),
     longestBreak: computeLongestBreak(sorted),
-    totalGames: sorted.length,
   };
 }
 
@@ -454,8 +453,10 @@ function formatCurrentStreak(streak) {
 
 /**
  * @param {ReturnType<typeof computeTrendsSummary>} summary
+ * @param {{ streakMode?: "hidden" | "current" | "at-end" }} [options]
  */
-export function renderTrendsSummaryStats(summary) {
+export function renderTrendsSummaryStats(summary, options = {}) {
+  const streakMode = options.streakMode ?? "current";
   const currentClass =
     summary.currentStreak.type === "win"
       ? " trends-streak-win"
@@ -472,10 +473,22 @@ export function renderTrendsSummaryStats(summary) {
   const longestBreakDetail = summary.longestBreak
     ? `${formatDate(summary.longestBreak.from)} – ${formatDate(summary.longestBreak.to)}`
     : "";
+  const streakLabel = streakMode === "at-end" ? "Streak at End" : "Current Streak";
+  const streakCard =
+    streakMode === "hidden"
+      ? ""
+      : `
+        <div class="stat-card">
+          <span class="stat-label">${streakLabel}</span>
+          <span class="stat-value${currentClass}">${formatCurrentStreak(summary.currentStreak)}</span>
+        </div>`;
+  const gridClass =
+    streakMode === "hidden" ? "stat-grid trends-summary-stats trends-summary-stats--compact" : "stat-grid trends-summary-stats";
 
   return `
     <section class="trends-summary-section">
-      <div class="stat-grid trends-summary-stats">
+      <div class="${gridClass}">
+        ${streakCard}
         <div class="stat-card">
           <span class="stat-label">Longest Win Streak</span>
           <span class="stat-value trends-streak-win">${formatStreakCount(summary.longestWinStreak)}</span>
@@ -483,10 +496,6 @@ export function renderTrendsSummaryStats(summary) {
         <div class="stat-card">
           <span class="stat-label">Longest Losing Streak</span>
           <span class="stat-value trends-streak-loss">${formatStreakCount(summary.longestLossStreak)}</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-label">Current Streak</span>
-          <span class="stat-value${currentClass}">${formatCurrentStreak(summary.currentStreak)}</span>
         </div>
         <div class="stat-card">
           <span class="stat-label">Recent Form</span>
@@ -507,10 +516,6 @@ export function renderTrendsSummaryStats(summary) {
           <span class="stat-label">Longest Break</span>
           <span class="stat-value">${summary.longestBreak ? `${summary.longestBreak.days} days` : "—"}</span>
           ${longestBreakDetail ? `<span class="stat-sub">${escAttr(longestBreakDetail)}</span>` : ""}
-        </div>
-        <div class="stat-card">
-          <span class="stat-label">Total Games</span>
-          <span class="stat-value">${summary.totalGames || "—"}</span>
         </div>
       </div>
     </section>`;

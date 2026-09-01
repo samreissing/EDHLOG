@@ -188,8 +188,13 @@ main {
 }
 
 .trends-summary-section .stat-grid {
-  grid-template-columns: repeat(8, minmax(120px, 1fr));
-  min-width: min(100%, 960px);
+  grid-template-columns: repeat(7, minmax(120px, 1fr));
+  min-width: min(100%, 840px);
+}
+
+.trends-summary-section .stat-grid.trends-summary-stats--compact {
+  grid-template-columns: repeat(6, minmax(120px, 1fr));
+  min-width: min(100%, 720px);
 }
 
 .trends-summary-stats .stat-value {

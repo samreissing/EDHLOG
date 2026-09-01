@@ -91,6 +91,7 @@ import {
   gamesForBracketSeries,
   gamesForTrendsWindowSeries,
   gamesInChartRange,
+  getChartDateBounds,
   getEffectiveChartRange,
 } from "./chart-series.js";
 import {
@@ -1562,7 +1563,16 @@ function renderStats() {
       trendsChartRange
     );
     const summaryGames = gamesInChartRange(statsGames, chartRange);
-    const trendsSummary = renderTrendsSummaryStats(computeTrendsSummary(summaryGames));
+    let streakMode = "current";
+    if (trendsFilter.kind !== "all") {
+      streakMode = "hidden";
+    } else {
+      const latestGameDate = getChartDateBounds(statsGames).max;
+      if (trendsChartRange.customized && chartRange.end < latestGameDate) {
+        streakMode = "at-end";
+      }
+    }
+    const trendsSummary = renderTrendsSummaryStats(computeTrendsSummary(summaryGames), { streakMode });
 
     let chart = "";
     if (trendsWindowSelection.size && windowsForChart.length) {
