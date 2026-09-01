@@ -169,6 +169,11 @@ let editingDeckName = null;
 let entityReport = null;
 /** @type {'games' | 'decks' | 'players'} */
 let entityReportTab = "games";
+/** @type {{ players: import('./table.js').SortState, decks: import('./table.js').SortState }} */
+let entityReportMatchupSort = {
+  players: { col: "normalizedMatchupImpact", dir: "desc" },
+  decks: { col: "normalizedMatchupImpact", dir: "desc" },
+};
 let deckSort = "normWr";
 let deckSortDir = "desc";
 let deckBracketFilter = "";
@@ -297,6 +302,10 @@ function openEntityReport(kind, key, playerScope = null, deckSlotId = null) {
   if (deckModalOpen) closeDeckModal();
   entityReport = { kind, key, playerScope, deckSlotId };
   entityReportTab = "games";
+  entityReportMatchupSort = {
+    players: { col: "normalizedMatchupImpact", dir: "desc" },
+    decks: { col: "normalizedMatchupImpact", dir: "desc" },
+  };
   syncEntityReportModal();
 }
 
@@ -440,12 +449,12 @@ function bindEvents() {
       return;
     }
 
-    if (e.target.id === "save-deck-btn") {
+    if (e.target.closest("#save-deck-btn")) {
       saveDeckFromForm();
       return;
     }
 
-    if (e.target.id === "delete-deck-modal") {
+    if (e.target.closest("#delete-deck-modal")) {
       if (!editingDeckName) return;
       if (!confirm("Delete this deck?")) return;
       const key = editingDeckName;
@@ -525,6 +534,22 @@ function bindEvents() {
   });
 
   document.getElementById("main").addEventListener("click", (e) => {
+    const entitySortTh = e.target.closest("#entity-report-modal [data-sort-table]");
+    if (entitySortTh && entityReport) {
+      const tableId = entitySortTh.getAttribute("data-sort-table");
+      const col = entitySortTh.getAttribute("data-sort-col");
+      if (tableId === "entity-matchups-players") {
+        entityReportMatchupSort.players = toggleSort(entityReportMatchupSort.players, col);
+        syncEntityReportModal();
+        return;
+      }
+      if (tableId === "entity-matchups-decks") {
+        entityReportMatchupSort.decks = toggleSort(entityReportMatchupSort.decks, col);
+        syncEntityReportModal();
+        return;
+      }
+    }
+
     const sortTh = e.target.closest("[data-sort-table]");
     if (sortTh) {
       const tableId = sortTh.getAttribute("data-sort-table");
@@ -1159,7 +1184,12 @@ function syncEntityReportModal() {
   }
 
   modal.classList.remove("hidden");
-  modal.innerHTML = renderEntityReportModal(report, data.decks, entityReportTab);
+  modal.innerHTML = renderEntityReportModal(
+    report,
+    data.decks,
+    entityReportTab,
+    entityReportMatchupSort
+  );
   bindWinRateLineCharts();
   void loadImagesIntoEntityReport(report.title);
 }
@@ -1192,10 +1222,44 @@ function showDeckModal() {
   modal.className = "modal deck-modal-layer";
   modal.innerHTML = renderDeckModalContent();
   document.body.appendChild(modal);
+
+  const form = modal.querySelector("#deck-form");
+  form?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    saveDeckFromForm(form);
+  });
+  modal.querySelector("#save-deck-btn")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    saveDeckFromForm(form);
+  });
+  modal.querySelector("#delete-deck-modal")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!editingDeckName) return;
+    if (!confirm("Delete this deck?")) return;
+    const key = editingDeckName;
+    data.decks = data.decks.filter((d) => deckId(d) !== key);
+    data.games = data.games.filter((g) => g.deck !== key);
+    if (entityReport?.deckSlotId === key || entityReport?.key === key) {
+      entityReport = null;
+      syncEntityReportModal();
+    }
+    closeDeckModal();
+    saveData(data);
+    render();
+    toast("Deleted");
+  });
+
+  const nameInput = modal.querySelector('input[name="name"]');
+  nameInput?.focus();
+  if (nameInput && editingDeckName) {
+    nameInput.select();
+  }
 }
 
-function saveDeckFromForm() {
-  const form = document.getElementById("deck-form");
+function saveDeckFromForm(formOverride = null) {
+  const form = formOverride || document.getElementById("deck-form");
   if (!form) return;
 
   const fd = new FormData(form);
@@ -1210,8 +1274,8 @@ function saveDeckFromForm() {
     colors = getCommanderColorIdentity(commander);
   }
 
-  const deck = {
-    id: nextDeckId(data),
+  const originalId = String(fd.get("originalId") || "").trim();
+  const deckPayload = {
     name: String(fd.get("name") || "").trim(),
     commander,
     bracket: Number(fd.get("bracket")),
@@ -1219,7 +1283,6 @@ function saveDeckFromForm() {
     retired: fd.get("retired") === "on",
     createdAt: normalizeDate(String(fd.get("createdAt") || "")) || todayISO(),
   };
-  const originalId = String(fd.get("originalId") || "").trim();
 
   if (originalId) {
     const idx = data.decks.findIndex((d) => deckId(d) === originalId);
@@ -1237,7 +1300,12 @@ function saveDeckFromForm() {
       toast("Another deck already uses that commander", true);
       return;
     }
-    data.decks[idx] = { ...existing, ...deck, id: originalId };
+    data.decks[idx] = {
+      ...existing,
+      ...deckPayload,
+      id: originalId,
+      createdAt: deckPayload.createdAt || existing.createdAt || todayISO(),
+    };
     closeDeckModal();
     saveData(data);
     toast("Deck saved");
@@ -1255,10 +1323,13 @@ function saveDeckFromForm() {
     return;
   }
 
-  data.decks.push(deck);
+  data.decks.push({
+    ...deckPayload,
+    id: nextDeckId(data),
+  });
   closeDeckModal();
   saveData(data);
-  toast(`Added ${deckTitle(deck)}`);
+  toast(`Added ${deckTitle(deckPayload)}`);
   render();
   void refreshCommanderColorCache();
 }
@@ -2128,7 +2199,6 @@ function renderGames() {
     date: (g) => gameSortKey(g),
     deck: (g) => g.deck,
     result: (g) => (g.result === "Win" ? 1 : 0),
-    mySeat: (g) => g.mySeat || 0,
     turn: (g) => (Number(g.turn) > 0 ? Number(g.turn) : null),
     bracket: (g) => gameBracket(g, new Map(data.decks.map((d) => [deckId(d), d]))),
   });
@@ -2157,7 +2227,6 @@ function renderGames() {
           <thead><tr>
             ${sortHeader("game-log", "date", "Date", sort)}
             ${sortHeader("game-log", "deck", "Deck", sort)}
-            ${sortHeader("game-log", "mySeat", "Seat", sort)}
             ${sortHeader("game-log", "turn", "End Turn", sort)}
             ${sortHeader("game-log", "bracket", "Bracket", sort)}
             ${sortHeader("game-log", "result", "Result", sort)}
@@ -2391,7 +2460,7 @@ function gameRow(g) {
   const bracket = gameBracket(g, new Map(data.decks.map((d) => [deckId(d), d])));
   return `<tr data-deck="${escapeHtml(g.deck)}" data-result="${g.result}" data-year="${gameYear(g.date)}">
     <td><button type="button" class="link-btn view-game" data-id="${g.id}">${formatDate(g.date)}</button></td><td class="deck-name">${deckLink}</td>
-    <td>${g.mySeat || "—"}</td><td>${g.turn || "—"}</td><td>${bracket}</td>
+    <td>${g.turn || "—"}</td><td>${bracket}</td>
     <td><span class="result-pill ${cls}">${g.result}</span></td>
     <td class="row-actions">
       <button type="button" class="btn-icon edit-game" data-id="${g.id}" title="Edit game">✎</button>

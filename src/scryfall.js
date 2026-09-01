@@ -20,9 +20,17 @@ export function commanderNames(deckName) {
   return deckName.split(/\s*\/\/\s*/).map((s) => s.trim()).filter(Boolean);
 }
 
-function cardImage(card) {
+function cardImage(card, crop = "normal") {
   if (!card) return null;
-  return card.image_uris?.normal || card.card_faces?.[0]?.image_uris?.normal || null;
+  const uris = card.image_uris || card.card_faces?.[0]?.image_uris;
+  if (!uris) return null;
+  if (crop === "art") return uris.art_crop || uris.normal || null;
+  return uris.normal || uris.art_crop || null;
+}
+
+function imageCacheKey(name, crop = "normal") {
+  const key = String(name || "").trim();
+  return crop === "art" ? `${key}:art` : key;
 }
 
 /** @param {string} name @param {object} card */
@@ -30,10 +38,15 @@ function rememberCard(name, card) {
   const key = String(name || "").trim();
   if (!key || !card) return null;
 
-  const image = cardImage(card);
+  const image = cardImage(card, "normal");
+  const art = cardImage(card, "art");
   if (image) {
-    imageCache.set(key, image);
-    if (card.name && card.name !== key) imageCache.set(card.name, image);
+    imageCache.set(imageCacheKey(key, "normal"), image);
+    if (card.name && card.name !== key) imageCache.set(imageCacheKey(card.name, "normal"), image);
+  }
+  if (art) {
+    imageCache.set(imageCacheKey(key, "art"), art);
+    if (card.name && card.name !== key) imageCache.set(imageCacheKey(card.name, "art"), art);
   }
 
   const meta = {
@@ -65,35 +78,37 @@ export async function fetchCardMetadata(name) {
   return rememberCard(key, card);
 }
 
-/** @param {string} name */
-export async function fetchCardByName(name) {
-  if (imageCache.has(name)) return imageCache.get(name);
+/** @param {string} name @param {"normal" | "art"} [crop] */
+export async function fetchCardByName(name, crop = "normal") {
+  const cacheKey = imageCacheKey(name, crop);
+  if (imageCache.has(cacheKey)) return imageCache.get(cacheKey);
 
   const cachedMeta = metadataCache.get(name);
-  if (cachedMeta && imageCache.has(name)) return imageCache.get(name);
+  if (cachedMeta && imageCache.has(cacheKey)) return imageCache.get(cacheKey);
 
   await throttle();
   const res = await fetch(
     `https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(name)}`
   );
   if (!res.ok) {
-    imageCache.set(name, null);
+    imageCache.set(cacheKey, null);
     return null;
   }
 
   const card = await res.json();
   rememberCard(name, card);
-  return imageCache.get(name) ?? null;
+  return imageCache.get(cacheKey) ?? null;
 }
 
-/** @param {string[]} names */
-export async function fetchCardImages(names) {
+/** @param {string[]} names @param {"normal" | "art"} [crop] */
+export async function fetchCardImages(names, crop = "normal") {
   const unique = [...new Set(names.filter(Boolean))];
-  const missing = unique.filter((n) => !imageCache.has(n));
+  const missing = unique.filter((n) => !imageCache.has(imageCacheKey(n, crop)));
   const out = new Map();
 
   for (const name of unique) {
-    if (imageCache.has(name)) out.set(name, imageCache.get(name));
+    const cacheKey = imageCacheKey(name, crop);
+    if (imageCache.has(cacheKey)) out.set(name, imageCache.get(cacheKey));
   }
 
   for (let i = 0; i < missing.length; i += 75) {
@@ -109,7 +124,7 @@ export async function fetchCardImages(names) {
 
     if (!res.ok) {
       for (const name of chunk) {
-        imageCache.set(name, null);
+        imageCache.set(imageCacheKey(name, crop), null);
         out.set(name, null);
       }
       continue;
@@ -124,11 +139,12 @@ export async function fetchCardImages(names) {
     }
 
     for (const name of chunk) {
-      if (imageCache.has(name)) {
-        out.set(name, imageCache.get(name));
+      const cacheKey = imageCacheKey(name, crop);
+      if (imageCache.has(cacheKey)) {
+        out.set(name, imageCache.get(cacheKey));
         continue;
       }
-      const image = await fetchCardByName(name);
+      const image = await fetchCardByName(name, crop);
       out.set(name, image);
     }
   }
@@ -141,12 +157,25 @@ export async function loadImagesIntoRoot(root) {
   if (!root) return;
 
   const imgs = root.querySelectorAll("img[data-card-name]");
-  const names = [...new Set([...imgs].map((img) => img.dataset.cardName).filter(Boolean))];
-  if (!names.length) return;
+  const normalNames = new Set();
+  const artNames = new Set();
 
-  const images = await fetchCardImages(names);
   for (const img of imgs) {
-    const url = images.get(img.dataset.cardName);
+    const name = img.dataset.cardName;
+    if (!name) continue;
+    if (img.dataset.cardImage === "art") artNames.add(name);
+    else normalNames.add(name);
+  }
+
+  const [normalImages, artImages] = await Promise.all([
+    normalNames.size ? fetchCardImages([...normalNames], "normal") : Promise.resolve(new Map()),
+    artNames.size ? fetchCardImages([...artNames], "art") : Promise.resolve(new Map()),
+  ]);
+
+  for (const img of imgs) {
+    const name = img.dataset.cardName;
+    const images = img.dataset.cardImage === "art" ? artImages : normalImages;
+    const url = images.get(name);
     if (url) {
       img.src = url;
       img.classList.remove("loading");

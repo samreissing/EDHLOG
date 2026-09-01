@@ -15,6 +15,7 @@ import { commanderNames } from "./scryfall.js";
 import { computeWinRateSeries, renderWinRateLineChart } from "./trends-chart.js";
 import { pctCell } from "./wr-color.js";
 import { MY_PLAYER_NAME } from "./opponent-search.js";
+import { sortHeader, applySort, WINS_SORT_TIE_BREAKERS } from "./table.js";
 
 function escapeHtml(str) {
   return String(str)
@@ -762,8 +763,8 @@ function renderEntityGamesSection(report, decks) {
     ${tableHtml}`;
 }
 
-/** @param {ReturnType<typeof buildEntityReport>} report @param {import('./store.js').Deck[]} decks @param {'games' | 'decks' | 'players'} [activeTab] */
-function renderEntityTabsSection(report, decks, activeTab = "games") {
+/** @param {ReturnType<typeof buildEntityReport>} report @param {import('./store.js').Deck[]} decks @param {'games' | 'decks' | 'players'} [activeTab] @param {{ players: import('./table.js').SortState, decks: import('./table.js').SortState }} [matchupSort] */
+function renderEntityTabsSection(report, decks, activeTab = "games", matchupSort) {
   const tabs = [
     { id: "games", label: "Games" },
     { id: "decks", label: "Deck Matchups" },
@@ -778,11 +779,19 @@ function renderEntityTabsSection(report, decks, activeTab = "games") {
     .join("");
 
   const gamesPanel = renderEntityGamesSection(report, decks);
-  const playerPanel = renderMatchupTableWithCells(report.playerMatchups, (row) =>
-    renderMatchupOpponentCell(row, "player", decks, report.playerScope)
+  const playerSort = matchupSort?.players ?? { col: "normalizedMatchupImpact", dir: "desc" };
+  const deckSort = matchupSort?.decks ?? { col: "normalizedMatchupImpact", dir: "desc" };
+  const playerPanel = renderMatchupTableWithCells(
+    report.playerMatchups,
+    (row) => renderMatchupOpponentCell(row, "player", decks, report.playerScope),
+    "entity-matchups-players",
+    playerSort
   );
-  const deckPanel = renderMatchupTableWithCells(report.deckMatchups, (row) =>
-    renderMatchupOpponentCell(row, "deck", decks, report.playerScope)
+  const deckPanel = renderMatchupTableWithCells(
+    report.deckMatchups,
+    (row) => renderMatchupOpponentCell(row, "deck", decks, report.playerScope),
+    "entity-matchups-decks",
+    deckSort
   );
 
   return `
@@ -808,7 +817,7 @@ function renderPlayerDeckGrid(deckList, decks, playerScope) {
           return `
         <div class="entity-deck-card">
           <div class="entity-deck-card-art">
-            <img class="commander-img loading" data-card-name="${escapeHtml(imgName)}" alt="${escapeHtml(commander)}" />
+            <img class="commander-img commander-art-img loading" data-card-name="${escapeHtml(imgName)}" data-card-image="art" alt="${escapeHtml(commander)}" />
           </div>
           <div class="entity-deck-card-body">
             <div class="entity-deck-card-name">${renderDeckReportLink(commander, decks, {
@@ -832,8 +841,9 @@ function renderPlayerDeckGrid(deckList, decks, playerScope) {
  * @param {ReturnType<typeof buildEntityReport>} report
  * @param {import('./store.js').Deck[]} decks
  * @param {'games' | 'decks' | 'players'} [activeTab]
+ * @param {{ players: import('./table.js').SortState, decks: import('./table.js').SortState }} [matchupSort]
  */
-export function renderEntityReportModal(report, decks, activeTab = "games") {
+export function renderEntityReportModal(report, decks, activeTab = "games", matchupSort) {
   const rootKey = report.title;
   const statsHtml = `
     ${statBlock("Games", report.stats.games)}
@@ -848,7 +858,7 @@ export function renderEntityReportModal(report, decks, activeTab = "games") {
       ? renderWinRateLineChart(computeWinRateSeries(report.chartGames), "")
       : `<p class="muted-text entity-report-empty">No games logged yet.</p>`;
 
-  const tabsSection = renderEntityTabsSection(report, decks, activeTab);
+  const tabsSection = renderEntityTabsSection(report, decks, activeTab, matchupSort);
 
   if (report.kind === "deck") {
     const commanders = commanderNames(report.displayCommander || report.title);
@@ -926,24 +936,35 @@ export function renderEntityReportModal(report, decks, activeTab = "games") {
     </div>`;
 }
 
-/** @param {ReturnType<typeof finalizeEntityMatchupRow>[]} rows @param {(row: ReturnType<typeof finalizeEntityMatchupRow>) => string} opponentCell */
-function renderMatchupTableWithCells(rows, opponentCell) {
+const ENTITY_MATCHUP_SORT_GETTERS = {
+  opponent: (row) => row.opponent,
+  games: (row) => row.games,
+  wins: (row) => row.wins,
+  winRate: (row) => row.winRate,
+  matchupImpact: (row) => row.matchupImpact,
+  normalizedMatchupImpact: (row) => row.normalizedMatchupImpact,
+};
+
+/** @param {ReturnType<typeof finalizeEntityMatchupRow>[]} rows @param {(row: ReturnType<typeof finalizeEntityMatchupRow>) => string} opponentCell @param {string} tableId @param {import('./table.js').SortState} sort */
+function renderMatchupTableWithCells(rows, opponentCell, tableId, sort) {
   if (!rows.length) {
     return `<p class="muted-text entity-report-empty">No matchup data yet.</p>`;
   }
 
+  const sortedRows = applySort(rows, sort, ENTITY_MATCHUP_SORT_GETTERS, WINS_SORT_TIE_BREAKERS);
+
   return `
-    <table class="table compact entity-matchup-table">
+    <table class="table compact entity-matchup-table sortable-table">
       <thead><tr>
-        <th>Opponent</th>
-        <th>G</th>
-        <th>W</th>
-        <th>WR</th>
-        <th>MI</th>
-        <th>NMI</th>
+        ${sortHeader(tableId, "opponent", "Opponent", sort)}
+        ${sortHeader(tableId, "games", "G", sort)}
+        ${sortHeader(tableId, "wins", "W", sort)}
+        ${sortHeader(tableId, "winRate", "WR", sort)}
+        ${sortHeader(tableId, "matchupImpact", "MI", sort)}
+        ${sortHeader(tableId, "normalizedMatchupImpact", "NMI", sort)}
       </tr></thead>
       <tbody>
-        ${rows
+        ${sortedRows
           .map(
             (row) => `
           <tr>
