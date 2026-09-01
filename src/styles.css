@@ -1757,7 +1757,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 }
 
 .modal.deck-modal-layer {
-  z-index: 120;
+  z-index: 200;
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -1794,11 +1794,12 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .deck-form .form-actions {
   position: sticky;
   bottom: 0;
-  z-index: 1;
+  z-index: 2;
   background: var(--surface);
   padding-top: 0.75rem;
   margin-top: 1rem;
   border-top: 1px solid var(--border);
+  pointer-events: auto;
 }
 
 .modal-content-wide .form-actions--split .btn {

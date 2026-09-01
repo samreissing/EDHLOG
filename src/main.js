@@ -19,7 +19,7 @@ import {
   sortDeckList,
   pct,
 } from "./stats.js";
-import { formatDate, gameSortKey, gameYear, normalizeTime, nowTime, todayISO, compareGamesChronologically } from "./dates.js";
+import { formatDate, gameSortKey, gameYear, normalizeDate, normalizeTime, nowTime, todayISO, compareGamesChronologically } from "./dates.js";
 import { colorIdentitySortIndex } from "./color-identity.js";
 import { pctCell, valueCell, colorStatAverage } from "./wr-color.js";
 import { sortHeader, applySort, toggleSort, WINS_SORT_TIE_BREAKERS } from "./table.js";
@@ -261,8 +261,7 @@ function resetDecksViewState() {
   deckBracketFilter = "";
   deckSort = "normWr";
   deckSortDir = "desc";
-  editingDeckName = null;
-  deckModalOpen = false;
+  closeDeckModal();
   tableSort["decks-main"] = { col: "normWr", dir: "desc" };
 }
 
@@ -290,11 +289,7 @@ function renderMatchupOpponentDeckCell(row, decks) {
 }
 
 function openEntityReport(kind, key, playerScope = null, deckSlotId = null) {
-  if (deckModalOpen) {
-    deckModalOpen = false;
-    editingDeckName = null;
-    syncDeckModal();
-  }
+  if (deckModalOpen) closeDeckModal();
   entityReport = { kind, key, playerScope, deckSlotId };
   entityReportMatchupTab = "players";
   syncEntityReportModal();
@@ -400,8 +395,7 @@ async function boot() {
   }, 0);
   bindModalBackdropDismiss({
     deck: () => {
-      editingDeckName = null;
-      deckModalOpen = false;
+      closeDeckModal();
       render();
     },
     game: () => {
@@ -454,6 +448,11 @@ function bindEvents() {
       return;
     }
 
+    if (e.target.id === "save-deck-btn") {
+      saveDeckFromForm();
+      return;
+    }
+
     if (e.target.id === "delete-deck-modal") {
       if (!editingDeckName) return;
       if (!confirm("Delete this deck?")) return;
@@ -464,70 +463,18 @@ function bindEvents() {
         entityReport = null;
         syncEntityReportModal();
       }
-      editingDeckName = null;
-      deckModalOpen = false;
+      closeDeckModal();
       saveData(data);
       render();
       toast("Deleted");
+      return;
     }
   });
 
   document.addEventListener("submit", (e) => {
     if (e.target.id !== "deck-form") return;
     e.preventDefault();
-    const fd = new FormData(e.target);
-    const commander = String(fd.get("commander") || "").trim();
-    if (!commander) return toast("Commander is required", true);
-    let colors = fd.getAll("color");
-    if (!colors.length) {
-      colors = getCommanderColorIdentity(commander);
-    }
-    const deck = {
-      id: nextDeckId(data),
-      name: String(fd.get("name") || "").trim(),
-      commander,
-      bracket: Number(fd.get("bracket")),
-      colors,
-      retired: fd.get("retired") === "on",
-      createdAt: fd.get("createdAt") || todayISO(),
-    };
-    const originalId = String(fd.get("originalId") || "").trim();
-
-    if (originalId) {
-      const idx = data.decks.findIndex((d) => deckId(d) === originalId);
-      if (idx < 0) return toast("Deck not found", true);
-      const existing = data.decks[idx];
-      const commanderClash = data.decks.some(
-        (d) =>
-          deckId(d) !== originalId &&
-          getCommanderInfo(deckCommander(d)).canonicalName === getCommanderInfo(commander).canonicalName
-      );
-      if (commanderClash) return toast("Another deck already uses that commander", true);
-      data.decks[idx] = { ...existing, ...deck, id: originalId };
-      editingDeckName = null;
-      deckModalOpen = false;
-      saveData(data);
-      e.target.reset();
-      toast("Deck saved");
-      render();
-      void refreshCommanderColorCache();
-      return;
-    }
-
-    if (
-      data.decks.some(
-        (d) => getCommanderInfo(deckCommander(d)).canonicalName === getCommanderInfo(commander).canonicalName
-      )
-    ) {
-      return toast("Deck exists", true);
-    }
-    data.decks.push(deck);
-    deckModalOpen = false;
-    saveData(data);
-    e.target.reset();
-    toast(`Added ${deckTitle(deck)}`);
-    render();
-    void refreshCommanderColorCache();
+    saveDeckFromForm();
   });
 
   document.getElementById("nav").addEventListener("click", (e) => {
@@ -549,8 +496,7 @@ function bindEvents() {
       resetGamesViewState();
     }
     if (currentView !== "decks") {
-      editingDeckName = null;
-      deckModalOpen = false;
+      closeDeckModal();
     }
     renderNav();
     render();
@@ -886,19 +832,13 @@ function bindEvents() {
     }
 
     if (e.target.id === "add-deck-btn") {
-      editingDeckName = null;
-      entityReport = null;
-      deckModalOpen = true;
-      render();
+      openDeckModal();
       return;
     }
 
     const editDeckBtn = e.target.closest(".edit-deck");
     if (editDeckBtn) {
-      editingDeckName = editDeckBtn.dataset.name;
-      entityReport = null;
-      deckModalOpen = true;
-      render();
+      openDeckModal(editDeckBtn.dataset.name);
       return;
     }
 
@@ -1226,19 +1166,119 @@ function syncEntityReportModal() {
   void loadImagesIntoEntityReport(report.title);
 }
 
+function findEditingDeck() {
+  if (!editingDeckName) return null;
+  return data.decks.find((d) => deckId(d) === editingDeckName) || findDeck(data.decks, editingDeckName);
+}
+
+function closeDeckModal() {
+  deckModalOpen = false;
+  editingDeckName = null;
+  document.getElementById("deck-modal")?.remove();
+}
+
+/** @param {string | null | undefined} [deckIdToEdit] */
+function openDeckModal(deckIdToEdit = null) {
+  editingDeckName = deckIdToEdit || null;
+  entityReport = null;
+  deckModalOpen = true;
+  syncEntityReportModal();
+  showDeckModal();
+}
+
+function showDeckModal() {
+  document.getElementById("deck-modal")?.remove();
+
+  const modal = document.createElement("div");
+  modal.id = "deck-modal";
+  modal.className = "modal deck-modal-layer";
+  modal.innerHTML = renderDeckModalContent();
+  document.body.appendChild(modal);
+}
+
+function saveDeckFromForm() {
+  const form = document.getElementById("deck-form");
+  if (!form) return;
+
+  const fd = new FormData(form);
+  const commander = String(fd.get("commander") || "").trim();
+  if (!commander) {
+    toast("Commander is required", true);
+    return;
+  }
+
+  let colors = fd.getAll("color");
+  if (!colors.length) {
+    colors = getCommanderColorIdentity(commander);
+  }
+
+  const deck = {
+    id: nextDeckId(data),
+    name: String(fd.get("name") || "").trim(),
+    commander,
+    bracket: Number(fd.get("bracket")),
+    colors,
+    retired: fd.get("retired") === "on",
+    createdAt: normalizeDate(String(fd.get("createdAt") || "")) || todayISO(),
+  };
+  const originalId = String(fd.get("originalId") || "").trim();
+
+  if (originalId) {
+    const idx = data.decks.findIndex((d) => deckId(d) === originalId);
+    if (idx < 0) {
+      toast("Deck not found", true);
+      return;
+    }
+    const existing = data.decks[idx];
+    const commanderClash = data.decks.some(
+      (d) =>
+        deckId(d) !== originalId &&
+        getCommanderInfo(deckCommander(d)).canonicalName === getCommanderInfo(commander).canonicalName
+    );
+    if (commanderClash) {
+      toast("Another deck already uses that commander", true);
+      return;
+    }
+    data.decks[idx] = { ...existing, ...deck, id: originalId };
+    closeDeckModal();
+    saveData(data);
+    toast("Deck saved");
+    render();
+    void refreshCommanderColorCache();
+    return;
+  }
+
+  if (
+    data.decks.some(
+      (d) => getCommanderInfo(deckCommander(d)).canonicalName === getCommanderInfo(commander).canonicalName
+    )
+  ) {
+    toast("Deck exists", true);
+    return;
+  }
+
+  data.decks.push(deck);
+  closeDeckModal();
+  saveData(data);
+  toast(`Added ${deckTitle(deck)}`);
+  render();
+  void refreshCommanderColorCache();
+}
+
 function renderDeckModalContent() {
-  const editingDeck = editingDeckName
-    ? data.decks.find((d) => deckId(d) === editingDeckName)
-    : null;
+  const editingDeck = findEditingDeck();
+  const createdAtValue = editingDeck?.createdAt
+    ? normalizeDate(editingDeck.createdAt) || todayISO()
+    : todayISO();
 
   return `
     <div class="modal-content modal-content-deck">
       <h3>${editingDeck ? "Edit Deck" : "Add Deck"}</h3>
-      <form id="deck-form" class="deck-form">
+      <form id="deck-form" class="deck-form" novalidate>
         ${editingDeck ? `<input type="hidden" name="originalId" value="${escapeHtml(deckId(editingDeck))}" />` : ""}
         <label>Name<input name="name" placeholder="Optional deck name" value="${editingDeck ? escapeHtml(editingDeck.name || "") : ""}" /></label>
         <label>Commander<input name="commander" required value="${editingDeck ? escapeHtml(deckLabel(editingDeck)) : ""}" /></label>
-        <label>Created<input type="date" name="createdAt" value="${editingDeck?.createdAt || todayISO()}" required /></label>
+        <label>Created<input type="date" name="createdAt" value="${createdAtValue}" /></label>
         <label>Bracket<select name="bracket">${[1, 2, 3, 4, 5].map((b) => `<option value="${b}" ${(editingDeck ? editingDeck.bracket : 4) === b ? "selected" : ""}>${b}</option>`).join("")}</select></label>
         <fieldset class="color-fieldset"><legend>Colors</legend>
           ${["W", "U", "B", "R", "G"].map((c) => `<label class="checkbox mana-check"><input type="checkbox" name="color" value="${c}" ${editingDeck?.colors?.includes(c) ? "checked" : ""} />${colorBadge([c])}</label>`).join("")}
@@ -1246,72 +1286,10 @@ function renderDeckModalContent() {
         <label class="checkbox"><input type="checkbox" name="retired" ${editingDeck?.retired ? "checked" : ""} /> Retired</label>
         <div class="form-actions${editingDeck ? " form-actions--split" : ""}">
           ${editingDeck ? `<button type="button" class="btn btn-danger" id="delete-deck-modal">Delete</button>` : ""}
-          <button type="submit" class="btn btn-primary">${editingDeck ? "Save" : "Add Deck"}</button>
+          <button type="button" class="btn btn-primary" id="save-deck-btn">${editingDeck ? "Save" : "Add Deck"}</button>
         </div>
       </form>
     </div>`;
-}
-
-function captureDeckFormDraft() {
-  const form = document.getElementById("deck-form");
-  if (!form) return null;
-
-  return {
-    key: editingDeckName ?? "__new__",
-    name: form.querySelector('[name="name"]')?.value ?? "",
-    commander: form.querySelector('[name="commander"]')?.value ?? "",
-    createdAt: form.querySelector('[name="createdAt"]')?.value ?? "",
-    bracket: form.querySelector('[name="bracket"]')?.value ?? "",
-    colors: [...form.querySelectorAll('[name="color"]:checked')].map((el) => el.value),
-    retired: form.querySelector('[name="retired"]')?.checked ?? false,
-  };
-}
-
-/** @param {NonNullable<ReturnType<typeof captureDeckFormDraft>>} draft */
-function applyDeckFormDraft(draft) {
-  const form = document.getElementById("deck-form");
-  if (!form) return;
-
-  const name = form.querySelector('[name="name"]');
-  const commander = form.querySelector('[name="commander"]');
-  const createdAt = form.querySelector('[name="createdAt"]');
-  const bracket = form.querySelector('[name="bracket"]');
-  const retired = form.querySelector('[name="retired"]');
-
-  if (name) name.value = draft.name;
-  if (commander) commander.value = draft.commander;
-  if (createdAt) createdAt.value = draft.createdAt;
-  if (bracket) bracket.value = draft.bracket;
-  if (retired) retired.checked = draft.retired;
-
-  form.querySelectorAll('[name="color"]').forEach((el) => {
-    el.checked = draft.colors.includes(el.value);
-  });
-}
-
-function syncDeckModal() {
-  const existing = document.getElementById("deck-modal");
-  if (!deckModalOpen) {
-    existing?.remove();
-    return;
-  }
-
-  const draft = captureDeckFormDraft();
-  const draftKey = editingDeckName ?? "__new__";
-
-  let modal = existing;
-  if (!modal) {
-    modal = document.createElement("div");
-    modal.id = "deck-modal";
-    modal.className = "modal deck-modal-layer";
-    document.body.appendChild(modal);
-  }
-
-  modal.innerHTML = renderDeckModalContent();
-
-  if (draft && draft.key === draftKey) {
-    applyDeckFormDraft(draft);
-  }
 }
 
 function render() {
@@ -1340,7 +1318,6 @@ function render() {
     bindPodAutocomplete(document.getElementById("add-game-form"), data.games);
   }
   syncEntityReportModal();
-  syncDeckModal();
 
   if (matchupSearchFocused) {
     const el = document.getElementById("matchup-search");
