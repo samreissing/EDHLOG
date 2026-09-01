@@ -18,6 +18,7 @@ import {
   colorBadge,
   sortDeckList,
   pct,
+  gameBracket,
 } from "./stats.js";
 import { formatDate, gameSortKey, gameYear, normalizeDate, normalizeTime, nowTime, todayISO, compareGamesChronologically } from "./dates.js";
 import { colorIdentitySortIndex } from "./color-identity.js";
@@ -163,8 +164,8 @@ let editingGameId = null;
 let editingDeckName = null;
 /** @type {{ kind: 'player' | 'deck', key: string, playerScope?: string | null, deckSlotId?: string | null } | null} */
 let entityReport = null;
-/** @type {'players' | 'decks'} */
-let entityReportMatchupTab = "players";
+/** @type {'games' | 'decks' | 'players'} */
+let entityReportTab = "games";
 let deckSort = "normWr";
 let deckSortDir = "desc";
 let deckBracketFilter = "";
@@ -291,25 +292,25 @@ function renderMatchupOpponentDeckCell(row, decks) {
 function openEntityReport(kind, key, playerScope = null, deckSlotId = null) {
   if (deckModalOpen) closeDeckModal();
   entityReport = { kind, key, playerScope, deckSlotId };
-  entityReportMatchupTab = "players";
+  entityReportTab = "games";
   syncEntityReportModal();
 }
 
-function switchEntityReportMatchupTab(tabId) {
-  if (!entityReport || (tabId !== "players" && tabId !== "decks")) return;
-  entityReportMatchupTab = tabId;
+function switchEntityReportTab(tabId) {
+  if (!entityReport || !["games", "decks", "players"].includes(tabId)) return;
+  entityReportTab = tabId;
 
   const modal = document.getElementById("entity-report-modal");
   if (!modal) return;
 
-  modal.querySelectorAll("[data-entity-matchup-tab]").forEach((btn) => {
-    const active = btn.dataset.entityMatchupTab === tabId;
+  modal.querySelectorAll("[data-entity-report-tab]").forEach((btn) => {
+    const active = btn.dataset.entityReportTab === tabId;
     btn.classList.toggle("active", active);
     btn.setAttribute("aria-selected", active ? "true" : "false");
   });
 
-  modal.querySelectorAll("[data-entity-matchup-panel]").forEach((panel) => {
-    panel.hidden = panel.dataset.entityMatchupPanel !== tabId;
+  modal.querySelectorAll("[data-entity-report-panel]").forEach((panel) => {
+    panel.hidden = panel.dataset.entityReportPanel !== tabId;
   });
 }
 
@@ -436,15 +437,9 @@ function bindEvents() {
       return;
     }
 
-    if (e.target.id === "close-entity-report") {
-      entityReport = null;
-      syncEntityReportModal();
-      return;
-    }
-
-    const entityMatchupTabBtn = e.target.closest("[data-entity-matchup-tab]");
-    if (entityMatchupTabBtn && entityReport) {
-      switchEntityReportMatchupTab(entityMatchupTabBtn.dataset.entityMatchupTab);
+    const entityReportTabBtn = e.target.closest("[data-entity-report-tab]");
+    if (entityReportTabBtn && entityReport) {
+      switchEntityReportTab(entityReportTabBtn.dataset.entityReportTab);
       return;
     }
 
@@ -1161,7 +1156,7 @@ function syncEntityReportModal() {
   }
 
   modal.classList.remove("hidden");
-  modal.innerHTML = renderEntityReportModal(report, data.decks, entityReportMatchupTab);
+  modal.innerHTML = renderEntityReportModal(report, data.decks, entityReportTab);
   bindWinRateLineCharts();
   void loadImagesIntoEntityReport(report.title);
 }
@@ -1946,6 +1941,7 @@ function renderStats() {
         wins: (r) => r.wins,
         winRate: (r) => r.winRate,
         normalizedWr: (r) => r.normalizedWr,
+        bracket: (r) => r.bracket ?? null,
       },
       WINS_SORT_TIE_BREAKERS
     )
@@ -1997,6 +1993,7 @@ function renderStats() {
           <th class="col-rank">#</th>
           ${sortHeader(tableId, "name", nameHeader, tableSort[tableId])}
           ${isDeckTab ? sortHeader(tableId, "colors", "Color Identity", tableSort[tableId], "totals-ci-col") : ""}
+          ${isDeckTab ? sortHeader(tableId, "bracket", "Bracket", tableSort[tableId]) : ""}
           ${extraHeader}
           ${sortHeader(tableId, "games", "G", tableSort[tableId])}
           ${sortHeader(tableId, "wins", "W", tableSort[tableId])}
@@ -2011,7 +2008,7 @@ function renderStats() {
               <td class="col-rank">${row.rank}</td>
               ${
                 isDeckTab
-                  ? `<td class="totals-name-col">${renderDeckReportLink(row.name, data.decks, { label: row.name })}</td><td class="totals-color-col"><span class="color-label">${colorBadge(row.colors || [])}</span></td>`
+                  ? `<td class="totals-name-col">${renderDeckReportLink(row.name, data.decks, { label: row.name })}</td><td class="totals-color-col"><span class="color-label">${colorBadge(row.colors || [])}</span></td><td>${row.bracket ?? "—"}</td>`
                   : isColorTab
                     ? `<td class="totals-color-col"><span class="color-label">${colorBadge(row.displayColors || [])}</span></td>`
                     : `<td>${renderPlayerReportLink(row.name)}</td>`
@@ -2123,7 +2120,8 @@ function renderGames() {
     deck: (g) => g.deck,
     result: (g) => (g.result === "Win" ? 1 : 0),
     mySeat: (g) => g.mySeat || 0,
-    turn: (g) => g.turn || 0,
+    turn: (g) => (Number(g.turn) > 0 ? Number(g.turn) : null),
+    bracket: (g) => gameBracket(g, new Map(data.decks.map((d) => [deckId(d), d]))),
   });
 
   const decks = [...data.decks]
@@ -2152,6 +2150,7 @@ function renderGames() {
             ${sortHeader("game-log", "deck", "Deck", sort)}
             ${sortHeader("game-log", "mySeat", "Seat", sort)}
             ${sortHeader("game-log", "turn", "End Turn", sort)}
+            ${sortHeader("game-log", "bracket", "Bracket", sort)}
             ${sortHeader("game-log", "result", "Result", sort)}
             <th class="row-actions-col"></th>
           </tr></thead>
@@ -2380,9 +2379,10 @@ function gameRow(g) {
     playerScope: MY_PLAYER_NAME,
     deckSlotId: g.deck,
   });
+  const bracket = gameBracket(g, new Map(data.decks.map((d) => [deckId(d), d])));
   return `<tr data-deck="${escapeHtml(g.deck)}" data-result="${g.result}" data-year="${gameYear(g.date)}">
     <td><button type="button" class="link-btn view-game" data-id="${g.id}">${formatDate(g.date)}</button></td><td class="deck-name">${deckLink}</td>
-    <td>${g.mySeat || "—"}</td><td>${g.turn || "—"}</td>
+    <td>${g.mySeat || "—"}</td><td>${g.turn || "—"}</td><td>${bracket}</td>
     <td><span class="result-pill ${cls}">${g.result}</span></td>
     <td class="row-actions">
       <button type="button" class="btn-icon edit-game" data-id="${g.id}" title="Edit game">✎</button>
