@@ -153,6 +153,7 @@ let seatViewMode = "mine";
 let seatRange = { start: null, end: null, customized: false };
 let decksTab = "active";
 let gameModalOpen = false;
+let deckModalOpen = false;
 let viewingGameId = null;
 let editingGameId = null;
 let editingDeckName = null;
@@ -257,6 +258,7 @@ function resetDecksViewState() {
   deckSort = "normWr";
   deckSortDir = "desc";
   editingDeckName = null;
+  deckModalOpen = false;
   tableSort["decks-main"] = { col: "normWr", dir: "desc" };
 }
 
@@ -374,6 +376,7 @@ async function refreshCommanderColorCache() {
   ]);
   const changed = backfillDeckColorIdentities(data.decks);
   if (changed) saveData(data);
+  if (deckModalOpen) return;
   render();
 }
 
@@ -389,7 +392,8 @@ async function boot() {
   bindModalBackdropDismiss({
     deck: () => {
       editingDeckName = null;
-      document.getElementById("deck-modal")?.classList.add("hidden");
+      deckModalOpen = false;
+      render();
     },
     game: () => {
       editingGameId = null;
@@ -462,6 +466,7 @@ function bindEvents() {
     }
     if (currentView !== "decks") {
       editingDeckName = null;
+      deckModalOpen = false;
     }
     renderNav();
     render();
@@ -798,8 +803,9 @@ function bindEvents() {
 
     if (e.target.id === "add-deck-btn") {
       editingDeckName = null;
+      entityReport = null;
+      deckModalOpen = true;
       render();
-      document.getElementById("deck-modal")?.classList.remove("hidden");
       return;
     }
     if (e.target.id === "delete-deck-modal") {
@@ -813,7 +819,7 @@ function bindEvents() {
         syncEntityReportModal();
       }
       editingDeckName = null;
-      document.getElementById("deck-modal")?.classList.add("hidden");
+      deckModalOpen = false;
       saveData(data);
       render();
       toast("Deleted");
@@ -823,8 +829,9 @@ function bindEvents() {
     const editDeckBtn = e.target.closest(".edit-deck");
     if (editDeckBtn) {
       editingDeckName = editDeckBtn.dataset.name;
+      entityReport = null;
+      deckModalOpen = true;
       render();
-      document.getElementById("deck-modal")?.classList.remove("hidden");
       return;
     }
 
@@ -936,10 +943,11 @@ function bindEvents() {
         if (commanderClash) return toast("Another deck already uses that commander", true);
         data.decks[idx] = { ...existing, ...deck, id: originalId };
         editingDeckName = null;
+        deckModalOpen = false;
         saveData(data);
-        document.getElementById("deck-modal")?.classList.add("hidden");
         e.target.reset();
         toast("Deck saved");
+        render();
         void refreshCommanderColorCache();
         return;
       }
@@ -952,10 +960,11 @@ function bindEvents() {
         return toast("Deck exists", true);
       }
       data.decks.push(deck);
+      deckModalOpen = false;
       saveData(data);
-      document.getElementById("deck-modal")?.classList.add("hidden");
       e.target.reset();
       toast(`Added ${deckTitle(deck)}`);
+      render();
       void refreshCommanderColorCache();
     }
   });
@@ -2019,8 +2028,8 @@ function renderDecks() {
         </table>
       </div>
     </section>
-    <div id="deck-modal" class="modal hidden">
-      <div class="modal-content">
+    <div id="deck-modal" class="modal ${deckModalOpen ? "" : "hidden"}">
+      <div class="modal-content modal-content-deck">
         <h3>${editingDeck ? "Edit Deck" : "Add Deck"}</h3>
         <form id="deck-form" class="deck-form">
           ${editingDeck ? `<input type="hidden" name="originalId" value="${escapeHtml(deckId(editingDeck))}" />` : ""}

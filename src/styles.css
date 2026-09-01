@@ -1741,10 +1741,15 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   margin: 0 0 1rem;
 }
 
-.modal-content-wide {
+.modal-content-wide,
+.modal-content-deck {
   width: min(640px, 94vw);
   max-height: 90vh;
   overflow-y: auto;
+}
+
+.modal-content-deck {
+  width: min(420px, 90vw);
 }
 
 .modal-content-wide .form-actions--split .btn {
