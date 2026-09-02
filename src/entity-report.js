@@ -10,7 +10,7 @@ import { getCommanderInfo, getCommanderMatchupIdentities, commanderMatchesTarget
 import { resolveCommanderColors } from "./commander-colors.js";
 import { deckKey, deckCommander, deckId, deckTitle, findDeck, deckLabelForKey, deckTitleForKey, deckMapByKey } from "./deck-identity.js";
 import { winRate, normalizedWinRate, computeTurnAverages, gameBracket } from "./stats.js";
-import { compareGamesChronologically, formatDate } from "./dates.js";
+import { compareGamesChronologically, formatDate, gameSortKey } from "./dates.js";
 import { commanderNames } from "./scryfall.js";
 import { computeWinRateSeries, renderWinRateLineChart } from "./trends-chart.js";
 import { pctCell } from "./wr-color.js";
@@ -677,39 +677,60 @@ function renderEntityGamePodCard(game, decks, report) {
     </article>`;
 }
 
-/** @param {import('./store.js').Game[]} games @param {import('./store.js').Deck[]} decks @param {ReturnType<typeof buildEntityReport>} report */
-function renderEntityGamesTable(games, decks, report) {
+/** @param {import('./store.js').Game} game @param {ReturnType<typeof buildEntityReport>} report */
+function entityGameSeat(game, report) {
+  if (report.kind === "player") {
+    const playerKey = normalizeEntityKey(report.title);
+    return parseGameSeats(game).find((s) => normalizeEntityKey(s.player) === playerKey);
+  }
+  return parseGameSeats(game).find((s) =>
+    commanderMatchesTarget(s.commander, report.displayCommander || report.title, { splitPartners: false })
+  );
+}
+
+/** @param {import('./store.js').Deck[]} decks @param {ReturnType<typeof buildEntityReport>} report */
+function entityGamesSortGetters(decks, report) {
+  const deckMap = deckMapByKey(decks);
+  return {
+    date: (game) => gameSortKey(game),
+    deck: (game) => deckLabelForKey(game.deck, decks),
+    player: (game) => entityGameSeat(game, report)?.player || "",
+    seat: (game) => entityGameSeat(game, report)?.seat || game.mySeat || 0,
+    turn: (game) => (Number(game.turn) > 0 ? Number(game.turn) : null),
+    bracket: (game) => gameBracket(game, deckMap),
+    result: (game) => (game.result === "Win" ? 1 : 0),
+  };
+}
+
+/** @param {import('./store.js').Game[]} games @param {import('./store.js').Deck[]} decks @param {ReturnType<typeof buildEntityReport>} report @param {import('./table.js').SortState} sort */
+function renderEntityGamesTable(games, decks, report, sort) {
   if (!games.length) return "";
   const deckMap = deckMapByKey(decks);
   const showDeckCol = report.kind === "player";
   const showPlayerCol = report.kind === "deck";
+  const tableId = "entity-games";
+  const sortState = sort ?? { col: "date", dir: "desc" };
+  const sortedGames = applySort(games, sortState, entityGamesSortGetters(decks, report), {
+    ...WINS_SORT_TIE_BREAKERS,
+    result: "date",
+  });
 
   return `
-    <table class="table compact entity-games-table">
+    <table class="table compact entity-games-table sortable-table">
       <thead><tr>
-        <th>Date</th>
-        ${showDeckCol ? "<th>Deck</th>" : ""}
-        ${showPlayerCol ? "<th>Player</th>" : ""}
-        <th>Seat</th>
-        <th>Turn</th>
-        <th>Bracket</th>
-        <th>Result</th>
+        ${sortHeader(tableId, "date", "Date", sortState)}
+        ${showDeckCol ? sortHeader(tableId, "deck", "Deck", sortState) : ""}
+        ${showPlayerCol ? sortHeader(tableId, "player", "Player", sortState) : ""}
+        ${sortHeader(tableId, "seat", "Seat", sortState)}
+        ${sortHeader(tableId, "turn", "Turn", sortState)}
+        ${sortHeader(tableId, "bracket", "Bracket", sortState)}
+        ${sortHeader(tableId, "result", "Result", sortState)}
       </tr></thead>
       <tbody>
-        ${games
+        ${sortedGames
           .map((game) => {
             const resultCls = entityGameResultClass(game, report);
-            const playerKey = report.kind === "player" ? normalizeEntityKey(report.title) : null;
-            const seat =
-              report.kind === "player"
-                ? parseGameSeats(game).find((s) => normalizeEntityKey(s.player) === playerKey)
-                : parseGameSeats(game).find((s) =>
-                    commanderMatchesTarget(
-                      s.commander,
-                      report.displayCommander || report.title,
-                      { splitPartners: false }
-                    )
-                  );
+            const seat = entityGameSeat(game, report);
             const deckCell = showDeckCol
               ? `<td>${renderDeckReportLink(
                   seat?.commander || game.deck,
@@ -745,8 +766,8 @@ function renderEntityGamesTable(games, decks, report) {
     </table>`;
 }
 
-/** @param {ReturnType<typeof buildEntityReport>} report @param {import('./store.js').Deck[]} decks */
-function renderEntityGamesSection(report, decks) {
+/** @param {ReturnType<typeof buildEntityReport>} report @param {import('./store.js').Deck[]} decks @param {import('./table.js').SortState} [gamesSort] */
+function renderEntityGamesSection(report, decks, gamesSort) {
   const games = report.entityGames || [];
   if (!games.length) {
     return `<p class="muted-text entity-report-empty">No games logged yet.</p>`;
@@ -756,15 +777,15 @@ function renderEntityGamesSection(report, decks) {
   const simpleGames = games.filter((game) => !gameHasPodDetail(game));
   const podCards = podGames.map((game) => renderEntityGamePodCard(game, decks, report)).join("");
   const tableGames = simpleGames.length ? simpleGames : podGames.length ? [] : games;
-  const tableHtml = tableGames.length ? renderEntityGamesTable(tableGames, decks, report) : "";
+  const tableHtml = tableGames.length ? renderEntityGamesTable(tableGames, decks, report, gamesSort) : "";
 
   return `
     ${podGames.length ? `<div class="entity-game-pod-list">${podCards}</div>` : ""}
     ${tableHtml}`;
 }
 
-/** @param {ReturnType<typeof buildEntityReport>} report @param {import('./store.js').Deck[]} decks @param {'games' | 'decks' | 'players'} [activeTab] @param {{ players: import('./table.js').SortState, decks: import('./table.js').SortState }} [matchupSort] */
-function renderEntityTabsSection(report, decks, activeTab = "games", matchupSort) {
+/** @param {ReturnType<typeof buildEntityReport>} report @param {import('./store.js').Deck[]} decks @param {'games' | 'decks' | 'players'} [activeTab] @param {{ players: import('./table.js').SortState, decks: import('./table.js').SortState }} [matchupSort] @param {import('./table.js').SortState} [gamesSort] */
+function renderEntityTabsSection(report, decks, activeTab = "games", matchupSort, gamesSort) {
   const tabs = [
     { id: "games", label: "Games" },
     { id: "decks", label: "Deck Matchups" },
@@ -778,7 +799,7 @@ function renderEntityTabsSection(report, decks, activeTab = "games", matchupSort
     )
     .join("");
 
-  const gamesPanel = renderEntityGamesSection(report, decks);
+  const gamesPanel = renderEntityGamesSection(report, decks, gamesSort);
   const playerSort = matchupSort?.players ?? { col: "normalizedMatchupImpact", dir: "desc" };
   const deckSort = matchupSort?.decks ?? { col: "normalizedMatchupImpact", dir: "desc" };
   const playerPanel = renderMatchupTableWithCells(
@@ -842,8 +863,9 @@ function renderPlayerDeckGrid(deckList, decks, playerScope) {
  * @param {import('./store.js').Deck[]} decks
  * @param {'games' | 'decks' | 'players'} [activeTab]
  * @param {{ players: import('./table.js').SortState, decks: import('./table.js').SortState }} [matchupSort]
+ * @param {import('./table.js').SortState} [gamesSort]
  */
-export function renderEntityReportModal(report, decks, activeTab = "games", matchupSort) {
+export function renderEntityReportModal(report, decks, activeTab = "games", matchupSort, gamesSort) {
   const rootKey = report.title;
   const statsHtml = `
     ${statBlock("Games", report.stats.games)}
@@ -858,7 +880,7 @@ export function renderEntityReportModal(report, decks, activeTab = "games", matc
       ? renderWinRateLineChart(computeWinRateSeries(report.chartGames), "")
       : `<p class="muted-text entity-report-empty">No games logged yet.</p>`;
 
-  const tabsSection = renderEntityTabsSection(report, decks, activeTab, matchupSort);
+  const tabsSection = renderEntityTabsSection(report, decks, activeTab, matchupSort, gamesSort);
 
   if (report.kind === "deck") {
     const commanders = commanderNames(report.displayCommander || report.title);
