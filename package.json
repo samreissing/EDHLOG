@@ -2,7 +2,6 @@
   "name": "edhlog",
   "version": "0.1.0",
   "private": true,
-  "homepage": "https://samreissing.github.io/EDHLOG/",
   "type": "module",
   "scripts": {
     "dev": "vite",

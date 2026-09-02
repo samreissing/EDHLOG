@@ -1,6 +1,6 @@
 # EDHLOG
 
-A bare-bones static site for tracking your Commander games and stats.
+A bare-bones local app for tracking your Commander games and stats.
 
 ## Features
 
@@ -21,36 +21,30 @@ npm run dev
 
 Open http://localhost:5173
 
-## GitHub Pages
+Your game data stays in this browser on this computer. Use **Export JSON** to back up, and **Import JSON** to restore.
 
-Live site (after Pages is enabled): **https://samreissing.github.io/EDHLOG/**
+## Taking down the GitHub Pages site
 
-Pushes to `main` run [.github/workflows/deploy.yml](.github/workflows/deploy.yml) to build and deploy automatically — same pattern as [30-cent-edh](https://github.com/samreissing/30-cent-edh).
+If the repo still has a live Pages site, go to **Settings → Pages**:
 
-**One-time setup** (repo owner):
+1. Find the line **“Your site is live at …”**
+2. Click the **⋮** menu on the right of that line
+3. Choose **Unpublish site**
 
-1. Open [EDHLOG → Settings → Pages](https://github.com/samreissing/EDHLOG/settings/pages)
-2. Under **Build and deployment**, set **Source** to **GitHub Actions**
-3. Re-run the latest **Deploy to GitHub Pages** workflow (or push to `main`)
+If you do not see that menu: set **Source** to **Deploy from a branch**, then set the **branch** dropdown to **None** (not in the Source dropdown — the branch picker below it), and click **Save**.
 
-Local production preview:
+Merge [PR #36](https://github.com/samreissing/EDHLOG/pull/36) so future pushes do not redeploy the site.
 
-```bash
-BASE_PATH=/EDHLOG/ npm run build
-npm run preview
-```
-
-## Build
+## Build (optional)
 
 ```bash
 npm run build
+npm run preview
 ```
-
-Deploy the `dist/` folder, or use the GitHub Actions workflow above.
 
 ## Data
 
-- `public/data/seed.json` — imported from your Google Sheet (904 games, 27 decks)
+- `public/data/seed.json` — imported from your Google Sheet (923 games, 27 decks)
 - To re-import from the spreadsheet:
 
 ```bash
