@@ -59,6 +59,7 @@ import {
   renderEntityReportModal,
   renderPlayerReportLink,
   renderDeckReportLink,
+  fitEntityDeckCardStats,
 } from "./entity-report.js";
 import { loadImagesIntoEntityReport } from "./scryfall.js";
 import { bindPodAutocomplete, MY_PLAYER_NAME } from "./opponent-search.js";
@@ -1242,6 +1243,7 @@ function syncEntityReportModal() {
     entityReportMatchupSort
   );
   bindWinRateLineCharts();
+  fitEntityDeckCardStats(modal);
   void loadImagesIntoEntityReport(report.title);
 }
 
