@@ -1186,6 +1186,7 @@ function getStats() {
       view: colorView,
       agg: colorAgg,
       sortOrder: colorSortOrder,
+      bracketFilter: statsBracketFilter,
     }),
     bracketStats: computeBracketStats(statsGames, filteredDeckStats),
     yearStats: computeYearStats(statsGames),
