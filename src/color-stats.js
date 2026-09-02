@@ -200,23 +200,25 @@ function buildRowKeys(deckStats, view, agg, sortOrder) {
 
 /**
  * @param {import('./stats.js').DeckStat[]} deckStats
- * @param {{ view: 'wubrgc'|'all'|'exact', agg: 'inclusive'|'exclusive', sortOrder: 'wubrgc'|'cgrbuw' }} opts
+ * @param {{ view: 'wubrgc'|'all'|'exact', agg: 'inclusive'|'exclusive', sortOrder: 'wubrgc'|'cgrbuw', bracketFilter?: string }} opts
  */
-export function computeColorStatsAdvanced(deckStats, { view, agg, sortOrder }) {
+export function computeColorStatsAdvanced(deckStats, { view, agg, sortOrder, bracketFilter = "" }) {
   const rowKeys = buildRowKeys(deckStats, view, agg, sortOrder);
   const matchMode = view === "exact" ? "exclusive" : agg;
+  const scopeToBracket = Boolean(bracketFilter);
 
   const rows = rowKeys.map((key) => {
     const rowColors = rowColorsFromKey(key);
     const matchingDecks = deckStats.filter((d) => rowMatchesDeck(rowColors, d.colors || [], matchMode));
-    const games = matchingDecks.reduce((s, d) => s + d.games, 0);
-    const wins = matchingDecks.reduce((s, d) => s + d.wins, 0);
+    const countedDecks = scopeToBracket ? matchingDecks.filter((d) => d.games > 0) : matchingDecks;
+    const games = countedDecks.reduce((s, d) => s + d.games, 0);
+    const wins = countedDecks.reduce((s, d) => s + d.wins, 0);
     return {
       key,
       colors: rowColors,
       name: view === "wubrgc" && key !== "C" ? COLOR_NAMES[key] : rowLabel(key),
       displayColors: rowColors,
-      decks: matchingDecks.length,
+      decks: countedDecks.length,
       games,
       wins,
       winRate: winRate(wins, games),
