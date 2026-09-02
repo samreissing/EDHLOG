@@ -980,3 +980,17 @@ function renderMatchupTableWithCells(rows, opponentCell, tableId, sort) {
       </tbody>
     </table>`;
 }
+
+/** Scale deck grid stat rows so they stay on one line without overflowing. */
+export function fitEntityDeckCardStats(root = document) {
+  const maxPx = 14;
+  const minPx = 9.5;
+  for (const el of root.querySelectorAll(".entity-deck-card-stats")) {
+    el.style.fontSize = `${maxPx}px`;
+    let size = maxPx;
+    while (el.scrollWidth > el.clientWidth && size > minPx) {
+      size -= 0.5;
+      el.style.fontSize = `${size}px`;
+    }
+  }
+}
