@@ -826,8 +826,8 @@ function renderPlayerDeckGrid(deckList, decks, playerScope) {
               deckSlotId: row.deckSlotId || null,
             })}</div>
             <div class="entity-deck-card-stats">
-              <span>${row.games} game${row.games === 1 ? "" : "s"}</span>
-              <span>${row.wins ?? 0} win${row.wins === 1 ? "" : "s"}</span>
+              <span>${row.games}G</span>
+              <span>${row.wins ?? 0}W</span>
               <span>${row.games ? pctCell(row.winRate ?? winRate(row.wins ?? 0, row.games)) : "—"}</span>
             </div>
           </div>
