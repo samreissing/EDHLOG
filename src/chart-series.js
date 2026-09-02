@@ -3,6 +3,7 @@ import { gameBracket } from "./stats.js";
 import { mixManaColors, MANA_HEX } from "./mana-colors.js";
 import { rowColorsFromKey, rowMatchesDeck } from "./color-stats.js";
 import { deckMapByKey } from "./deck-identity.js";
+import { getDeckColors } from "./commander-colors.js";
 
 export function lineColorForColorKey(key) {
   const colors = rowColorsFromKey(key);
@@ -64,7 +65,8 @@ export function gamesForColorSeries(games, decks, colorKey, agg, startDate, endD
   const dated = gamesInDateRange(games, startDate, endDate);
   return dated.filter((game) => {
     const deck = deckMap.get(game.deck);
-    return rowMatchesDeck(rowColors, deck?.colors || [], agg);
+    if (!deck) return false;
+    return rowMatchesDeck(rowColors, getDeckColors(deck), agg);
   });
 }
 

@@ -213,8 +213,16 @@ let tableSort = {
   "totals-colors": { col: "normalizedWr", dir: "desc" },
 };
 
+function resetStatsGlobalState() {
+  statsBracketFilter = "";
+  statsDeckFilter = "all";
+}
+
 function resetStatsTabState(tab) {
-  if (tab === "colors") {
+  resetStatsGlobalState();
+  if (tab === "overview") {
+    // Global stats filters only.
+  } else if (tab === "colors") {
     colorView = "wubrgc";
     colorAgg = "inclusive";
     colorSortOrder = "wubrgc";
@@ -282,6 +290,16 @@ function resetGamesViewState() {
   viewingGameId = null;
   logFilters = { deck: "", result: "", year: "" };
   tableSort["game-log"] = { col: "date", dir: "desc" };
+}
+
+function dismissEntityReport() {
+  entityReport = null;
+  entityReportTab = "games";
+  entityReportMatchupSort = {
+    players: { col: "normalizedMatchupImpact", dir: "desc" },
+    decks: { col: "normalizedMatchupImpact", dir: "desc" },
+  };
+  syncEntityReportModal();
 }
 
 
@@ -462,7 +480,13 @@ function bindEvents() {
     const prevView = currentView;
     currentView = btn.dataset.view;
     if (prevView === "stats" && currentView !== "stats") {
-      resetStatsTabState(statsTab);
+      resetAllStatsTabStates();
+    }
+    if (prevView === "decks" && currentView !== "decks") {
+      resetDecksViewState();
+    }
+    if (prevView === "games" && currentView !== "games") {
+      resetGamesViewState();
     }
     if (currentView === "stats") {
       statsTab = "overview";
@@ -477,6 +501,7 @@ function bindEvents() {
     if (currentView !== "decks") {
       closeDeckModal();
     }
+    dismissEntityReport();
     renderNav();
     render();
   });
@@ -681,6 +706,7 @@ function bindEvents() {
     const matchupBtn = e.target.closest("[data-matchup-tab]");
     if (matchupBtn) {
       const nextMatchupTab = matchupBtn.getAttribute("data-matchup-tab");
+      if (nextMatchupTab !== matchupTab) resetStatsTabState("matchups");
       matchupTab = nextMatchupTab;
       render();
       return;
@@ -688,7 +714,9 @@ function bindEvents() {
 
     const totalsBtn = e.target.closest("[data-totals-tab]");
     if (totalsBtn) {
-      totalsTab = totalsBtn.getAttribute("data-totals-tab");
+      const nextTotalsTab = totalsBtn.getAttribute("data-totals-tab");
+      if (nextTotalsTab !== totalsTab) resetStatsTabState("totals");
+      totalsTab = nextTotalsTab;
       render();
       return;
     }
@@ -696,7 +724,11 @@ function bindEvents() {
     const statsBtn = e.target.closest("[data-stats-tab]");
     if (statsBtn) {
       const nextTab = statsBtn.getAttribute("data-stats-tab");
-      if (nextTab !== statsTab) resetStatsTabState(statsTab);
+      if (nextTab !== statsTab) {
+        resetStatsTabState(statsTab);
+        resetStatsTabState(nextTab);
+        dismissEntityReport();
+      }
       statsTab = nextTab;
       render();
       return;
@@ -1142,7 +1174,10 @@ function getStats() {
   const filteredDeckStats = computeDeckStats(
     statsDeckFilter === "all" ? data.decks : statsDecks,
     statsGames
-  );
+  ).map((deck) => ({
+    ...deck,
+    colors: getDeckColors(deck),
+  }));
   const overview = computeOverview(statsGames);
   return {
     deckStats,
