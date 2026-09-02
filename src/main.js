@@ -177,6 +177,7 @@ let entityReportMatchupSort = {
   players: { col: "normalizedMatchupImpact", dir: "desc" },
   decks: { col: "normalizedMatchupImpact", dir: "desc" },
 };
+let entityReportGamesSort = { col: "date", dir: "desc" };
 let deckSort = "normWr";
 let deckSortDir = "desc";
 let deckBracketFilter = "";
@@ -300,6 +301,7 @@ function dismissEntityReport() {
     players: { col: "normalizedMatchupImpact", dir: "desc" },
     decks: { col: "normalizedMatchupImpact", dir: "desc" },
   };
+  entityReportGamesSort = { col: "date", dir: "desc" };
   syncEntityReportModal();
 }
 
@@ -326,6 +328,7 @@ function openEntityReport(kind, key, playerScope = null, deckSlotId = null) {
     players: { col: "normalizedMatchupImpact", dir: "desc" },
     decks: { col: "normalizedMatchupImpact", dir: "desc" },
   };
+  entityReportGamesSort = { col: "date", dir: "desc" };
   syncEntityReportModal();
 }
 
@@ -473,6 +476,27 @@ function bindEvents() {
       switchEntityReportTab(entityReportTabBtn.dataset.entityReportTab);
       return;
     }
+
+    const entitySortTh = e.target.closest("#entity-report-modal [data-sort-table]");
+    if (entitySortTh && entityReport) {
+      const tableId = entitySortTh.getAttribute("data-sort-table");
+      const col = entitySortTh.getAttribute("data-sort-col");
+      if (tableId === "entity-games") {
+        entityReportGamesSort = toggleSort(entityReportGamesSort, col);
+        syncEntityReportModal();
+        return;
+      }
+      if (tableId === "entity-matchups-players") {
+        entityReportMatchupSort.players = toggleSort(entityReportMatchupSort.players, col);
+        syncEntityReportModal();
+        return;
+      }
+      if (tableId === "entity-matchups-decks") {
+        entityReportMatchupSort.decks = toggleSort(entityReportMatchupSort.decks, col);
+        syncEntityReportModal();
+        return;
+      }
+    }
   });
 
   document.getElementById("nav").addEventListener("click", (e) => {
@@ -538,22 +562,6 @@ function bindEvents() {
   });
 
   document.getElementById("main").addEventListener("click", (e) => {
-    const entitySortTh = e.target.closest("#entity-report-modal [data-sort-table]");
-    if (entitySortTh && entityReport) {
-      const tableId = entitySortTh.getAttribute("data-sort-table");
-      const col = entitySortTh.getAttribute("data-sort-col");
-      if (tableId === "entity-matchups-players") {
-        entityReportMatchupSort.players = toggleSort(entityReportMatchupSort.players, col);
-        syncEntityReportModal();
-        return;
-      }
-      if (tableId === "entity-matchups-decks") {
-        entityReportMatchupSort.decks = toggleSort(entityReportMatchupSort.decks, col);
-        syncEntityReportModal();
-        return;
-      }
-    }
-
     const sortTh = e.target.closest("[data-sort-table]");
     if (sortTh) {
       const tableId = sortTh.getAttribute("data-sort-table");
@@ -1240,7 +1248,8 @@ function syncEntityReportModal() {
     report,
     data.decks,
     entityReportTab,
-    entityReportMatchupSort
+    entityReportMatchupSort,
+    entityReportGamesSort
   );
   bindWinRateLineCharts();
   fitEntityDeckCardStats(modal);
