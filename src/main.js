@@ -476,27 +476,6 @@ function bindEvents() {
       switchEntityReportTab(entityReportTabBtn.dataset.entityReportTab);
       return;
     }
-
-    const entitySortTh = e.target.closest("#entity-report-modal [data-sort-table]");
-    if (entitySortTh && entityReport) {
-      const tableId = entitySortTh.getAttribute("data-sort-table");
-      const col = entitySortTh.getAttribute("data-sort-col");
-      if (tableId === "entity-games") {
-        entityReportGamesSort = toggleSort(entityReportGamesSort, col);
-        syncEntityReportModal();
-        return;
-      }
-      if (tableId === "entity-matchups-players") {
-        entityReportMatchupSort.players = toggleSort(entityReportMatchupSort.players, col);
-        syncEntityReportModal();
-        return;
-      }
-      if (tableId === "entity-matchups-decks") {
-        entityReportMatchupSort.decks = toggleSort(entityReportMatchupSort.decks, col);
-        syncEntityReportModal();
-        return;
-      }
-    }
   });
 
   document.getElementById("nav").addEventListener("click", (e) => {
@@ -1221,6 +1200,27 @@ function getStats() {
   };
 }
 
+function handleEntityReportModalClick(e) {
+  if (!entityReport) return;
+  const sortTh = e.target.closest("th[data-sort-col]");
+  if (!sortTh) return;
+  const tableId = sortTh.getAttribute("data-sort-table");
+  const col = sortTh.getAttribute("data-sort-col");
+  if (!tableId || !col) return;
+
+  if (tableId === "entity-games") {
+    entityReportGamesSort = toggleSort(entityReportGamesSort, col);
+  } else if (tableId === "entity-matchups-players") {
+    entityReportMatchupSort.players = toggleSort(entityReportMatchupSort.players, col);
+  } else if (tableId === "entity-matchups-decks") {
+    entityReportMatchupSort.decks = toggleSort(entityReportMatchupSort.decks, col);
+  } else {
+    return;
+  }
+
+  syncEntityReportModal();
+}
+
 function syncEntityReportModal() {
   let modal = document.getElementById("entity-report-modal");
   if (!entityReport || deckModalOpen) {
@@ -1240,6 +1240,7 @@ function syncEntityReportModal() {
     modal = document.createElement("div");
     modal.id = "entity-report-modal";
     modal.className = "modal";
+    modal.addEventListener("click", handleEntityReportModalClick);
     document.body.appendChild(modal);
   }
 
@@ -2281,9 +2282,10 @@ function renderGames() {
   games = applySort(games, tableSort["game-log"], {
     date: (g) => gameSortKey(g),
     deck: (g) => g.deck,
-    result: (g) => (g.result === "Win" ? 1 : 0),
-    turn: (g) => (Number(g.turn) > 0 ? Number(g.turn) : null),
     bracket: (g) => gameBracket(g, new Map(data.decks.map((d) => [deckId(d), d]))),
+    mySeat: (g) => g.mySeat || 0,
+    turn: (g) => (Number(g.turn) > 0 ? Number(g.turn) : null),
+    result: (g) => (g.result === "Win" ? 1 : 0),
   });
 
   const decks = [...data.decks]
@@ -2310,8 +2312,9 @@ function renderGames() {
           <thead><tr>
             ${sortHeader("game-log", "date", "Date", sort)}
             ${sortHeader("game-log", "deck", "Deck", sort)}
-            ${sortHeader("game-log", "turn", "End Turn", sort)}
             ${sortHeader("game-log", "bracket", "Bracket", sort)}
+            ${sortHeader("game-log", "mySeat", "Seat", sort)}
+            ${sortHeader("game-log", "turn", "End Turn", sort)}
             ${sortHeader("game-log", "result", "Result", sort)}
             <th class="row-actions-col"></th>
           </tr></thead>
@@ -2543,7 +2546,7 @@ function gameRow(g) {
   const bracket = gameBracket(g, new Map(data.decks.map((d) => [deckId(d), d])));
   return `<tr data-deck="${escapeHtml(g.deck)}" data-result="${g.result}" data-year="${gameYear(g.date)}">
     <td><button type="button" class="link-btn view-game" data-id="${g.id}">${formatDate(g.date)}</button></td><td class="deck-name">${deckLink}</td>
-    <td>${g.turn || "—"}</td><td>${bracket}</td>
+    <td>${bracket}</td><td>${g.mySeat || "—"}</td><td>${g.turn || "—"}</td>
     <td><span class="result-pill ${cls}">${g.result}</span></td>
     <td class="row-actions">
       <button type="button" class="btn-icon edit-game" data-id="${g.id}" title="Edit game">✎</button>
