@@ -53,6 +53,7 @@ import {
   deckLabelForKey,
   deckTitleForKey,
   resolveMyCommander,
+  resolveDeckCommanderOnDate,
 } from "./deck-identity.js";
 import {
   buildEntityReport,
@@ -1290,16 +1291,26 @@ function deckHistorySnapshot(deck) {
   };
 }
 
-/** @param {import('./store.js').Deck} existing @param {{ name: string, commander: string, bracket: number, colors: string[] }} next */
-function deckIdentityChanged(existing, next) {
+/** @param {import('./store.js').Deck} existing @param {{ commander: string }} next */
+function deckCommanderChanged(existing, next) {
   const prevCommander = getCommanderInfo(deckCommander(existing)).canonicalName;
   const nextCommander = getCommanderInfo(next.commander).canonicalName;
-  if (prevCommander !== nextCommander) return true;
-  if (String(existing.name || "") !== String(next.name || "")) return true;
-  if (Number(existing.bracket ?? 4) !== Number(next.bracket)) return true;
-  const prevColors = [...(existing.colors || [])].sort().join("");
-  const nextColors = [...(next.colors || [])].sort().join("");
-  return prevColors !== nextColors;
+  return prevCommander !== nextCommander;
+}
+
+function backfillGameCommandersForDeck(deck) {
+  const id = deckId(deck);
+  if (!id) return false;
+  let changed = false;
+  for (const game of data.games) {
+    if (game.deck !== id) continue;
+    const commander = resolveDeckCommanderOnDate(deck, game.date);
+    if (commander && game.myCommander !== commander) {
+      game.myCommander = commander;
+      changed = true;
+    }
+  }
+  return changed;
 }
 
 function closeDeckModal() {
@@ -1364,7 +1375,8 @@ function saveDeckFromForm(formOverride = null) {
     }
 
     const history = [...(existing.history || [])];
-    if (deckIdentityChanged(existing, deckPayload)) {
+    const commanderChanged = deckCommanderChanged(existing, deckPayload);
+    if (commanderChanged) {
       history.push(deckHistorySnapshot(existing));
     }
 
@@ -1375,6 +1387,10 @@ function saveDeckFromForm(formOverride = null) {
       history,
       createdAt: deckPayload.createdAt || existing.createdAt || todayISO(),
     };
+
+    if (commanderChanged) {
+      backfillGameCommandersForDeck(data.decks[editIndex]);
+    }
 
     if (!saveData(data)) {
       toast("Failed to save deck — storage may be full", true);
@@ -2245,12 +2261,12 @@ function renderDecks() {
             ${sortHeader("decks-main", "bracket", "Bracket", sortState, "deck-tight-col")}
             ${sortHeader("decks-main", "games", "Games", sortState, "deck-tight-col")}
             ${sortHeader("decks-main", "wins", "Wins", sortState, "deck-tight-col")}
-            ${sortHeader("decks-main", "normWr", "Norm WR", sortState, "deck-stat-col")}
             ${sortHeader("decks-main", "winRate", "Win Rate", sortState, "deck-stat-col")}
+            ${sortHeader("decks-main", "normWr", "Norm WR", sortState, "deck-stat-col")}
             <th class="row-actions-col"></th>
           </tr></thead>
           <tbody>
-            ${list.length ? list.map((d) => `<tr><td class="deck-date">${dateCell(d)}</td><td class="deck-name">${renderDeckReportLink(deckCommander(d), data.decks, { label: deckTitle(d), deckSlotId: deckId(d) })}</td><td class="deck-colors">${colorBadge(getDeckColors(d))}</td><td class="deck-tight">${d.bracket}</td><td class="deck-tight">${d.games}</td><td class="deck-tight">${d.wins}</td><td class="deck-stat">${d.games ? pctCell(d.normalizedWr) : "—"}</td><td class="deck-stat">${d.games ? pctCell(d.winRate) : "—"}</td><td class="row-actions"><button type="button" class="btn-icon edit-deck" data-name="${escapeHtml(deckId(d) || deckKey(d))}" title="Edit deck">✎</button></td></tr>`).join("") : '<tr><td colspan="9"></td></tr>'}
+            ${list.length ? list.map((d) => `<tr><td class="deck-date">${dateCell(d)}</td><td class="deck-name">${renderDeckReportLink(deckCommander(d), data.decks, { label: deckTitle(d), deckSlotId: deckId(d) })}</td><td class="deck-colors">${colorBadge(getDeckColors(d))}</td><td class="deck-tight">${d.bracket}</td><td class="deck-tight">${d.games}</td><td class="deck-tight">${d.wins}</td><td class="deck-stat">${d.games ? pctCell(d.winRate) : "—"}</td><td class="deck-stat">${d.games ? pctCell(d.normalizedWr) : "—"}</td><td class="row-actions"><button type="button" class="btn-icon edit-deck" data-name="${escapeHtml(deckId(d) || deckKey(d))}" title="Edit deck">✎</button></td></tr>`).join("") : '<tr><td colspan="9"></td></tr>'}
           </tbody>
         </table>
       </div>

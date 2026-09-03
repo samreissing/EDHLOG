@@ -3,7 +3,7 @@ import { winRate } from "./stats.js";
 import { getCommanderMatchupIdentities } from "./commander-names.js";
 import { resolveCommanderColors } from "./commander-colors.js";
 import { colorKeyLabel, colorKeysForIdentity, rowColorsFromKey } from "./color-stats.js";
-import { deckMapByKey } from "./deck-identity.js";
+import { deckMapByKey, resolveMyCommander } from "./deck-identity.js";
 
 /** Commander pod baseline (30CCSTAT). */
 export const MATCHUP_BASELINE = 0.25;
@@ -28,15 +28,17 @@ function isMySeat(seat) {
   return normalizeKey(seat.player) === normalizeKey(MY_PLAYER_NAME);
 }
 
-/** @param {import('./store.js').Game} game */
-export function parseGameSeats(game) {
+/** @param {import('./store.js').Game} game @param {import('./store.js').Deck[] | null} [decks] */
+export function parseGameSeats(game, decks = null) {
   /** @type {GameSeat[]} */
   const seats = [];
 
   if (game.mySeat || game.deck) {
     const player = game.myPlayer?.trim() || MY_PLAYER_NAME;
     const deckSlotId = game.deck;
-    const commander = String(game.myCommander || "").trim() || deckSlotId;
+    const commander = decks
+      ? resolveMyCommander(game, decks)
+      : String(game.myCommander || "").trim() || deckSlotId;
     const seat = Number(game.mySeat) || 0;
     const winnerSeat = winnerSeatForGame(game);
     seats.push({
@@ -206,11 +208,11 @@ export function matchupImpactClass(value) {
  * @param {{ splitPartners?: boolean, splitPlayers?: boolean }} [options]
  */
 export function buildMyMatchupRows(games, tabId, options = {}) {
-  const { splitPartners = false, splitPlayers = false } = options;
+  const { splitPartners = false, splitPlayers = false, decks = [] } = options;
   const rows = new Map();
 
   for (const game of games) {
-    const seats = parseGameSeats(game);
+    const seats = parseGameSeats(game, decks);
     if (seats.length < 2) continue;
 
     const mySeat = seats.find(isMySeat);
@@ -307,14 +309,14 @@ export function buildColorMatchupRows(games, options) {
   const rows = new Map();
 
   for (const game of filteredGames) {
-    const seats = parseGameSeats(game);
+    const seats = parseGameSeats(game, decks);
     if (seats.length < 2) continue;
 
     const mySeat = seats.find(isMySeat);
     if (!mySeat) continue;
 
     const myDeck = deckMap.get(game.deck);
-    const myCommander = game.myCommander || myDeck?.commander || "";
+    const myCommander = resolveMyCommander(game, decks);
     const myIdentities = getCommanderMatchupIdentities(myCommander, { splitPartners });
 
     for (const opponentSeat of seats) {
@@ -393,9 +395,10 @@ export function buildColorMatchupRows(games, options) {
 export function computeAllMatchups(games, options = {}) {
   const splitPartners = options.splitPartners ?? false;
   const splitPlayers = options.splitPlayers ?? false;
+  const decks = options.colorOptions?.decks ?? [];
   return {
-    players: buildMyMatchupRows(games, "players", { splitPartners }),
-    decks: buildMyMatchupRows(games, "decks", { splitPartners, splitPlayers }),
+    players: buildMyMatchupRows(games, "players", { splitPartners, decks }),
+    decks: buildMyMatchupRows(games, "decks", { splitPartners, splitPlayers, decks }),
     colors: options.colorOptions
       ? buildColorMatchupRows(games, { ...options.colorOptions, splitPartners })
       : [],

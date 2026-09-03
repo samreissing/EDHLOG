@@ -1,5 +1,5 @@
 import { normalizeDate, todayISO } from "./dates.js";
-import { deckKey, deckCommander } from "./deck-identity.js";
+import { deckKey, deckCommander, findDeck, resolveDeckCommanderOnDate } from "./deck-identity.js";
 
 const STORAGE_KEY = "edhlog-data-v1";
 
@@ -113,6 +113,21 @@ function migrateDecks(data) {
     }
   }
   if (migrateDeckIds(data)) changed = true;
+  if (migrateGameCommanderSnapshots(data)) changed = true;
+  return changed;
+}
+
+function migrateGameCommanderSnapshots(data) {
+  let changed = false;
+  for (const game of data.games) {
+    const deck = findDeck(data.decks, game.deck);
+    if (!deck?.history?.length) continue;
+    const commander = resolveDeckCommanderOnDate(deck, game.date);
+    if (commander && game.myCommander !== commander) {
+      game.myCommander = commander;
+      changed = true;
+    }
+  }
   return changed;
 }
 
