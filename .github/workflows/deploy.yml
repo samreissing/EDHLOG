@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -15,7 +15,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
+  deploy:
+    if: ${{ !contains(github.event.head_commit.message, '[deploy]') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,16 +28,16 @@ jobs:
       - run: npm run build
         env:
           BASE_PATH: /${{ github.event.repository.name }}/
-      - uses: actions/upload-pages-artifact@v3
+      - name: Publish built site to repo root
+        run: |
+          cp dist/index.html index.html
+          rm -rf assets
+          cp -r dist/assets assets
+          cp -r dist/mana/. mana/
+          cp -r dist/data/. data/
+          cp dist/.nojekyll .nojekyll
+      - uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          path: dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+          commit_message: "[deploy] Publish built site to GitHub Pages"
+          file_pattern: index.html assets/** data/** mana/** .nojekyll
+          skip_dirty_check: true
