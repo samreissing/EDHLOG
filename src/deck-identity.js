@@ -1,3 +1,5 @@
+import { normalizeDate } from "./dates.js";
+
 /** @param {import('./store.js').Deck} deck */
 export function deckId(deck) {
   return String(deck?.id || "").trim();
@@ -24,11 +26,30 @@ export function deckLabel(deck) {
   return deckCommander(deck);
 }
 
+/** @param {import('./store.js').Deck} deck @param {string} date */
+export function resolveDeckCommanderOnDate(deck, date) {
+  const gameDate = normalizeDate(date) || String(date || "").trim();
+  const history = [...(deck.history || [])].sort((a, b) =>
+    String(a.changedAt).localeCompare(String(b.changedAt))
+  );
+  for (const entry of history) {
+    const changedAt = normalizeDate(entry.changedAt) || String(entry.changedAt || "").trim();
+    if (changedAt && gameDate < changedAt) {
+      const commander = String(entry.commander || "").trim();
+      if (commander) return commander;
+    }
+  }
+  return deckCommander(deck);
+}
+
 /** @param {import('./store.js').Game} game @param {import('./store.js').Deck[]} decks */
 export function resolveMyCommander(game, decks) {
+  const deck = findDeck(decks, game.deck);
+  if (deck?.history?.length) {
+    return resolveDeckCommanderOnDate(deck, game.date);
+  }
   const snapshot = String(game.myCommander || "").trim();
   if (snapshot) return snapshot;
-  const deck = findDeck(decks, game.deck);
   if (deck) return deckCommander(deck);
   return String(game.deck || "").trim();
 }

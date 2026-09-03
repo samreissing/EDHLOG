@@ -46,11 +46,11 @@ function sortEntityGames(games) {
   return [...games].sort((a, b) => compareGamesChronologically(b, a));
 }
 
-/** @param {import('./store.js').Game[]} games @param {string} playerName */
-export function gamesForPlayer(games, playerName) {
+/** @param {import('./store.js').Game[]} games @param {string} playerName @param {import('./store.js').Deck[]} decks */
+export function gamesForPlayer(games, playerName, decks) {
   const key = normalizeEntityKey(playerName);
   return games.filter((game) =>
-    parseGameSeats(game).some((seat) => normalizeEntityKey(seat.player) === key)
+    parseGameSeats(game, decks).some((seat) => normalizeEntityKey(seat.player) === key)
   );
 }
 
@@ -58,13 +58,14 @@ export function gamesForPlayer(games, playerName) {
  * @param {import('./store.js').Game[]} games
  * @param {string} commanderName
  * @param {{ playerScope?: string | null, splitPartners?: boolean }} [options]
+ * @param {import('./store.js').Deck[]} decks
  */
-export function gamesForDeck(games, commanderName, options = {}) {
+export function gamesForDeck(games, commanderName, options = {}, decks) {
   const { playerScope = null, splitPartners = false } = options;
   const playerKey = playerScope ? normalizeEntityKey(playerScope) : null;
 
   return games.filter((game) =>
-    parseGameSeats(game).some((seat) => {
+    parseGameSeats(game, decks).some((seat) => {
       if (playerKey && normalizeEntityKey(seat.player) !== playerKey) return false;
       return commanderMatchesTarget(seat.commander, commanderName, { splitPartners });
     })
@@ -78,8 +79,8 @@ function seatOutcome(seat, seats) {
   return "shared";
 }
 
-/** @param {import('./store.js').Game[]} games @param {(seat: import('./matchups.js').GameSeat, seats: import('./matchups.js').GameSeat[], game: import('./store.js').Game) => boolean} seatFilter */
-function computeSeatStats(games, seatFilter) {
+/** @param {import('./store.js').Game[]} games @param {(seat: import('./matchups.js').GameSeat, seats: import('./matchups.js').GameSeat[], game: import('./store.js').Game) => boolean} seatFilter @param {import('./store.js').Deck[]} decks */
+function computeSeatStats(games, seatFilter, decks) {
   let gamesCount = 0;
   let wins = 0;
   let losses = 0;
@@ -88,7 +89,7 @@ function computeSeatStats(games, seatFilter) {
   let lastPlayed = null;
 
   for (const game of games) {
-    const seats = parseGameSeats(game);
+    const seats = parseGameSeats(game, decks);
     for (const seat of seats) {
       if (!seatFilter(seat, seats, game)) continue;
       gamesCount += 1;
@@ -110,12 +111,12 @@ function computeSeatStats(games, seatFilter) {
     lastPlayed: lastPlayed?.date ?? null,
     winRate: winRate(wins, gamesCount),
     normalizedWr: normalizedWinRate(wins, gamesCount),
-    ...computeSeatTurnAverages(games, seatFilter),
+    ...computeSeatTurnAverages(games, seatFilter, decks),
   };
 }
 
-/** @param {import('./store.js').Game[]} games @param {(seat: import('./matchups.js').GameSeat, seats: import('./matchups.js').GameSeat[], game: import('./store.js').Game) => boolean} seatFilter */
-function computeSeatTurnAverages(games, seatFilter) {
+/** @param {import('./store.js').Game[]} games @param {(seat: import('./matchups.js').GameSeat, seats: import('./matchups.js').GameSeat[], game: import('./store.js').Game) => boolean} seatFilter @param {import('./store.js').Deck[]} decks */
+function computeSeatTurnAverages(games, seatFilter, decks) {
   const winTurns = [];
   const lossTurns = [];
 
@@ -123,7 +124,7 @@ function computeSeatTurnAverages(games, seatFilter) {
     const turn = Number(game.turn);
     if (!(turn > 0)) continue;
 
-    const seats = parseGameSeats(game);
+    const seats = parseGameSeats(game, decks);
     for (const seat of seats) {
       if (!seatFilter(seat, seats, game)) continue;
       const outcome = seatOutcome(seat, seats);
@@ -140,13 +141,13 @@ function computeSeatTurnAverages(games, seatFilter) {
   };
 }
 
-/** @param {import('./store.js').Game[]} games @param {(seat: import('./matchups.js').GameSeat, seats: import('./matchups.js').GameSeat[], game: import('./store.js').Game) => boolean} seatFilter */
-function appearanceGamesForChart(games, seatFilter) {
+/** @param {import('./store.js').Game[]} games @param {(seat: import('./matchups.js').GameSeat, seats: import('./matchups.js').GameSeat[], game: import('./store.js').Game) => boolean} seatFilter @param {import('./store.js').Deck[]} decks */
+function appearanceGamesForChart(games, seatFilter, decks) {
   /** @type {{ date: string, result: 'Win' | 'Loss' }[]} */
   const appearances = [];
 
   for (const game of games) {
-    const seats = parseGameSeats(game);
+    const seats = parseGameSeats(game, decks);
     for (const seat of seats) {
       if (!seatFilter(seat, seats, game)) continue;
       appearances.push({
@@ -183,13 +184,14 @@ function finalizeEntityMatchupRow(row) {
  * @param {'players' | 'decks'} tabId
  * @param {(seat: import('./matchups.js').GameSeat, seats: import('./matchups.js').GameSeat[], game: import('./store.js').Game) => boolean} entitySeatFilter
  * @param {{ splitPartners?: boolean, groupByOpponent?: boolean }} [options]
+ * @param {import('./store.js').Deck[]} decks
  */
-function buildEntityMatchupRows(games, tabId, entitySeatFilter, options = {}) {
+function buildEntityMatchupRows(games, tabId, entitySeatFilter, options = {}, decks) {
   const { splitPartners = false, groupByOpponent = false } = options;
   const rows = new Map();
 
   for (const game of games) {
-    const seats = parseGameSeats(game);
+    const seats = parseGameSeats(game, decks);
     if (seats.length < 2) continue;
 
     for (const entitySeat of seats) {
@@ -361,14 +363,15 @@ function chartGamesForDeckSlot(games, deckSlotId) {
  * @param {import('./store.js').Game[]} games
  * @param {string} commanderName
  * @param {{ splitPartners?: boolean }} [options]
+ * @param {import('./store.js').Deck[]} decks
  */
-function computeDeckPilotStats(games, commanderName, options = {}) {
+function computeDeckPilotStats(games, commanderName, options = {}, decks) {
   const { splitPartners = false } = options;
   /** @type {Map<string, { player: string, games: number, wins: number }>} */
   const rows = new Map();
 
   for (const game of games) {
-    const seats = parseGameSeats(game);
+    const seats = parseGameSeats(game, decks);
     for (const seat of seats) {
       if (!seat.player) continue;
       if (!commanderMatchesTarget(seat.commander, commanderName, { splitPartners })) continue;
@@ -440,13 +443,13 @@ export function buildEntityReport(games, decks, request) {
     const playerName = key;
     const playerKey = normalizeEntityKey(playerName);
     const seatFilter = (seat) => normalizeEntityKey(seat.player) === playerKey;
-    const stats = computeSeatStats(games, seatFilter);
-    const chartGames = appearanceGamesForChart(games, seatFilter);
+    const stats = computeSeatStats(games, seatFilter, decks);
+    const chartGames = appearanceGamesForChart(games, seatFilter, decks);
     /** @type {Map<string, { name: string, games: number, wins: number, ownedKey: string | null }>} */
     const deckRows = new Map();
 
     for (const game of games) {
-      const seats = parseGameSeats(game);
+      const seats = parseGameSeats(game, decks);
       for (const seat of seats) {
         if (normalizeEntityKey(seat.player) !== playerKey || !seat.commander) continue;
         const canonical = getCommanderInfo(seat.commander).canonicalName;
@@ -497,7 +500,7 @@ export function buildEntityReport(games, decks, request) {
       }));
 
     const deckList = mergeDeckLists(ownedDecks, playedDecks);
-    const entityGames = sortEntityGames(gamesForPlayer(games, playerName));
+    const entityGames = sortEntityGames(gamesForPlayer(games, playerName, decks));
 
     return {
       kind,
@@ -509,8 +512,8 @@ export function buildEntityReport(games, decks, request) {
       deckList,
       entityGames,
       pilots: [],
-      playerMatchups: buildEntityMatchupRows(games, "players", seatFilter),
-      deckMatchups: buildEntityMatchupRows(games, "decks", seatFilter, { splitPartners }),
+      playerMatchups: buildEntityMatchupRows(games, "players", seatFilter, {}, decks),
+      deckMatchups: buildEntityMatchupRows(games, "decks", seatFilter, { splitPartners }, decks),
       playerScope: null,
     };
   }
@@ -543,8 +546,8 @@ export function buildEntityReport(games, decks, request) {
       deckList: [],
       entityGames: sortEntityGames(games.filter((game) => game.deck === deckSlotId)),
       pilots: [],
-      playerMatchups: buildEntityMatchupRows(games, "players", seatFilter),
-      deckMatchups: buildEntityMatchupRows(games, "decks", seatFilter, { splitPartners }),
+      playerMatchups: buildEntityMatchupRows(games, "players", seatFilter, {}, decks),
+      deckMatchups: buildEntityMatchupRows(games, "decks", seatFilter, { splitPartners }, decks),
       playerScope,
       deckSlotId,
       displayCommander: commanderName,
@@ -559,8 +562,8 @@ export function buildEntityReport(games, decks, request) {
     return commanderMatchesTarget(seat.commander, commanderName, { splitPartners });
   };
 
-  const stats = computeSeatStats(games, seatFilter);
-  const chartGames = appearanceGamesForChart(games, seatFilter);
+  const stats = computeSeatStats(games, seatFilter, decks);
+  const chartGames = appearanceGamesForChart(games, seatFilter, decks);
   const owned = findDeck(decks, key);
   const colors = resolveCommanderColors(commanderName, {
     splitPartners,
@@ -569,7 +572,7 @@ export function buildEntityReport(games, decks, request) {
 
   const pilotStats = playerScope
     ? []
-    : computeDeckPilotStats(games, commanderName, { splitPartners });
+    : computeDeckPilotStats(games, commanderName, { splitPartners }, decks);
 
   return {
     kind,
@@ -580,17 +583,17 @@ export function buildEntityReport(games, decks, request) {
     chartGames,
     deckList: [],
     entityGames: sortEntityGames(
-      gamesForDeck(games, commanderName, { playerScope, splitPartners })
+      gamesForDeck(games, commanderName, { playerScope, splitPartners }, decks)
     ),
     pilots: pilotStats,
     playerMatchups: buildEntityMatchupRows(games, "players", seatFilter, {
       splitPartners,
       groupByOpponent: true,
-    }),
+    }, decks),
     deckMatchups: buildEntityMatchupRows(games, "decks", seatFilter, {
       splitPartners,
       groupByOpponent: true,
-    }),
+    }, decks),
     playerScope,
     deckSlotId: null,
     displayCommander: commanderName,
@@ -624,10 +627,10 @@ function mergeDeckLists(ownedDecks, playedDecks) {
 }
 
 /** @param {import('./store.js').Game} game @param {import('./store.js').Deck[]} decks @param {ReturnType<typeof buildEntityReport>} report */
-function entityGameResultClass(game, report) {
+function entityGameResultClass(game, decks, report) {
   if (report.kind === "player") {
     const playerKey = normalizeEntityKey(report.title);
-    const seat = parseGameSeats(game).find((s) => normalizeEntityKey(s.player) === playerKey);
+    const seat = parseGameSeats(game, decks).find((s) => normalizeEntityKey(s.player) === playerKey);
     if (!seat) return "";
     return seat.didWin ? "win" : "loss";
   }
@@ -635,7 +638,7 @@ function entityGameResultClass(game, report) {
     return game.result === "Win" ? "win" : "loss";
   }
   const commanderName = report.displayCommander || report.title;
-  const seat = parseGameSeats(game).find((s) =>
+  const seat = parseGameSeats(game, decks).find((s) =>
     commanderMatchesTarget(s.commander, commanderName, { splitPartners: false })
   );
   if (!seat) return game.result === "Win" ? "win" : "loss";
@@ -644,7 +647,7 @@ function entityGameResultClass(game, report) {
 
 /** @param {import('./store.js').Game} game @param {import('./store.js').Deck[]} decks @param {ReturnType<typeof buildEntityReport>} report */
 function renderEntityGamePodCard(game, decks, report) {
-  const seatsByNumber = new Map(parseGameSeats(game).map((seat) => [seat.seat, seat]));
+  const seatsByNumber = new Map(parseGameSeats(game, decks).map((seat) => [seat.seat, seat]));
   const seatBoxes = [1, 2, 3, 4]
     .map((seatNum) => {
       const seat = seatsByNumber.get(seatNum);
@@ -663,7 +666,7 @@ function renderEntityGamePodCard(game, decks, report) {
     .join("");
 
   const deckMap = deckMapByKey(decks);
-  const resultCls = entityGameResultClass(game, report);
+  const resultCls = entityGameResultClass(game, decks, report);
 
   return `
     <article class="entity-game-pod-card">
@@ -677,13 +680,13 @@ function renderEntityGamePodCard(game, decks, report) {
     </article>`;
 }
 
-/** @param {import('./store.js').Game} game @param {ReturnType<typeof buildEntityReport>} report */
-function entityGameSeat(game, report) {
+/** @param {import('./store.js').Game} game @param {import('./store.js').Deck[]} decks @param {ReturnType<typeof buildEntityReport>} report */
+function entityGameSeat(game, decks, report) {
   if (report.kind === "player") {
     const playerKey = normalizeEntityKey(report.title);
-    return parseGameSeats(game).find((s) => normalizeEntityKey(s.player) === playerKey);
+    return parseGameSeats(game, decks).find((s) => normalizeEntityKey(s.player) === playerKey);
   }
-  return parseGameSeats(game).find((s) =>
+  return parseGameSeats(game, decks).find((s) =>
     commanderMatchesTarget(s.commander, report.displayCommander || report.title, { splitPartners: false })
   );
 }
@@ -694,8 +697,8 @@ function entityGamesSortGetters(decks, report) {
   return {
     date: (game) => gameSortKey(game),
     deck: (game) => deckLabelForKey(game.deck, decks),
-    player: (game) => entityGameSeat(game, report)?.player || "",
-    seat: (game) => entityGameSeat(game, report)?.seat || game.mySeat || 0,
+    player: (game) => entityGameSeat(game, decks, report)?.player || "",
+    seat: (game) => entityGameSeat(game, decks, report)?.seat || game.mySeat || 0,
     turn: (game) => (Number(game.turn) > 0 ? Number(game.turn) : null),
     bracket: (game) => gameBracket(game, deckMap),
     result: (game) => (game.result === "Win" ? 1 : 0),
@@ -729,8 +732,8 @@ function renderEntityGamesTable(games, decks, report, sort) {
       <tbody>
         ${sortedGames
           .map((game) => {
-            const resultCls = entityGameResultClass(game, report);
-            const seat = entityGameSeat(game, report);
+            const resultCls = entityGameResultClass(game, decks, report);
+            const seat = entityGameSeat(game, decks, report);
             const deckCell = showDeckCol
               ? `<td>${renderDeckReportLink(
                   seat?.commander || game.deck,

@@ -34,6 +34,11 @@ function findOwnedDeck(commander, decks) {
     if (getCommanderInfo(deckCommander(deck)).canonicalName === target) {
       return deck;
     }
+    for (const entry of deck.history || []) {
+      if (getCommanderInfo(entry.commander).canonicalName === target) {
+        return deck;
+      }
+    }
   }
   return null;
 }
@@ -71,7 +76,7 @@ export function buildPodDeckRankings(games, decks, options = {}) {
   const rows = new Map();
 
   for (const game of games) {
-    const seats = parseGameSeats(game);
+    const seats = parseGameSeats(game, decks);
     for (const seat of seats) {
       if (excludeMyPlayer && isMyPlayer(seat)) continue;
       if (!seat.commander) continue;
@@ -137,7 +142,7 @@ export function buildPodPlayerRankings(games, options = {}) {
   const rows = new Map();
 
   for (const game of games) {
-    const seats = parseGameSeats(game);
+    const seats = parseGameSeats(game, decks);
     for (const seat of seats) {
       if (excludeMyPlayer && isMyPlayer(seat)) continue;
       const player = seat.player?.trim();
@@ -200,7 +205,7 @@ export function buildPodColorRankings(games, decks, options = {}) {
   const rows = new Map();
 
   for (const game of games) {
-    const seats = parseGameSeats(game);
+    const seats = parseGameSeats(game, decks);
     for (const seat of seats) {
       if (excludeMyPlayer && isMyPlayer(seat)) continue;
       if (!seat.commander) continue;
