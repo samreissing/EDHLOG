@@ -1,5 +1,5817 @@
 {
-  "meta": {},
-  "decks": [],
-  "games": []
+  "meta": {
+    "seedHash": "633ebe9170d01a5d",
+    "seedGames": 923
+  },
+  "decks": [
+    {
+      "name": "Ardenn, Intrepid Archaeologist // Silas Renn, Seeker Adept",
+      "bracket": 3,
+      "colors": [
+        "W",
+        "U",
+        "B"
+      ],
+      "retired": false,
+      "createdAt": "2025-07-26"
+    },
+    {
+      "name": "Brenard, Ginger Sculpter",
+      "bracket": 4,
+      "colors": [
+        "W",
+        "U",
+        "G"
+      ],
+      "retired": false,
+      "createdAt": "2024-06-08"
+    },
+    {
+      "name": "Colfenor, the Last Yew",
+      "bracket": 3,
+      "colors": [
+        "W",
+        "B",
+        "G"
+      ],
+      "retired": false,
+      "createdAt": "2025-07-09"
+    },
+    {
+      "name": "Cynette, Jelly Drover",
+      "bracket": 4,
+      "colors": [
+        "U"
+      ],
+      "retired": false,
+      "createdAt": "2024-11-13"
+    },
+    {
+      "name": "Gallia of the Endless Dance",
+      "bracket": 2,
+      "colors": [
+        "R",
+        "G"
+      ],
+      "retired": false,
+      "createdAt": "2024-10-15"
+    },
+    {
+      "name": "Hakim, Loreweaver",
+      "bracket": 3,
+      "colors": [
+        "U"
+      ],
+      "retired": false,
+      "createdAt": "2026-01-16"
+    },
+    {
+      "name": "Kroxa and Kunoros",
+      "bracket": 4,
+      "colors": [
+        "W",
+        "B",
+        "R"
+      ],
+      "retired": false,
+      "createdAt": "2024-06-09"
+    },
+    {
+      "name": "Multani, Yavimaya's Avatar",
+      "bracket": 3,
+      "colors": [
+        "G"
+      ],
+      "retired": false,
+      "createdAt": "2025-07-30"
+    },
+    {
+      "name": "Muxus, Goblin Grandee",
+      "bracket": 4,
+      "colors": [
+        "R"
+      ],
+      "retired": false,
+      "createdAt": "2024-06-09"
+    },
+    {
+      "name": "Ovika, Enigma Goliath",
+      "bracket": 3,
+      "colors": [
+        "U",
+        "R"
+      ],
+      "retired": false,
+      "createdAt": "2024-04-18"
+    },
+    {
+      "name": "Ramos, Dragon Engine",
+      "bracket": 4,
+      "colors": [
+        "W",
+        "U",
+        "B",
+        "R",
+        "G"
+      ],
+      "retired": false,
+      "createdAt": "2025-05-21"
+    },
+    {
+      "name": "Rev, Tithe Extractor",
+      "bracket": 3,
+      "colors": [
+        "B"
+      ],
+      "retired": false,
+      "createdAt": "2025-05-04"
+    },
+    {
+      "name": "Sheoldred, the Apocalypse",
+      "bracket": 4,
+      "colors": [
+        "B"
+      ],
+      "retired": false,
+      "createdAt": "2024-06-08"
+    },
+    {
+      "name": "The Wise Mothman",
+      "bracket": 3,
+      "colors": [
+        "U",
+        "B",
+        "G"
+      ],
+      "retired": false,
+      "createdAt": "2025-03-30"
+    },
+    {
+      "name": "Y'shtola Rhul",
+      "bracket": 4,
+      "colors": [
+        "U"
+      ],
+      "retired": false,
+      "createdAt": "2025-06-22"
+    },
+    {
+      "name": "Captain Storm, Cosmium Raider",
+      "bracket": 1,
+      "colors": [
+        "U",
+        "R"
+      ],
+      "retired": true,
+      "createdAt": "2024-06-25"
+    },
+    {
+      "name": "Celestial Kirin",
+      "bracket": 4,
+      "colors": [
+        "W"
+      ],
+      "retired": true,
+      "createdAt": "2024-07-19"
+    },
+    {
+      "name": "Grumgully the Generous",
+      "bracket": 3,
+      "colors": [
+        "R",
+        "G"
+      ],
+      "retired": true,
+      "createdAt": "2024-06-11"
+    },
+    {
+      "name": "Hylda, the Icy Crown",
+      "bracket": 2,
+      "colors": [
+        "W",
+        "U"
+      ],
+      "retired": true,
+      "createdAt": "2024-06-24"
+    },
+    {
+      "name": "Lae'zel, Vlaakith's Champion // Master Chef",
+      "bracket": 3,
+      "colors": [
+        "W",
+        "G"
+      ],
+      "retired": true,
+      "createdAt": "2025-01-12"
+    },
+    {
+      "name": "Myrel, Shield of Argive",
+      "bracket": 4,
+      "colors": [
+        "W"
+      ],
+      "retired": true,
+      "createdAt": "2024-04-15"
+    },
+    {
+      "name": "Sharuum the Hegemon",
+      "bracket": 4,
+      "colors": [
+        "W",
+        "U",
+        "B"
+      ],
+      "retired": true,
+      "createdAt": "2024-04-15"
+    },
+    {
+      "name": "Solphim, Mayhem Dominus",
+      "bracket": 4,
+      "colors": [
+        "R"
+      ],
+      "retired": true,
+      "createdAt": "2024-06-08"
+    },
+    {
+      "name": "Tasigur, the Golden Fang",
+      "bracket": 5,
+      "colors": [
+        "U",
+        "B",
+        "G"
+      ],
+      "retired": true,
+      "createdAt": "2024-07-04"
+    },
+    {
+      "name": "Tormod, the Descrator // Kodama of the East Tree",
+      "bracket": 3,
+      "colors": [
+        "B",
+        "G"
+      ],
+      "retired": true,
+      "createdAt": "2025-03-04"
+    },
+    {
+      "name": "Xenagos, God of Revels",
+      "bracket": 4,
+      "colors": [
+        "R",
+        "G"
+      ],
+      "retired": true,
+      "createdAt": "2024-06-14"
+    },
+    {
+      "name": "Zada, Hedron Grinder",
+      "bracket": 3,
+      "colors": [
+        "R"
+      ],
+      "retired": true,
+      "createdAt": "2024-04-15"
+    }
+  ],
+  "games": [
+    {
+      "date": "2024-04-18",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Win",
+      "id": "game-1"
+    },
+    {
+      "date": "2024-04-18",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Loss",
+      "id": "game-2"
+    },
+    {
+      "date": "2024-04-18",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Win",
+      "id": "game-3"
+    },
+    {
+      "date": "2024-06-08",
+      "deck": "Solphim, Mayhem Dominus",
+      "result": "Win",
+      "id": "game-4"
+    },
+    {
+      "date": "2024-06-08",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Win",
+      "id": "game-5"
+    },
+    {
+      "date": "2024-06-08",
+      "deck": "Solphim, Mayhem Dominus",
+      "result": "Loss",
+      "id": "game-6"
+    },
+    {
+      "date": "2024-06-08",
+      "deck": "Sheoldred, the Apocalypse",
+      "result": "Win",
+      "id": "game-7"
+    },
+    {
+      "date": "2024-06-09",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Win",
+      "id": "game-8"
+    },
+    {
+      "date": "2024-06-09",
+      "deck": "Muxus, Goblin Grandee",
+      "result": "Win",
+      "id": "game-9"
+    },
+    {
+      "date": "2024-06-09",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-10"
+    },
+    {
+      "date": "2024-06-10",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-11"
+    },
+    {
+      "date": "2024-06-11",
+      "deck": "Grumgully the Generous",
+      "result": "Loss",
+      "id": "game-12"
+    },
+    {
+      "date": "2024-06-13",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Win",
+      "id": "game-13"
+    },
+    {
+      "date": "2024-06-13",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-14"
+    },
+    {
+      "date": "2024-06-14",
+      "deck": "Xenagos, God of Revels",
+      "result": "Loss",
+      "id": "game-15"
+    },
+    {
+      "date": "2024-06-14",
+      "deck": "Muxus, Goblin Grandee",
+      "result": "Win",
+      "id": "game-16"
+    },
+    {
+      "date": "2024-06-14",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-17"
+    },
+    {
+      "date": "2024-06-17",
+      "deck": "Solphim, Mayhem Dominus",
+      "result": "Loss",
+      "id": "game-18"
+    },
+    {
+      "date": "2024-06-17",
+      "deck": "Solphim, Mayhem Dominus",
+      "result": "Loss",
+      "id": "game-19"
+    },
+    {
+      "date": "2024-06-20",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Win",
+      "id": "game-20"
+    },
+    {
+      "date": "2024-06-20",
+      "deck": "Muxus, Goblin Grandee",
+      "result": "Loss",
+      "id": "game-21"
+    },
+    {
+      "date": "2024-06-20",
+      "deck": "Muxus, Goblin Grandee",
+      "result": "Loss",
+      "id": "game-22"
+    },
+    {
+      "date": "2024-06-21",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-23"
+    },
+    {
+      "date": "2024-06-21",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-24"
+    },
+    {
+      "date": "2024-06-22",
+      "deck": "Sheoldred, the Apocalypse",
+      "result": "Loss",
+      "id": "game-25"
+    },
+    {
+      "date": "2024-06-22",
+      "deck": "Solphim, Mayhem Dominus",
+      "result": "Loss",
+      "id": "game-26"
+    },
+    {
+      "date": "2024-06-23",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-27"
+    },
+    {
+      "date": "2024-06-23",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-28"
+    },
+    {
+      "date": "2024-06-24",
+      "deck": "Solphim, Mayhem Dominus",
+      "result": "Loss",
+      "id": "game-29"
+    },
+    {
+      "date": "2024-06-24",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-30"
+    },
+    {
+      "date": "2024-06-24",
+      "deck": "Hylda, the Icy Crown",
+      "result": "Loss",
+      "id": "game-31"
+    },
+    {
+      "date": "2024-06-25",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-32"
+    },
+    {
+      "date": "2024-06-25",
+      "deck": "Captain Storm, Cosmium Raider",
+      "result": "Loss",
+      "id": "game-33"
+    },
+    {
+      "date": "2024-06-26",
+      "deck": "Captain Storm, Cosmium Raider",
+      "result": "Loss",
+      "id": "game-34"
+    },
+    {
+      "date": "2024-06-27",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Win",
+      "id": "game-35"
+    },
+    {
+      "date": "2024-06-27",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-36"
+    },
+    {
+      "date": "2024-06-27",
+      "deck": "Solphim, Mayhem Dominus",
+      "result": "Loss",
+      "id": "game-37"
+    },
+    {
+      "date": "2024-06-27",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Win",
+      "id": "game-38"
+    },
+    {
+      "date": "2024-06-27",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-39"
+    },
+    {
+      "date": "2024-06-28",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Win",
+      "id": "game-40"
+    },
+    {
+      "date": "2024-06-28",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-41"
+    },
+    {
+      "date": "2024-06-29",
+      "deck": "Grumgully the Generous",
+      "result": "Loss",
+      "id": "game-42"
+    },
+    {
+      "date": "2024-06-29",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-43"
+    },
+    {
+      "date": "2024-06-29",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-44"
+    },
+    {
+      "date": "2024-06-30",
+      "deck": "Sheoldred, the Apocalypse",
+      "result": "Loss",
+      "id": "game-45"
+    },
+    {
+      "date": "2024-06-30",
+      "deck": "Sheoldred, the Apocalypse",
+      "result": "Win",
+      "id": "game-46"
+    },
+    {
+      "date": "2024-07-01",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-47"
+    },
+    {
+      "date": "2024-07-01",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-48"
+    },
+    {
+      "date": "2024-07-01",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Win",
+      "id": "game-49"
+    },
+    {
+      "date": "2024-07-02",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-50"
+    },
+    {
+      "date": "2024-07-02",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-51"
+    },
+    {
+      "date": "2024-07-02",
+      "deck": "Captain Storm, Cosmium Raider",
+      "result": "Loss",
+      "id": "game-52"
+    },
+    {
+      "date": "2024-07-02",
+      "deck": "Solphim, Mayhem Dominus",
+      "result": "Win",
+      "id": "game-53"
+    },
+    {
+      "date": "2024-07-02",
+      "deck": "Solphim, Mayhem Dominus",
+      "result": "Loss",
+      "id": "game-54"
+    },
+    {
+      "date": "2024-07-03",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-55"
+    },
+    {
+      "date": "2024-07-04",
+      "deck": "Sheoldred, the Apocalypse",
+      "result": "Win",
+      "id": "game-56"
+    },
+    {
+      "date": "2024-07-04",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-57"
+    },
+    {
+      "date": "2024-07-04",
+      "deck": "Tasigur, the Golden Fang",
+      "result": "Loss",
+      "id": "game-58"
+    },
+    {
+      "date": "2024-07-04",
+      "deck": "Tasigur, the Golden Fang",
+      "result": "Loss",
+      "id": "game-59"
+    },
+    {
+      "date": "2024-07-04",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-60"
+    },
+    {
+      "date": "2024-07-04",
+      "deck": "Grumgully the Generous",
+      "result": "Win",
+      "id": "game-61"
+    },
+    {
+      "date": "2024-07-04",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-62"
+    },
+    {
+      "date": "2024-07-05",
+      "deck": "Solphim, Mayhem Dominus",
+      "result": "Loss",
+      "id": "game-63"
+    },
+    {
+      "date": "2024-07-05",
+      "deck": "Solphim, Mayhem Dominus",
+      "result": "Loss",
+      "id": "game-64"
+    },
+    {
+      "date": "2024-07-07",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-65"
+    },
+    {
+      "date": "2024-07-07",
+      "deck": "Solphim, Mayhem Dominus",
+      "result": "Win",
+      "id": "game-66"
+    },
+    {
+      "date": "2024-07-08",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Win",
+      "id": "game-67"
+    },
+    {
+      "date": "2024-07-08",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-68"
+    },
+    {
+      "date": "2024-07-09",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Win",
+      "id": "game-69"
+    },
+    {
+      "date": "2024-07-09",
+      "deck": "Captain Storm, Cosmium Raider",
+      "result": "Loss",
+      "id": "game-70"
+    },
+    {
+      "date": "2024-07-09",
+      "deck": "Xenagos, God of Revels",
+      "result": "Win",
+      "id": "game-71"
+    },
+    {
+      "date": "2024-07-10",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-72"
+    },
+    {
+      "date": "2024-07-10",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Win",
+      "id": "game-73"
+    },
+    {
+      "date": "2024-07-12",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-74"
+    },
+    {
+      "date": "2024-07-13",
+      "deck": "Grumgully the Generous",
+      "result": "Loss",
+      "id": "game-75"
+    },
+    {
+      "date": "2024-07-15",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Loss",
+      "id": "game-76"
+    },
+    {
+      "date": "2024-07-16",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-77"
+    },
+    {
+      "date": "2024-07-16",
+      "deck": "Grumgully the Generous",
+      "result": "Loss",
+      "id": "game-78"
+    },
+    {
+      "date": "2024-07-16",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-79"
+    },
+    {
+      "date": "2024-07-17",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-80"
+    },
+    {
+      "date": "2024-07-17",
+      "deck": "Captain Storm, Cosmium Raider",
+      "result": "Loss",
+      "id": "game-81"
+    },
+    {
+      "date": "2024-07-17",
+      "deck": "Solphim, Mayhem Dominus",
+      "result": "Loss",
+      "id": "game-82"
+    },
+    {
+      "date": "2024-07-17",
+      "deck": "Tasigur, the Golden Fang",
+      "result": "Loss",
+      "id": "game-83"
+    },
+    {
+      "date": "2024-07-17",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-84"
+    },
+    {
+      "date": "2024-07-17",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Loss",
+      "id": "game-85"
+    },
+    {
+      "date": "2024-07-17",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-86"
+    },
+    {
+      "date": "2024-07-18",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-87"
+    },
+    {
+      "date": "2024-07-18",
+      "deck": "Solphim, Mayhem Dominus",
+      "result": "Loss",
+      "id": "game-88"
+    },
+    {
+      "date": "2024-07-18",
+      "deck": "Solphim, Mayhem Dominus",
+      "result": "Loss",
+      "id": "game-89"
+    },
+    {
+      "date": "2024-07-19",
+      "deck": "Celestial Kirin",
+      "result": "Loss",
+      "id": "game-90"
+    },
+    {
+      "date": "2024-07-19",
+      "deck": "Celestial Kirin",
+      "result": "Loss",
+      "id": "game-91"
+    },
+    {
+      "date": "2024-07-19",
+      "deck": "Celestial Kirin",
+      "result": "Loss",
+      "id": "game-92"
+    },
+    {
+      "date": "2024-07-19",
+      "deck": "Celestial Kirin",
+      "result": "Loss",
+      "id": "game-93"
+    },
+    {
+      "date": "2024-07-20",
+      "deck": "Sheoldred, the Apocalypse",
+      "result": "Win",
+      "id": "game-94"
+    },
+    {
+      "date": "2024-07-20",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-95"
+    },
+    {
+      "date": "2024-07-20",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-96"
+    },
+    {
+      "date": "2024-07-20",
+      "deck": "Solphim, Mayhem Dominus",
+      "result": "Loss",
+      "id": "game-97"
+    },
+    {
+      "date": "2024-07-21",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-98"
+    },
+    {
+      "date": "2024-07-21",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-99"
+    },
+    {
+      "date": "2024-07-21",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Win",
+      "id": "game-100"
+    },
+    {
+      "date": "2024-07-22",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Loss",
+      "id": "game-101"
+    },
+    {
+      "date": "2024-07-22",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-102"
+    },
+    {
+      "date": "2024-07-22",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-103"
+    },
+    {
+      "date": "2024-07-22",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-104"
+    },
+    {
+      "date": "2024-07-22",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Win",
+      "id": "game-105"
+    },
+    {
+      "date": "2024-07-23",
+      "deck": "Xenagos, God of Revels",
+      "result": "Loss",
+      "id": "game-106"
+    },
+    {
+      "date": "2024-07-23",
+      "deck": "Muxus, Goblin Grandee",
+      "result": "Loss",
+      "id": "game-107"
+    },
+    {
+      "date": "2024-07-23",
+      "deck": "Solphim, Mayhem Dominus",
+      "result": "Loss",
+      "id": "game-108"
+    },
+    {
+      "date": "2024-07-23",
+      "deck": "Captain Storm, Cosmium Raider",
+      "result": "Loss",
+      "id": "game-109"
+    },
+    {
+      "date": "2024-07-23",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-110"
+    },
+    {
+      "date": "2024-07-24",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-111"
+    },
+    {
+      "date": "2024-07-24",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Loss",
+      "id": "game-112"
+    },
+    {
+      "date": "2024-07-24",
+      "deck": "Sheoldred, the Apocalypse",
+      "result": "Win",
+      "id": "game-113"
+    },
+    {
+      "date": "2024-07-24",
+      "deck": "Tasigur, the Golden Fang",
+      "result": "Loss",
+      "id": "game-114"
+    },
+    {
+      "date": "2024-07-24",
+      "deck": "Tasigur, the Golden Fang",
+      "result": "Loss",
+      "id": "game-115"
+    },
+    {
+      "date": "2024-07-24",
+      "deck": "Tasigur, the Golden Fang",
+      "result": "Loss",
+      "id": "game-116"
+    },
+    {
+      "date": "2024-07-25",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-117"
+    },
+    {
+      "date": "2024-07-25",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-118"
+    },
+    {
+      "date": "2024-07-25",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Loss",
+      "id": "game-119"
+    },
+    {
+      "date": "2024-07-26",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-120"
+    },
+    {
+      "date": "2024-07-26",
+      "deck": "Tasigur, the Golden Fang",
+      "result": "Loss",
+      "id": "game-121"
+    },
+    {
+      "date": "2024-07-26",
+      "deck": "Tasigur, the Golden Fang",
+      "result": "Loss",
+      "id": "game-122"
+    },
+    {
+      "date": "2024-07-27",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Win",
+      "id": "game-123"
+    },
+    {
+      "date": "2024-07-27",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-124"
+    },
+    {
+      "date": "2024-07-27",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-125"
+    },
+    {
+      "date": "2024-07-27",
+      "deck": "Solphim, Mayhem Dominus",
+      "result": "Loss",
+      "id": "game-126"
+    },
+    {
+      "date": "2024-07-27",
+      "deck": "Solphim, Mayhem Dominus",
+      "result": "Win",
+      "id": "game-127"
+    },
+    {
+      "date": "2024-07-28",
+      "deck": "Captain Storm, Cosmium Raider",
+      "result": "Loss",
+      "id": "game-128"
+    },
+    {
+      "date": "2024-07-28",
+      "deck": "Grumgully the Generous",
+      "result": "Win",
+      "id": "game-129"
+    },
+    {
+      "date": "2024-07-28",
+      "deck": "Celestial Kirin",
+      "result": "Win",
+      "id": "game-130"
+    },
+    {
+      "date": "2024-07-28",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-131"
+    },
+    {
+      "date": "2024-07-28",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Loss",
+      "id": "game-132"
+    },
+    {
+      "date": "2024-07-29",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-133"
+    },
+    {
+      "date": "2024-07-30",
+      "deck": "Muxus, Goblin Grandee",
+      "result": "Loss",
+      "id": "game-134"
+    },
+    {
+      "date": "2024-07-30",
+      "deck": "Sheoldred, the Apocalypse",
+      "result": "Loss",
+      "id": "game-135"
+    },
+    {
+      "date": "2024-07-30",
+      "deck": "Captain Storm, Cosmium Raider",
+      "result": "Loss",
+      "id": "game-136"
+    },
+    {
+      "date": "2024-07-31",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-137"
+    },
+    {
+      "date": "2024-08-01",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-138"
+    },
+    {
+      "date": "2024-08-01",
+      "deck": "Tasigur, the Golden Fang",
+      "result": "Loss",
+      "id": "game-139"
+    },
+    {
+      "date": "2024-08-02",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-140"
+    },
+    {
+      "date": "2024-08-02",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-141"
+    },
+    {
+      "date": "2024-08-02",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-142"
+    },
+    {
+      "date": "2024-08-03",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-143"
+    },
+    {
+      "date": "2024-08-03",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Win",
+      "id": "game-144"
+    },
+    {
+      "date": "2024-08-03",
+      "deck": "Tasigur, the Golden Fang",
+      "result": "Win",
+      "id": "game-145"
+    },
+    {
+      "date": "2024-08-03",
+      "deck": "Tasigur, the Golden Fang",
+      "result": "Loss",
+      "id": "game-146"
+    },
+    {
+      "date": "2024-08-04",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-147"
+    },
+    {
+      "date": "2024-08-04",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-148"
+    },
+    {
+      "date": "2024-08-04",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-149"
+    },
+    {
+      "date": "2024-08-04",
+      "deck": "Sheoldred, the Apocalypse",
+      "result": "Loss",
+      "id": "game-150"
+    },
+    {
+      "date": "2024-08-04",
+      "deck": "Sheoldred, the Apocalypse",
+      "result": "Win",
+      "id": "game-151"
+    },
+    {
+      "date": "2024-08-04",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-152"
+    },
+    {
+      "date": "2024-08-04",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-153"
+    },
+    {
+      "date": "2024-08-05",
+      "deck": "Tasigur, the Golden Fang",
+      "result": "Loss",
+      "id": "game-154"
+    },
+    {
+      "date": "2024-08-05",
+      "deck": "Tasigur, the Golden Fang",
+      "result": "Loss",
+      "id": "game-155"
+    },
+    {
+      "date": "2024-08-12",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-156"
+    },
+    {
+      "date": "2024-08-14",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-157"
+    },
+    {
+      "date": "2024-08-14",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-158"
+    },
+    {
+      "date": "2024-08-16",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-159"
+    },
+    {
+      "date": "2024-08-16",
+      "deck": "Solphim, Mayhem Dominus",
+      "result": "Loss",
+      "id": "game-160"
+    },
+    {
+      "date": "2024-08-16",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-161"
+    },
+    {
+      "date": "2024-08-17",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Loss",
+      "id": "game-162"
+    },
+    {
+      "date": "2024-08-17",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-163"
+    },
+    {
+      "date": "2024-08-17",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-164"
+    },
+    {
+      "date": "2024-08-17",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Loss",
+      "id": "game-165"
+    },
+    {
+      "date": "2024-08-17",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-166"
+    },
+    {
+      "date": "2024-08-19",
+      "deck": "Xenagos, God of Revels",
+      "result": "Win",
+      "id": "game-167"
+    },
+    {
+      "date": "2024-08-19",
+      "deck": "Xenagos, God of Revels",
+      "result": "Loss",
+      "id": "game-168"
+    },
+    {
+      "date": "2024-08-19",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-169"
+    },
+    {
+      "date": "2024-08-19",
+      "deck": "Grumgully the Generous",
+      "result": "Win",
+      "id": "game-170"
+    },
+    {
+      "date": "2024-08-19",
+      "deck": "Muxus, Goblin Grandee",
+      "result": "Win",
+      "id": "game-171"
+    },
+    {
+      "date": "2024-08-22",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-172"
+    },
+    {
+      "date": "2024-08-22",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Loss",
+      "id": "game-173"
+    },
+    {
+      "date": "2024-08-22",
+      "deck": "Xenagos, God of Revels",
+      "result": "Win",
+      "id": "game-174"
+    },
+    {
+      "date": "2024-08-24",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-175"
+    },
+    {
+      "date": "2024-08-25",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-176"
+    },
+    {
+      "date": "2024-08-25",
+      "deck": "Grumgully the Generous",
+      "result": "Loss",
+      "id": "game-177"
+    },
+    {
+      "date": "2024-08-25",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-178"
+    },
+    {
+      "date": "2024-08-25",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-179"
+    },
+    {
+      "date": "2024-08-27",
+      "deck": "Grumgully the Generous",
+      "result": "Loss",
+      "id": "game-180"
+    },
+    {
+      "date": "2024-08-27",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-181"
+    },
+    {
+      "date": "2024-08-27",
+      "deck": "Solphim, Mayhem Dominus",
+      "result": "Loss",
+      "id": "game-182"
+    },
+    {
+      "date": "2024-08-27",
+      "deck": "Sheoldred, the Apocalypse",
+      "result": "Win",
+      "id": "game-183"
+    },
+    {
+      "date": "2024-08-27",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-184"
+    },
+    {
+      "date": "2024-08-28",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-185"
+    },
+    {
+      "date": "2024-08-28",
+      "deck": "Grumgully the Generous",
+      "result": "Loss",
+      "id": "game-186"
+    },
+    {
+      "date": "2024-08-28",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-187"
+    },
+    {
+      "date": "2024-08-29",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-188"
+    },
+    {
+      "date": "2024-08-29",
+      "deck": "Grumgully the Generous",
+      "result": "Loss",
+      "id": "game-189"
+    },
+    {
+      "date": "2024-08-29",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-190"
+    },
+    {
+      "date": "2024-08-29",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-191"
+    },
+    {
+      "date": "2024-08-30",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Win",
+      "id": "game-192"
+    },
+    {
+      "date": "2024-08-30",
+      "deck": "Solphim, Mayhem Dominus",
+      "result": "Loss",
+      "id": "game-193"
+    },
+    {
+      "date": "2024-08-30",
+      "deck": "Xenagos, God of Revels",
+      "result": "Loss",
+      "id": "game-194"
+    },
+    {
+      "date": "2024-08-30",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-195"
+    },
+    {
+      "date": "2024-09-01",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-196"
+    },
+    {
+      "date": "2024-09-01",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-197"
+    },
+    {
+      "date": "2024-09-01",
+      "deck": "Solphim, Mayhem Dominus",
+      "result": "Loss",
+      "id": "game-198"
+    },
+    {
+      "date": "2024-09-01",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-199"
+    },
+    {
+      "date": "2024-09-01",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-200"
+    },
+    {
+      "date": "2024-09-02",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-201"
+    },
+    {
+      "date": "2024-09-02",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-202"
+    },
+    {
+      "date": "2024-09-04",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-203"
+    },
+    {
+      "date": "2024-09-04",
+      "deck": "Grumgully the Generous",
+      "result": "Loss",
+      "id": "game-204"
+    },
+    {
+      "date": "2024-09-05",
+      "deck": "Xenagos, God of Revels",
+      "result": "Loss",
+      "id": "game-205"
+    },
+    {
+      "date": "2024-09-05",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-206"
+    },
+    {
+      "date": "2024-09-06",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-207"
+    },
+    {
+      "date": "2024-09-06",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-208"
+    },
+    {
+      "date": "2024-09-07",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-209"
+    },
+    {
+      "date": "2024-09-08",
+      "deck": "Grumgully the Generous",
+      "result": "Loss",
+      "id": "game-210"
+    },
+    {
+      "date": "2024-09-08",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-211"
+    },
+    {
+      "date": "2024-09-08",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-212"
+    },
+    {
+      "date": "2024-09-08",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-213"
+    },
+    {
+      "date": "2024-09-09",
+      "deck": "Xenagos, God of Revels",
+      "result": "Loss",
+      "id": "game-214"
+    },
+    {
+      "date": "2024-09-09",
+      "deck": "Muxus, Goblin Grandee",
+      "result": "Loss",
+      "id": "game-215"
+    },
+    {
+      "date": "2024-09-09",
+      "deck": "Muxus, Goblin Grandee",
+      "result": "Win",
+      "id": "game-216"
+    },
+    {
+      "date": "2024-09-09",
+      "deck": "Solphim, Mayhem Dominus",
+      "result": "Loss",
+      "id": "game-217"
+    },
+    {
+      "date": "2024-09-09",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-218"
+    },
+    {
+      "date": "2024-09-09",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Win",
+      "id": "game-219"
+    },
+    {
+      "date": "2024-09-10",
+      "deck": "Solphim, Mayhem Dominus",
+      "result": "Loss",
+      "id": "game-220"
+    },
+    {
+      "date": "2024-09-10",
+      "deck": "Sheoldred, the Apocalypse",
+      "result": "Loss",
+      "id": "game-221"
+    },
+    {
+      "date": "2024-09-10",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-222"
+    },
+    {
+      "date": "2024-09-11",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-223"
+    },
+    {
+      "date": "2024-09-11",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-224"
+    },
+    {
+      "date": "2024-09-11",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-225"
+    },
+    {
+      "date": "2024-09-11",
+      "deck": "Muxus, Goblin Grandee",
+      "result": "Loss",
+      "id": "game-226"
+    },
+    {
+      "date": "2024-09-11",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-227"
+    },
+    {
+      "date": "2024-09-12",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-228"
+    },
+    {
+      "date": "2024-09-12",
+      "deck": "Xenagos, God of Revels",
+      "result": "Loss",
+      "id": "game-229"
+    },
+    {
+      "date": "2024-09-15",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-230"
+    },
+    {
+      "date": "2024-09-15",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-231"
+    },
+    {
+      "date": "2024-09-21",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-232"
+    },
+    {
+      "date": "2024-09-22",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-233"
+    },
+    {
+      "date": "2024-09-22",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-234"
+    },
+    {
+      "date": "2024-09-25",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-235"
+    },
+    {
+      "date": "2024-09-27",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-236"
+    },
+    {
+      "date": "2024-09-30",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-237"
+    },
+    {
+      "date": "2024-10-01",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-238"
+    },
+    {
+      "date": "2024-10-03",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-239"
+    },
+    {
+      "date": "2024-10-15",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-240"
+    },
+    {
+      "date": "2024-10-15",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-241"
+    },
+    {
+      "date": "2024-10-20",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-242"
+    },
+    {
+      "date": "2024-10-20",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-243"
+    },
+    {
+      "date": "2024-10-23",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Win",
+      "id": "game-244"
+    },
+    {
+      "date": "2024-10-23",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-245"
+    },
+    {
+      "date": "2024-11-03",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-246"
+    },
+    {
+      "date": "2024-11-03",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-247"
+    },
+    {
+      "date": "2024-11-07",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-248"
+    },
+    {
+      "date": "2024-11-07",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-249"
+    },
+    {
+      "date": "2024-11-08",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-250"
+    },
+    {
+      "date": "2024-11-11",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-251"
+    },
+    {
+      "date": "2024-11-11",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-252"
+    },
+    {
+      "date": "2024-11-11",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-253"
+    },
+    {
+      "date": "2024-11-13",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-254"
+    },
+    {
+      "date": "2024-11-13",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-255"
+    },
+    {
+      "date": "2024-11-13",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-256"
+    },
+    {
+      "date": "2024-11-13",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Win",
+      "id": "game-257"
+    },
+    {
+      "date": "2024-11-17",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-258"
+    },
+    {
+      "date": "2024-11-17",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-259"
+    },
+    {
+      "date": "2024-11-17",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-260"
+    },
+    {
+      "date": "2024-11-17",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-261"
+    },
+    {
+      "date": "2024-11-19",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-262"
+    },
+    {
+      "date": "2024-11-20",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-263"
+    },
+    {
+      "date": "2024-11-20",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-264"
+    },
+    {
+      "date": "2024-11-21",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-265"
+    },
+    {
+      "date": "2024-11-23",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Win",
+      "id": "game-266"
+    },
+    {
+      "date": "2024-11-23",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-267"
+    },
+    {
+      "date": "2024-11-24",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-268"
+    },
+    {
+      "date": "2024-11-25",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-269"
+    },
+    {
+      "date": "2024-11-25",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-270"
+    },
+    {
+      "date": "2024-11-26",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-271"
+    },
+    {
+      "date": "2024-11-26",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-272"
+    },
+    {
+      "date": "2024-11-26",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Win",
+      "id": "game-273"
+    },
+    {
+      "date": "2024-11-27",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-274"
+    },
+    {
+      "date": "2024-11-30",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-275"
+    },
+    {
+      "date": "2024-11-30",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Win",
+      "id": "game-276"
+    },
+    {
+      "date": "2024-11-30",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-277"
+    },
+    {
+      "date": "2024-12-02",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-278"
+    },
+    {
+      "date": "2024-12-03",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-279"
+    },
+    {
+      "date": "2024-12-04",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-280"
+    },
+    {
+      "date": "2024-12-05",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-281"
+    },
+    {
+      "date": "2024-12-05",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-282"
+    },
+    {
+      "date": "2024-12-05",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Win",
+      "id": "game-283"
+    },
+    {
+      "date": "2024-12-05",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-284"
+    },
+    {
+      "date": "2024-12-05",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Win",
+      "id": "game-285"
+    },
+    {
+      "date": "2024-12-06",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Win",
+      "id": "game-286"
+    },
+    {
+      "date": "2024-12-06",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-287"
+    },
+    {
+      "date": "2024-12-06",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Win",
+      "id": "game-288"
+    },
+    {
+      "date": "2024-12-06",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-289"
+    },
+    {
+      "date": "2024-12-07",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-290"
+    },
+    {
+      "date": "2024-12-08",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-291"
+    },
+    {
+      "date": "2024-12-08",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-292"
+    },
+    {
+      "date": "2024-12-09",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-293"
+    },
+    {
+      "date": "2024-12-09",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-294"
+    },
+    {
+      "date": "2024-12-09",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-295"
+    },
+    {
+      "date": "2024-12-09",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Win",
+      "id": "game-296"
+    },
+    {
+      "date": "2024-12-09",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-297"
+    },
+    {
+      "date": "2024-12-09",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Win",
+      "id": "game-298"
+    },
+    {
+      "date": "2024-12-10",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-299"
+    },
+    {
+      "date": "2024-12-10",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-300"
+    },
+    {
+      "date": "2024-12-10",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-301"
+    },
+    {
+      "date": "2024-12-10",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-302"
+    },
+    {
+      "date": "2024-12-12",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-303"
+    },
+    {
+      "date": "2024-12-12",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Win",
+      "id": "game-304"
+    },
+    {
+      "date": "2024-12-13",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Win",
+      "id": "game-305"
+    },
+    {
+      "date": "2024-12-13",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-306"
+    },
+    {
+      "date": "2024-12-14",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-307"
+    },
+    {
+      "date": "2024-12-14",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-308"
+    },
+    {
+      "date": "2024-12-14",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Win",
+      "id": "game-309"
+    },
+    {
+      "date": "2024-12-15",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-310"
+    },
+    {
+      "date": "2024-12-15",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-311"
+    },
+    {
+      "date": "2024-12-16",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-312"
+    },
+    {
+      "date": "2024-12-16",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Win",
+      "id": "game-313"
+    },
+    {
+      "date": "2024-12-16",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Win",
+      "id": "game-314"
+    },
+    {
+      "date": "2024-12-17",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-315"
+    },
+    {
+      "date": "2024-12-17",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Win",
+      "id": "game-316"
+    },
+    {
+      "date": "2024-12-18",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Win",
+      "id": "game-317"
+    },
+    {
+      "date": "2024-12-19",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Win",
+      "id": "game-318"
+    },
+    {
+      "date": "2024-12-19",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-319"
+    },
+    {
+      "date": "2024-12-20",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Win",
+      "id": "game-320"
+    },
+    {
+      "date": "2024-12-20",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-321"
+    },
+    {
+      "date": "2024-12-20",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Win",
+      "id": "game-322"
+    },
+    {
+      "date": "2024-12-21",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-323"
+    },
+    {
+      "date": "2024-12-21",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-324"
+    },
+    {
+      "date": "2024-12-24",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-325"
+    },
+    {
+      "date": "2024-12-25",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-326"
+    },
+    {
+      "date": "2024-12-25",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-327"
+    },
+    {
+      "date": "2024-12-25",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Loss",
+      "id": "game-328"
+    },
+    {
+      "date": "2024-12-25",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Win",
+      "id": "game-329"
+    },
+    {
+      "date": "2024-12-27",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Win",
+      "id": "game-330"
+    },
+    {
+      "date": "2024-12-30",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-331"
+    },
+    {
+      "date": "2024-12-30",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-332"
+    },
+    {
+      "date": "2024-12-30",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Win",
+      "id": "game-333"
+    },
+    {
+      "date": "2024-12-30",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-334"
+    },
+    {
+      "date": "2024-12-30",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-335"
+    },
+    {
+      "date": "2025-01-02",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-336"
+    },
+    {
+      "date": "2025-01-02",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-337"
+    },
+    {
+      "date": "2025-01-03",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-338"
+    },
+    {
+      "date": "2025-01-03",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-339"
+    },
+    {
+      "date": "2025-01-04",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-340"
+    },
+    {
+      "date": "2025-01-04",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Loss",
+      "id": "game-341"
+    },
+    {
+      "date": "2025-01-04",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Win",
+      "id": "game-342"
+    },
+    {
+      "date": "2025-01-04",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-343"
+    },
+    {
+      "date": "2025-01-04",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-344"
+    },
+    {
+      "date": "2025-01-05",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-345"
+    },
+    {
+      "date": "2025-01-05",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Win",
+      "id": "game-346"
+    },
+    {
+      "date": "2025-01-05",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-347"
+    },
+    {
+      "date": "2025-01-06",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-348"
+    },
+    {
+      "date": "2025-01-06",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Win",
+      "id": "game-349"
+    },
+    {
+      "date": "2025-01-07",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-350"
+    },
+    {
+      "date": "2025-01-08",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Win",
+      "id": "game-351"
+    },
+    {
+      "date": "2025-01-08",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Loss",
+      "id": "game-352"
+    },
+    {
+      "date": "2025-01-08",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Win",
+      "id": "game-353"
+    },
+    {
+      "date": "2025-01-09",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-354"
+    },
+    {
+      "date": "2025-01-09",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Win",
+      "id": "game-355"
+    },
+    {
+      "date": "2025-01-09",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Win",
+      "id": "game-356"
+    },
+    {
+      "date": "2025-01-09",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-357"
+    },
+    {
+      "date": "2025-01-12",
+      "deck": "Lae'zel, Vlaakith's Champion // Master Chef",
+      "result": "Loss",
+      "id": "game-358"
+    },
+    {
+      "date": "2025-01-13",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Win",
+      "id": "game-359"
+    },
+    {
+      "date": "2025-01-13",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Win",
+      "id": "game-360"
+    },
+    {
+      "date": "2025-01-14",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-361"
+    },
+    {
+      "date": "2025-01-15",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-362"
+    },
+    {
+      "date": "2025-01-15",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Win",
+      "id": "game-363"
+    },
+    {
+      "date": "2025-01-15",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Win",
+      "id": "game-364"
+    },
+    {
+      "date": "2025-01-15",
+      "deck": "Muxus, Goblin Grandee",
+      "result": "Loss",
+      "id": "game-365"
+    },
+    {
+      "date": "2025-01-15",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-366"
+    },
+    {
+      "date": "2025-01-15",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-367"
+    },
+    {
+      "date": "2025-01-16",
+      "deck": "Lae'zel, Vlaakith's Champion // Master Chef",
+      "result": "Win",
+      "id": "game-368"
+    },
+    {
+      "date": "2025-01-16",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-369"
+    },
+    {
+      "date": "2025-01-16",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Win",
+      "id": "game-370"
+    },
+    {
+      "date": "2025-01-16",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Win",
+      "id": "game-371"
+    },
+    {
+      "date": "2025-01-19",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Win",
+      "id": "game-372"
+    },
+    {
+      "date": "2025-01-20",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-373"
+    },
+    {
+      "date": "2025-01-21",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-374"
+    },
+    {
+      "date": "2025-01-21",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-375"
+    },
+    {
+      "date": "2025-01-21",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-376"
+    },
+    {
+      "date": "2025-01-22",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Win",
+      "id": "game-377"
+    },
+    {
+      "date": "2025-01-22",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Win",
+      "id": "game-378"
+    },
+    {
+      "date": "2025-01-22",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-379"
+    },
+    {
+      "date": "2025-01-22",
+      "deck": "Sheoldred, the Apocalypse",
+      "result": "Loss",
+      "id": "game-380"
+    },
+    {
+      "date": "2025-01-22",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-381"
+    },
+    {
+      "date": "2025-01-23",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-382"
+    },
+    {
+      "date": "2025-01-23",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-383"
+    },
+    {
+      "date": "2025-01-23",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Win",
+      "id": "game-384"
+    },
+    {
+      "date": "2025-01-23",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Win",
+      "id": "game-385"
+    },
+    {
+      "date": "2025-01-24",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-386"
+    },
+    {
+      "date": "2025-01-24",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-387"
+    },
+    {
+      "date": "2025-01-24",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Win",
+      "id": "game-388"
+    },
+    {
+      "date": "2025-01-25",
+      "deck": "Lae'zel, Vlaakith's Champion // Master Chef",
+      "result": "Loss",
+      "id": "game-389"
+    },
+    {
+      "date": "2025-01-25",
+      "deck": "Lae'zel, Vlaakith's Champion // Master Chef",
+      "result": "Loss",
+      "id": "game-390"
+    },
+    {
+      "date": "2025-01-25",
+      "deck": "Lae'zel, Vlaakith's Champion // Master Chef",
+      "result": "Loss",
+      "id": "game-391"
+    },
+    {
+      "date": "2025-01-26",
+      "deck": "Lae'zel, Vlaakith's Champion // Master Chef",
+      "result": "Win",
+      "id": "game-392"
+    },
+    {
+      "date": "2025-01-26",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Loss",
+      "id": "game-393"
+    },
+    {
+      "date": "2025-01-26",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Win",
+      "id": "game-394"
+    },
+    {
+      "date": "2025-01-26",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-395"
+    },
+    {
+      "date": "2025-01-27",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Win",
+      "id": "game-396"
+    },
+    {
+      "date": "2025-01-28",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Win",
+      "id": "game-397"
+    },
+    {
+      "date": "2025-02-02",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Win",
+      "id": "game-398"
+    },
+    {
+      "date": "2025-02-02",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-399"
+    },
+    {
+      "date": "2025-02-02",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-400"
+    },
+    {
+      "date": "2025-02-07",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Win",
+      "id": "game-401"
+    },
+    {
+      "date": "2025-02-07",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-402"
+    },
+    {
+      "date": "2025-02-10",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-403"
+    },
+    {
+      "date": "2025-02-10",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-404"
+    },
+    {
+      "date": "2025-02-10",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Win",
+      "id": "game-405"
+    },
+    {
+      "date": "2025-02-11",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Win",
+      "id": "game-406"
+    },
+    {
+      "date": "2025-02-11",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-407"
+    },
+    {
+      "date": "2025-02-12",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Win",
+      "id": "game-408"
+    },
+    {
+      "date": "2025-02-14",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-409"
+    },
+    {
+      "date": "2025-02-14",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-410"
+    },
+    {
+      "date": "2025-02-14",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-411"
+    },
+    {
+      "date": "2025-02-15",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Win",
+      "id": "game-412"
+    },
+    {
+      "date": "2025-02-15",
+      "deck": "Lae'zel, Vlaakith's Champion // Master Chef",
+      "result": "Loss",
+      "id": "game-413"
+    },
+    {
+      "date": "2025-02-16",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-414"
+    },
+    {
+      "date": "2025-02-16",
+      "deck": "Lae'zel, Vlaakith's Champion // Master Chef",
+      "result": "Loss",
+      "id": "game-415"
+    },
+    {
+      "date": "2025-02-16",
+      "deck": "Lae'zel, Vlaakith's Champion // Master Chef",
+      "result": "Win",
+      "id": "game-416"
+    },
+    {
+      "date": "2025-02-16",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Win",
+      "id": "game-417"
+    },
+    {
+      "date": "2025-02-16",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Loss",
+      "id": "game-418"
+    },
+    {
+      "date": "2025-02-16",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Win",
+      "id": "game-419"
+    },
+    {
+      "date": "2025-02-17",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Win",
+      "id": "game-420"
+    },
+    {
+      "date": "2025-02-17",
+      "deck": "Muxus, Goblin Grandee",
+      "result": "Win",
+      "id": "game-421"
+    },
+    {
+      "date": "2025-02-18",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-422"
+    },
+    {
+      "date": "2025-02-18",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-423"
+    },
+    {
+      "date": "2025-02-22",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-424"
+    },
+    {
+      "date": "2025-02-22",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Win",
+      "id": "game-425"
+    },
+    {
+      "date": "2025-02-23",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-426"
+    },
+    {
+      "date": "2025-02-24",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Win",
+      "id": "game-427"
+    },
+    {
+      "date": "2025-02-24",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Win",
+      "id": "game-428"
+    },
+    {
+      "date": "2025-02-25",
+      "deck": "Sheoldred, the Apocalypse",
+      "result": "Loss",
+      "id": "game-429"
+    },
+    {
+      "date": "2025-02-25",
+      "deck": "Sheoldred, the Apocalypse",
+      "result": "Loss",
+      "id": "game-430"
+    },
+    {
+      "date": "2025-02-25",
+      "deck": "Sheoldred, the Apocalypse",
+      "result": "Loss",
+      "id": "game-431"
+    },
+    {
+      "date": "2025-02-26",
+      "deck": "Sheoldred, the Apocalypse",
+      "result": "Win",
+      "id": "game-432"
+    },
+    {
+      "date": "2025-02-27",
+      "deck": "Sheoldred, the Apocalypse",
+      "result": "Win",
+      "id": "game-433"
+    },
+    {
+      "date": "2025-02-27",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Win",
+      "id": "game-434"
+    },
+    {
+      "date": "2025-02-27",
+      "deck": "Sheoldred, the Apocalypse",
+      "result": "Loss",
+      "id": "game-435"
+    },
+    {
+      "date": "2025-02-27",
+      "deck": "Sheoldred, the Apocalypse",
+      "result": "Loss",
+      "id": "game-436"
+    },
+    {
+      "date": "2025-02-27",
+      "deck": "Sheoldred, the Apocalypse",
+      "result": "Loss",
+      "id": "game-437"
+    },
+    {
+      "date": "2025-02-27",
+      "deck": "Sheoldred, the Apocalypse",
+      "result": "Loss",
+      "id": "game-438"
+    },
+    {
+      "date": "2025-02-27",
+      "deck": "Sheoldred, the Apocalypse",
+      "result": "Loss",
+      "id": "game-439"
+    },
+    {
+      "date": "2025-02-28",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Win",
+      "id": "game-440"
+    },
+    {
+      "date": "2025-02-28",
+      "deck": "Sheoldred, the Apocalypse",
+      "result": "Loss",
+      "id": "game-441"
+    },
+    {
+      "date": "2025-02-28",
+      "deck": "Sheoldred, the Apocalypse",
+      "result": "Win",
+      "id": "game-442"
+    },
+    {
+      "date": "2025-02-28",
+      "deck": "Sheoldred, the Apocalypse",
+      "result": "Loss",
+      "id": "game-443"
+    },
+    {
+      "date": "2025-02-28",
+      "deck": "Sheoldred, the Apocalypse",
+      "result": "Win",
+      "id": "game-444"
+    },
+    {
+      "date": "2025-03-02",
+      "deck": "Sheoldred, the Apocalypse",
+      "result": "Win",
+      "id": "game-445"
+    },
+    {
+      "date": "2025-03-03",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-446"
+    },
+    {
+      "date": "2025-03-03",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Win",
+      "id": "game-447"
+    },
+    {
+      "date": "2025-03-03",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-448"
+    },
+    {
+      "date": "2025-03-04",
+      "deck": "Tormod, the Descrator // Kodama of the East Tree",
+      "result": "Loss",
+      "id": "game-449"
+    },
+    {
+      "date": "2025-03-04",
+      "deck": "Tormod, the Descrator // Kodama of the East Tree",
+      "result": "Loss",
+      "id": "game-450"
+    },
+    {
+      "date": "2025-03-04",
+      "deck": "Tormod, the Descrator // Kodama of the East Tree",
+      "result": "Loss",
+      "id": "game-451"
+    },
+    {
+      "date": "2025-03-04",
+      "deck": "Tormod, the Descrator // Kodama of the East Tree",
+      "result": "Win",
+      "id": "game-452"
+    },
+    {
+      "date": "2025-03-04",
+      "deck": "Tormod, the Descrator // Kodama of the East Tree",
+      "result": "Loss",
+      "id": "game-453"
+    },
+    {
+      "date": "2025-03-05",
+      "deck": "Tormod, the Descrator // Kodama of the East Tree",
+      "result": "Loss",
+      "id": "game-454"
+    },
+    {
+      "date": "2025-03-05",
+      "deck": "Tormod, the Descrator // Kodama of the East Tree",
+      "result": "Win",
+      "id": "game-455"
+    },
+    {
+      "date": "2025-03-05",
+      "deck": "Tormod, the Descrator // Kodama of the East Tree",
+      "result": "Loss",
+      "id": "game-456"
+    },
+    {
+      "date": "2025-03-05",
+      "deck": "Tormod, the Descrator // Kodama of the East Tree",
+      "result": "Win",
+      "id": "game-457"
+    },
+    {
+      "date": "2025-03-05",
+      "deck": "Tormod, the Descrator // Kodama of the East Tree",
+      "result": "Win",
+      "id": "game-458"
+    },
+    {
+      "date": "2025-03-05",
+      "deck": "Tormod, the Descrator // Kodama of the East Tree",
+      "result": "Win",
+      "id": "game-459"
+    },
+    {
+      "date": "2025-03-06",
+      "deck": "Tormod, the Descrator // Kodama of the East Tree",
+      "result": "Loss",
+      "id": "game-460"
+    },
+    {
+      "date": "2025-03-06",
+      "deck": "Tormod, the Descrator // Kodama of the East Tree",
+      "result": "Loss",
+      "id": "game-461"
+    },
+    {
+      "date": "2025-03-06",
+      "deck": "Tormod, the Descrator // Kodama of the East Tree",
+      "result": "Loss",
+      "id": "game-462"
+    },
+    {
+      "date": "2025-03-06",
+      "deck": "Tormod, the Descrator // Kodama of the East Tree",
+      "result": "Win",
+      "id": "game-463"
+    },
+    {
+      "date": "2025-03-06",
+      "deck": "Tormod, the Descrator // Kodama of the East Tree",
+      "result": "Loss",
+      "id": "game-464"
+    },
+    {
+      "date": "2025-03-06",
+      "deck": "Tormod, the Descrator // Kodama of the East Tree",
+      "result": "Loss",
+      "id": "game-465"
+    },
+    {
+      "date": "2025-03-06",
+      "deck": "Tormod, the Descrator // Kodama of the East Tree",
+      "result": "Win",
+      "id": "game-466"
+    },
+    {
+      "date": "2025-03-06",
+      "deck": "Tormod, the Descrator // Kodama of the East Tree",
+      "result": "Loss",
+      "id": "game-467"
+    },
+    {
+      "date": "2025-03-08",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Win",
+      "id": "game-468"
+    },
+    {
+      "date": "2025-03-08",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-469"
+    },
+    {
+      "date": "2025-03-09",
+      "deck": "Tormod, the Descrator // Kodama of the East Tree",
+      "result": "Win",
+      "id": "game-470"
+    },
+    {
+      "date": "2025-03-09",
+      "deck": "Tormod, the Descrator // Kodama of the East Tree",
+      "result": "Win",
+      "id": "game-471"
+    },
+    {
+      "date": "2025-03-10",
+      "deck": "Tormod, the Descrator // Kodama of the East Tree",
+      "result": "Win",
+      "id": "game-472"
+    },
+    {
+      "date": "2025-03-11",
+      "deck": "Tormod, the Descrator // Kodama of the East Tree",
+      "result": "Win",
+      "id": "game-473"
+    },
+    {
+      "date": "2025-03-11",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-474"
+    },
+    {
+      "date": "2025-03-11",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-475"
+    },
+    {
+      "date": "2025-03-12",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Win",
+      "id": "game-476"
+    },
+    {
+      "date": "2025-03-12",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-477"
+    },
+    {
+      "date": "2025-03-12",
+      "deck": "Tormod, the Descrator // Kodama of the East Tree",
+      "result": "Win",
+      "id": "game-478"
+    },
+    {
+      "date": "2025-03-13",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Win",
+      "id": "game-479"
+    },
+    {
+      "date": "2025-03-14",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-480"
+    },
+    {
+      "date": "2025-03-14",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-481"
+    },
+    {
+      "date": "2025-03-14",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-482"
+    },
+    {
+      "date": "2025-03-15",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Win",
+      "id": "game-483"
+    },
+    {
+      "date": "2025-03-15",
+      "deck": "Lae'zel, Vlaakith's Champion // Master Chef",
+      "result": "Loss",
+      "id": "game-484"
+    },
+    {
+      "date": "2025-03-17",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-485"
+    },
+    {
+      "date": "2025-03-17",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Win",
+      "id": "game-486"
+    },
+    {
+      "date": "2025-03-18",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-487"
+    },
+    {
+      "date": "2025-03-23",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Win",
+      "id": "game-488"
+    },
+    {
+      "date": "2025-03-24",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Win",
+      "id": "game-489"
+    },
+    {
+      "date": "2025-03-29",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-490"
+    },
+    {
+      "date": "2025-03-29",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-491"
+    },
+    {
+      "date": "2025-03-30",
+      "deck": "The Wise Mothman",
+      "result": "Loss",
+      "id": "game-492"
+    },
+    {
+      "date": "2025-03-31",
+      "deck": "The Wise Mothman",
+      "result": "Win",
+      "id": "game-493"
+    },
+    {
+      "date": "2025-03-31",
+      "deck": "The Wise Mothman",
+      "result": "Loss",
+      "id": "game-494"
+    },
+    {
+      "date": "2025-03-31",
+      "deck": "The Wise Mothman",
+      "result": "Loss",
+      "id": "game-495"
+    },
+    {
+      "date": "2025-03-31",
+      "deck": "The Wise Mothman",
+      "result": "Win",
+      "id": "game-496"
+    },
+    {
+      "date": "2025-04-01",
+      "deck": "The Wise Mothman",
+      "result": "Win",
+      "id": "game-497"
+    },
+    {
+      "date": "2025-04-02",
+      "deck": "The Wise Mothman",
+      "result": "Loss",
+      "id": "game-498"
+    },
+    {
+      "date": "2025-04-02",
+      "deck": "The Wise Mothman",
+      "result": "Win",
+      "id": "game-499"
+    },
+    {
+      "date": "2025-04-02",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-500"
+    },
+    {
+      "date": "2025-04-05",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-501"
+    },
+    {
+      "date": "2025-04-20",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-502"
+    },
+    {
+      "date": "2025-04-20",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Loss",
+      "id": "game-503"
+    },
+    {
+      "date": "2025-04-24",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-504"
+    },
+    {
+      "date": "2025-04-25",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Loss",
+      "id": "game-505"
+    },
+    {
+      "date": "2025-04-27",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-506"
+    },
+    {
+      "date": "2025-04-30",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-507"
+    },
+    {
+      "date": "2025-05-03",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-508"
+    },
+    {
+      "date": "2025-05-04",
+      "deck": "Rev, Tithe Extractor",
+      "result": "Loss",
+      "id": "game-509"
+    },
+    {
+      "date": "2025-05-05",
+      "deck": "Rev, Tithe Extractor",
+      "result": "Loss",
+      "id": "game-510"
+    },
+    {
+      "date": "2025-05-05",
+      "deck": "Rev, Tithe Extractor",
+      "result": "Loss",
+      "id": "game-511"
+    },
+    {
+      "date": "2025-05-12",
+      "deck": "Rev, Tithe Extractor",
+      "result": "Loss",
+      "id": "game-512"
+    },
+    {
+      "date": "2025-05-12",
+      "deck": "Rev, Tithe Extractor",
+      "result": "Loss",
+      "id": "game-513"
+    },
+    {
+      "date": "2025-05-12",
+      "deck": "Rev, Tithe Extractor",
+      "result": "Loss",
+      "id": "game-514"
+    },
+    {
+      "date": "2025-05-16",
+      "deck": "Rev, Tithe Extractor",
+      "result": "Loss",
+      "id": "game-515"
+    },
+    {
+      "date": "2025-05-16",
+      "deck": "Rev, Tithe Extractor",
+      "result": "Win",
+      "id": "game-516"
+    },
+    {
+      "date": "2025-05-17",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-517"
+    },
+    {
+      "date": "2025-05-17",
+      "deck": "Rev, Tithe Extractor",
+      "result": "Loss",
+      "id": "game-518"
+    },
+    {
+      "date": "2025-05-18",
+      "deck": "Rev, Tithe Extractor",
+      "result": "Win",
+      "id": "game-519"
+    },
+    {
+      "date": "2025-05-20",
+      "deck": "Rev, Tithe Extractor",
+      "result": "Win",
+      "id": "game-520"
+    },
+    {
+      "date": "2025-05-20",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Win",
+      "id": "game-521"
+    },
+    {
+      "date": "2025-05-21",
+      "deck": "Ramos, Dragon Engine",
+      "result": "Loss",
+      "id": "game-522"
+    },
+    {
+      "date": "2025-05-21",
+      "deck": "Ramos, Dragon Engine",
+      "result": "Loss",
+      "id": "game-523"
+    },
+    {
+      "date": "2025-05-21",
+      "deck": "Ramos, Dragon Engine",
+      "result": "Win",
+      "id": "game-524"
+    },
+    {
+      "date": "2025-05-21",
+      "deck": "Ramos, Dragon Engine",
+      "result": "Loss",
+      "id": "game-525"
+    },
+    {
+      "date": "2025-05-22",
+      "deck": "Ramos, Dragon Engine",
+      "result": "Win",
+      "id": "game-526"
+    },
+    {
+      "date": "2025-05-22",
+      "deck": "Ramos, Dragon Engine",
+      "result": "Loss",
+      "id": "game-527"
+    },
+    {
+      "date": "2025-05-22",
+      "deck": "Ramos, Dragon Engine",
+      "result": "Win",
+      "id": "game-528"
+    },
+    {
+      "date": "2025-05-23",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-529"
+    },
+    {
+      "date": "2025-05-26",
+      "deck": "Ramos, Dragon Engine",
+      "result": "Win",
+      "id": "game-530"
+    },
+    {
+      "date": "2025-05-26",
+      "deck": "Ramos, Dragon Engine",
+      "result": "Loss",
+      "id": "game-531"
+    },
+    {
+      "date": "2025-05-26",
+      "deck": "Ramos, Dragon Engine",
+      "result": "Win",
+      "id": "game-532"
+    },
+    {
+      "date": "2025-05-26",
+      "deck": "Ramos, Dragon Engine",
+      "result": "Loss",
+      "id": "game-533"
+    },
+    {
+      "date": "2025-05-26",
+      "deck": "Ramos, Dragon Engine",
+      "result": "Win",
+      "id": "game-534"
+    },
+    {
+      "date": "2025-05-27",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-535"
+    },
+    {
+      "date": "2025-05-27",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-536"
+    },
+    {
+      "date": "2025-05-28",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-537"
+    },
+    {
+      "date": "2025-05-28",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-538"
+    },
+    {
+      "date": "2025-05-31",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-539"
+    },
+    {
+      "date": "2025-05-31",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Win",
+      "id": "game-540"
+    },
+    {
+      "date": "2025-06-02",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-541"
+    },
+    {
+      "date": "2025-06-02",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-542"
+    },
+    {
+      "date": "2025-06-03",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-543"
+    },
+    {
+      "date": "2025-06-03",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-544"
+    },
+    {
+      "date": "2025-06-04",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-545"
+    },
+    {
+      "date": "2025-06-04",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-546"
+    },
+    {
+      "date": "2025-06-05",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-547"
+    },
+    {
+      "date": "2025-06-05",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-548"
+    },
+    {
+      "date": "2025-06-05",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-549"
+    },
+    {
+      "date": "2025-06-05",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Win",
+      "id": "game-550"
+    },
+    {
+      "date": "2025-06-05",
+      "deck": "Rev, Tithe Extractor",
+      "result": "Loss",
+      "id": "game-551"
+    },
+    {
+      "date": "2025-06-05",
+      "deck": "Rev, Tithe Extractor",
+      "result": "Win",
+      "id": "game-552"
+    },
+    {
+      "date": "2025-06-11",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Win",
+      "id": "game-553"
+    },
+    {
+      "date": "2025-06-11",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Win",
+      "id": "game-554"
+    },
+    {
+      "date": "2025-06-12",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-555"
+    },
+    {
+      "date": "2025-06-15",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-556"
+    },
+    {
+      "date": "2025-06-19",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-557"
+    },
+    {
+      "date": "2025-06-22",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-558"
+    },
+    {
+      "date": "2025-06-22",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-559"
+    },
+    {
+      "date": "2025-06-25",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-560"
+    },
+    {
+      "date": "2025-06-25",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-561"
+    },
+    {
+      "date": "2025-06-25",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-562"
+    },
+    {
+      "date": "2025-06-26",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-563"
+    },
+    {
+      "date": "2025-06-29",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-564"
+    },
+    {
+      "date": "2025-06-29",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-565"
+    },
+    {
+      "date": "2025-07-01",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-566"
+    },
+    {
+      "date": "2025-07-02",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-567"
+    },
+    {
+      "date": "2025-07-02",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-568"
+    },
+    {
+      "date": "2025-07-06",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Loss",
+      "id": "game-569"
+    },
+    {
+      "date": "2025-07-07",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-570"
+    },
+    {
+      "date": "2025-07-09",
+      "deck": "Rev, Tithe Extractor",
+      "result": "Loss",
+      "id": "game-571"
+    },
+    {
+      "date": "2025-07-09",
+      "deck": "Rev, Tithe Extractor",
+      "result": "Loss",
+      "id": "game-572"
+    },
+    {
+      "date": "2025-07-09",
+      "deck": "Colfenor, the Last Yew",
+      "result": "Loss",
+      "id": "game-573"
+    },
+    {
+      "date": "2025-07-09",
+      "deck": "Colfenor, the Last Yew",
+      "result": "Loss",
+      "id": "game-574"
+    },
+    {
+      "date": "2025-07-10",
+      "deck": "Colfenor, the Last Yew",
+      "result": "Loss",
+      "id": "game-575"
+    },
+    {
+      "date": "2025-07-10",
+      "deck": "Colfenor, the Last Yew",
+      "result": "Win",
+      "id": "game-576"
+    },
+    {
+      "date": "2025-07-11",
+      "deck": "Colfenor, the Last Yew",
+      "result": "Loss",
+      "id": "game-577"
+    },
+    {
+      "date": "2025-07-12",
+      "deck": "Colfenor, the Last Yew",
+      "result": "Loss",
+      "id": "game-578"
+    },
+    {
+      "date": "2025-07-13",
+      "deck": "Colfenor, the Last Yew",
+      "result": "Win",
+      "id": "game-579"
+    },
+    {
+      "date": "2025-07-13",
+      "deck": "Colfenor, the Last Yew",
+      "result": "Loss",
+      "id": "game-580"
+    },
+    {
+      "date": "2025-07-14",
+      "deck": "Colfenor, the Last Yew",
+      "result": "Win",
+      "id": "game-581"
+    },
+    {
+      "date": "2025-07-14",
+      "deck": "Colfenor, the Last Yew",
+      "result": "Loss",
+      "id": "game-582"
+    },
+    {
+      "date": "2025-07-14",
+      "deck": "Colfenor, the Last Yew",
+      "result": "Win",
+      "id": "game-583"
+    },
+    {
+      "date": "2025-07-17",
+      "deck": "Colfenor, the Last Yew",
+      "result": "Win",
+      "id": "game-584"
+    },
+    {
+      "date": "2025-07-18",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-585"
+    },
+    {
+      "date": "2025-07-23",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-586"
+    },
+    {
+      "date": "2025-07-26",
+      "deck": "Ardenn, Intrepid Archaeologist // Silas Renn, Seeker Adept",
+      "result": "Loss",
+      "id": "game-587"
+    },
+    {
+      "date": "2025-07-27",
+      "deck": "Ardenn, Intrepid Archaeologist // Silas Renn, Seeker Adept",
+      "result": "Loss",
+      "id": "game-588"
+    },
+    {
+      "date": "2025-07-27",
+      "deck": "Ardenn, Intrepid Archaeologist // Silas Renn, Seeker Adept",
+      "result": "Loss",
+      "id": "game-589"
+    },
+    {
+      "date": "2025-07-27",
+      "deck": "Ardenn, Intrepid Archaeologist // Silas Renn, Seeker Adept",
+      "result": "Loss",
+      "id": "game-590"
+    },
+    {
+      "date": "2025-07-27",
+      "deck": "Ardenn, Intrepid Archaeologist // Silas Renn, Seeker Adept",
+      "result": "Loss",
+      "id": "game-591"
+    },
+    {
+      "date": "2025-07-27",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Loss",
+      "id": "game-592"
+    },
+    {
+      "date": "2025-07-28",
+      "deck": "Ardenn, Intrepid Archaeologist // Silas Renn, Seeker Adept",
+      "result": "Loss",
+      "id": "game-593"
+    },
+    {
+      "date": "2025-07-28",
+      "deck": "Ardenn, Intrepid Archaeologist // Silas Renn, Seeker Adept",
+      "result": "Win",
+      "id": "game-594"
+    },
+    {
+      "date": "2025-07-28",
+      "deck": "Ardenn, Intrepid Archaeologist // Silas Renn, Seeker Adept",
+      "result": "Loss",
+      "id": "game-595"
+    },
+    {
+      "date": "2025-07-28",
+      "deck": "Ardenn, Intrepid Archaeologist // Silas Renn, Seeker Adept",
+      "result": "Loss",
+      "id": "game-596"
+    },
+    {
+      "date": "2025-07-29",
+      "deck": "Ardenn, Intrepid Archaeologist // Silas Renn, Seeker Adept",
+      "result": "Loss",
+      "id": "game-597"
+    },
+    {
+      "date": "2025-07-30",
+      "deck": "Ardenn, Intrepid Archaeologist // Silas Renn, Seeker Adept",
+      "result": "Loss",
+      "id": "game-598"
+    },
+    {
+      "date": "2025-07-30",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Loss",
+      "id": "game-599"
+    },
+    {
+      "date": "2025-08-01",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Win",
+      "id": "game-600"
+    },
+    {
+      "date": "2025-08-02",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Loss",
+      "id": "game-601"
+    },
+    {
+      "date": "2025-08-05",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Win",
+      "id": "game-602"
+    },
+    {
+      "date": "2025-08-06",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Win",
+      "id": "game-603"
+    },
+    {
+      "date": "2025-08-07",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Win",
+      "id": "game-604"
+    },
+    {
+      "date": "2025-08-07",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Loss",
+      "id": "game-605"
+    },
+    {
+      "date": "2025-08-09",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Win",
+      "id": "game-606"
+    },
+    {
+      "date": "2025-08-10",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Win",
+      "id": "game-607"
+    },
+    {
+      "date": "2025-08-10",
+      "deck": "Ardenn, Intrepid Archaeologist // Silas Renn, Seeker Adept",
+      "result": "Loss",
+      "id": "game-608"
+    },
+    {
+      "date": "2025-08-11",
+      "deck": "Ardenn, Intrepid Archaeologist // Silas Renn, Seeker Adept",
+      "result": "Win",
+      "id": "game-609"
+    },
+    {
+      "date": "2025-08-11",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Win",
+      "id": "game-610"
+    },
+    {
+      "date": "2025-08-13",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Win",
+      "id": "game-611"
+    },
+    {
+      "date": "2025-08-14",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Loss",
+      "id": "game-612"
+    },
+    {
+      "date": "2025-08-14",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Win",
+      "id": "game-613"
+    },
+    {
+      "date": "2025-08-19",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Win",
+      "id": "game-614"
+    },
+    {
+      "date": "2025-08-19",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-615"
+    },
+    {
+      "date": "2025-08-19",
+      "deck": "Rev, Tithe Extractor",
+      "result": "Loss",
+      "id": "game-616"
+    },
+    {
+      "date": "2025-08-19",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Loss",
+      "id": "game-617"
+    },
+    {
+      "date": "2025-08-19",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Loss",
+      "id": "game-618"
+    },
+    {
+      "date": "2025-08-20",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Win",
+      "id": "game-619"
+    },
+    {
+      "date": "2025-08-20",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Win",
+      "id": "game-620"
+    },
+    {
+      "date": "2025-08-21",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Loss",
+      "id": "game-621"
+    },
+    {
+      "date": "2025-08-21",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Loss",
+      "id": "game-622"
+    },
+    {
+      "date": "2025-08-22",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Loss",
+      "id": "game-623"
+    },
+    {
+      "date": "2025-08-22",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Loss",
+      "id": "game-624"
+    },
+    {
+      "date": "2025-08-22",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Win",
+      "id": "game-625"
+    },
+    {
+      "date": "2025-08-23",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Win",
+      "id": "game-626"
+    },
+    {
+      "date": "2025-08-23",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Loss",
+      "id": "game-627"
+    },
+    {
+      "date": "2025-08-24",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Loss",
+      "id": "game-628"
+    },
+    {
+      "date": "2025-08-24",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Win",
+      "id": "game-629"
+    },
+    {
+      "date": "2025-08-25",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Win",
+      "id": "game-630"
+    },
+    {
+      "date": "2025-08-27",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Loss",
+      "id": "game-631"
+    },
+    {
+      "date": "2025-08-27",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Loss",
+      "id": "game-632"
+    },
+    {
+      "date": "2025-08-28",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Loss",
+      "id": "game-633"
+    },
+    {
+      "date": "2025-08-29",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Loss",
+      "id": "game-634"
+    },
+    {
+      "date": "2025-08-30",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Win",
+      "id": "game-635"
+    },
+    {
+      "date": "2025-08-31",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Win",
+      "id": "game-636"
+    },
+    {
+      "date": "2025-09-01",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Win",
+      "id": "game-637"
+    },
+    {
+      "date": "2025-09-02",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-638"
+    },
+    {
+      "date": "2025-09-02",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-639"
+    },
+    {
+      "date": "2025-09-03",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Win",
+      "id": "game-640"
+    },
+    {
+      "date": "2025-09-07",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-641"
+    },
+    {
+      "date": "2025-09-08",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-642"
+    },
+    {
+      "date": "2025-09-09",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-643"
+    },
+    {
+      "date": "2025-09-09",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-644"
+    },
+    {
+      "date": "2025-09-09",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-645"
+    },
+    {
+      "date": "2025-09-11",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-646"
+    },
+    {
+      "date": "2025-09-12",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-647"
+    },
+    {
+      "date": "2025-09-14",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-648"
+    },
+    {
+      "date": "2025-09-14",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Win",
+      "id": "game-649"
+    },
+    {
+      "date": "2025-09-15",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-650"
+    },
+    {
+      "date": "2025-09-15",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-651"
+    },
+    {
+      "date": "2025-09-17",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-652"
+    },
+    {
+      "date": "2025-09-17",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-653"
+    },
+    {
+      "date": "2025-09-19",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-654"
+    },
+    {
+      "date": "2025-09-20",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-655"
+    },
+    {
+      "date": "2025-09-20",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-656"
+    },
+    {
+      "date": "2025-09-22",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-657"
+    },
+    {
+      "date": "2025-09-23",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-658"
+    },
+    {
+      "date": "2025-09-23",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-659"
+    },
+    {
+      "date": "2025-09-24",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-660"
+    },
+    {
+      "date": "2025-09-24",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-661"
+    },
+    {
+      "date": "2025-09-26",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-662"
+    },
+    {
+      "date": "2025-09-27",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-663"
+    },
+    {
+      "date": "2025-09-27",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Win",
+      "id": "game-664"
+    },
+    {
+      "date": "2025-09-27",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-665"
+    },
+    {
+      "date": "2025-10-03",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-666"
+    },
+    {
+      "date": "2025-10-07",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-667"
+    },
+    {
+      "date": "2025-10-07",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-668"
+    },
+    {
+      "date": "2025-10-08",
+      "deck": "Rev, Tithe Extractor",
+      "result": "Loss",
+      "id": "game-669"
+    },
+    {
+      "date": "2025-10-08",
+      "deck": "Rev, Tithe Extractor",
+      "result": "Loss",
+      "id": "game-670"
+    },
+    {
+      "date": "2025-10-08",
+      "deck": "Rev, Tithe Extractor",
+      "result": "Loss",
+      "id": "game-671"
+    },
+    {
+      "date": "2025-10-08",
+      "deck": "Rev, Tithe Extractor",
+      "result": "Loss",
+      "id": "game-672"
+    },
+    {
+      "date": "2025-10-09",
+      "deck": "Rev, Tithe Extractor",
+      "result": "Loss",
+      "id": "game-673"
+    },
+    {
+      "date": "2025-10-09",
+      "deck": "Rev, Tithe Extractor",
+      "result": "Loss",
+      "id": "game-674"
+    },
+    {
+      "date": "2025-10-10",
+      "deck": "Rev, Tithe Extractor",
+      "result": "Win",
+      "id": "game-675"
+    },
+    {
+      "date": "2025-10-13",
+      "deck": "Rev, Tithe Extractor",
+      "result": "Win",
+      "id": "game-676"
+    },
+    {
+      "date": "2025-10-13",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Win",
+      "id": "game-677"
+    },
+    {
+      "date": "2025-10-14",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Win",
+      "id": "game-678"
+    },
+    {
+      "date": "2025-10-14",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-679"
+    },
+    {
+      "date": "2025-10-15",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-680"
+    },
+    {
+      "date": "2025-10-15",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-681"
+    },
+    {
+      "date": "2025-10-15",
+      "deck": "Rev, Tithe Extractor",
+      "result": "Loss",
+      "id": "game-682"
+    },
+    {
+      "date": "2025-10-16",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-683"
+    },
+    {
+      "date": "2025-10-16",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-684"
+    },
+    {
+      "date": "2025-10-17",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-685"
+    },
+    {
+      "date": "2025-10-17",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-686"
+    },
+    {
+      "date": "2025-10-20",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-687"
+    },
+    {
+      "date": "2025-10-20",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-688"
+    },
+    {
+      "date": "2025-10-20",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Win",
+      "id": "game-689"
+    },
+    {
+      "date": "2025-10-21",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-690"
+    },
+    {
+      "date": "2025-10-21",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-691"
+    },
+    {
+      "date": "2025-10-21",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-692"
+    },
+    {
+      "date": "2025-11-01",
+      "deck": "Rev, Tithe Extractor",
+      "result": "Loss",
+      "id": "game-693"
+    },
+    {
+      "date": "2025-11-01",
+      "deck": "Rev, Tithe Extractor",
+      "result": "Loss",
+      "id": "game-694"
+    },
+    {
+      "date": "2025-11-03",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-695"
+    },
+    {
+      "date": "2025-11-03",
+      "deck": "Rev, Tithe Extractor",
+      "result": "Loss",
+      "id": "game-696"
+    },
+    {
+      "date": "2025-11-04",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-697"
+    },
+    {
+      "date": "2025-11-05",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Win",
+      "id": "game-698"
+    },
+    {
+      "date": "2025-11-05",
+      "deck": "Rev, Tithe Extractor",
+      "result": "Loss",
+      "id": "game-699"
+    },
+    {
+      "date": "2025-11-06",
+      "deck": "Rev, Tithe Extractor",
+      "result": "Loss",
+      "id": "game-700"
+    },
+    {
+      "date": "2025-11-06",
+      "deck": "Rev, Tithe Extractor",
+      "result": "Win",
+      "id": "game-701"
+    },
+    {
+      "date": "2025-11-06",
+      "deck": "Rev, Tithe Extractor",
+      "result": "Loss",
+      "id": "game-702"
+    },
+    {
+      "date": "2025-11-07",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-703"
+    },
+    {
+      "date": "2025-11-09",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-704"
+    },
+    {
+      "date": "2025-11-10",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-705"
+    },
+    {
+      "date": "2025-11-11",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-706"
+    },
+    {
+      "date": "2025-11-16",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-707"
+    },
+    {
+      "date": "2025-11-23",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-708"
+    },
+    {
+      "date": "2025-11-25",
+      "deck": "Rev, Tithe Extractor",
+      "result": "Loss",
+      "id": "game-709"
+    },
+    {
+      "date": "2025-11-29",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-710"
+    },
+    {
+      "date": "2025-11-29",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-711"
+    },
+    {
+      "date": "2025-12-10",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-712"
+    },
+    {
+      "date": "2025-12-13",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-713"
+    },
+    {
+      "date": "2025-12-13",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-714"
+    },
+    {
+      "date": "2025-12-14",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Win",
+      "id": "game-715"
+    },
+    {
+      "date": "2025-12-15",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-716"
+    },
+    {
+      "date": "2025-12-15",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-717"
+    },
+    {
+      "date": "2025-12-20",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-718"
+    },
+    {
+      "date": "2025-12-20",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-719"
+    },
+    {
+      "date": "2025-12-31",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-720"
+    },
+    {
+      "date": "2026-01-02",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-721"
+    },
+    {
+      "date": "2026-01-04",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Win",
+      "id": "game-722"
+    },
+    {
+      "date": "2026-01-04",
+      "deck": "Rev, Tithe Extractor",
+      "result": "Loss",
+      "id": "game-723"
+    },
+    {
+      "date": "2026-01-16",
+      "deck": "Hakim, Loreweaver",
+      "result": "Loss",
+      "id": "game-724"
+    },
+    {
+      "date": "2026-01-17",
+      "deck": "Hakim, Loreweaver",
+      "result": "Win",
+      "id": "game-725"
+    },
+    {
+      "date": "2026-01-30",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-726"
+    },
+    {
+      "date": "2026-02-06",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Loss",
+      "id": "game-727"
+    },
+    {
+      "date": "2026-02-07",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Win",
+      "id": "game-728"
+    },
+    {
+      "date": "2026-02-13",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-729"
+    },
+    {
+      "date": "2026-02-15",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-730"
+    },
+    {
+      "date": "2026-02-16",
+      "deck": "Rev, Tithe Extractor",
+      "result": "Loss",
+      "id": "game-731"
+    },
+    {
+      "date": "2026-02-19",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-732"
+    },
+    {
+      "date": "2026-02-19",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-733"
+    },
+    {
+      "date": "2026-02-19",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-734"
+    },
+    {
+      "date": "2026-03-01",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-735"
+    },
+    {
+      "date": "2026-03-01",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-736"
+    },
+    {
+      "date": "2026-03-03",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Win",
+      "id": "game-737"
+    },
+    {
+      "date": "2026-03-27",
+      "deck": "Hakim, Loreweaver",
+      "result": "Loss",
+      "id": "game-738"
+    },
+    {
+      "date": "2026-03-27",
+      "deck": "Hakim, Loreweaver",
+      "result": "Loss",
+      "id": "game-739"
+    },
+    {
+      "date": "2026-03-27",
+      "deck": "Hakim, Loreweaver",
+      "result": "Win",
+      "id": "game-740"
+    },
+    {
+      "date": "2026-03-28",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-741"
+    },
+    {
+      "date": "2026-03-30",
+      "deck": "Hakim, Loreweaver",
+      "result": "Loss",
+      "id": "game-742"
+    },
+    {
+      "date": "2026-03-31",
+      "deck": "Hakim, Loreweaver",
+      "result": "Win",
+      "id": "game-743"
+    },
+    {
+      "date": "2026-04-02",
+      "deck": "Hakim, Loreweaver",
+      "result": "Win",
+      "id": "game-744"
+    },
+    {
+      "date": "2026-04-10",
+      "deck": "Hakim, Loreweaver",
+      "result": "Loss",
+      "id": "game-745"
+    },
+    {
+      "date": "2026-04-12",
+      "deck": "Hakim, Loreweaver",
+      "result": "Win",
+      "id": "game-746"
+    },
+    {
+      "date": "2026-04-12",
+      "deck": "Hakim, Loreweaver",
+      "result": "Loss",
+      "id": "game-747"
+    },
+    {
+      "date": "2026-04-13",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Loss",
+      "id": "game-748"
+    },
+    {
+      "date": "2026-04-13",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-749"
+    },
+    {
+      "date": "2026-04-13",
+      "deck": "Hakim, Loreweaver",
+      "result": "Win",
+      "id": "game-750"
+    },
+    {
+      "date": "2026-04-13",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Loss",
+      "id": "game-751"
+    },
+    {
+      "date": "2026-04-13",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-752"
+    },
+    {
+      "date": "2026-04-13",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-753"
+    },
+    {
+      "date": "2026-04-14",
+      "deck": "Hakim, Loreweaver",
+      "result": "Win",
+      "id": "game-754"
+    },
+    {
+      "date": "2026-04-15",
+      "deck": "Hakim, Loreweaver",
+      "result": "Win",
+      "id": "game-755"
+    },
+    {
+      "date": "2026-04-16",
+      "deck": "Hakim, Loreweaver",
+      "result": "Loss",
+      "id": "game-756"
+    },
+    {
+      "date": "2026-04-16",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-757"
+    },
+    {
+      "date": "2026-04-16",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-758"
+    },
+    {
+      "date": "2026-04-18",
+      "deck": "Hakim, Loreweaver",
+      "result": "Win",
+      "id": "game-759"
+    },
+    {
+      "date": "2026-04-19",
+      "deck": "Gallia of the Endless Dance",
+      "result": "Loss",
+      "id": "game-760"
+    },
+    {
+      "date": "2026-04-21",
+      "deck": "Hakim, Loreweaver",
+      "result": "Win",
+      "id": "game-761"
+    },
+    {
+      "date": "2026-04-22",
+      "deck": "Hakim, Loreweaver",
+      "result": "Loss",
+      "id": "game-762"
+    },
+    {
+      "date": "2026-04-22",
+      "deck": "Hakim, Loreweaver",
+      "result": "Loss",
+      "id": "game-763"
+    },
+    {
+      "date": "2026-04-23",
+      "deck": "Hakim, Loreweaver",
+      "result": "Loss",
+      "id": "game-764"
+    },
+    {
+      "date": "2026-04-24",
+      "deck": "Hakim, Loreweaver",
+      "result": "Loss",
+      "id": "game-765"
+    },
+    {
+      "date": "2026-04-27",
+      "deck": "Hakim, Loreweaver",
+      "result": "Win",
+      "id": "game-766"
+    },
+    {
+      "date": "2026-04-27",
+      "deck": "Hakim, Loreweaver",
+      "result": "Loss",
+      "id": "game-767"
+    },
+    {
+      "date": "2026-04-27",
+      "deck": "Hakim, Loreweaver",
+      "result": "Win",
+      "id": "game-768"
+    },
+    {
+      "date": "2026-04-29",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-769"
+    },
+    {
+      "date": "2026-04-29",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-770"
+    },
+    {
+      "date": "2026-04-29",
+      "deck": "Hakim, Loreweaver",
+      "result": "Win",
+      "id": "game-771"
+    },
+    {
+      "date": "2026-04-29",
+      "deck": "Hakim, Loreweaver",
+      "result": "Loss",
+      "id": "game-772"
+    },
+    {
+      "date": "2026-04-30",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-773"
+    },
+    {
+      "date": "2026-04-30",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Loss",
+      "id": "game-774"
+    },
+    {
+      "date": "2026-04-30",
+      "deck": "Ovika, Enigma Goliath",
+      "result": "Win",
+      "id": "game-775"
+    },
+    {
+      "date": "2026-04-30",
+      "deck": "Rev, Tithe Extractor",
+      "result": "Win",
+      "id": "game-776"
+    },
+    {
+      "date": "2026-05-01",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-777"
+    },
+    {
+      "date": "2026-05-01",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-778"
+    },
+    {
+      "date": "2026-05-01",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-779"
+    },
+    {
+      "date": "2026-05-02",
+      "deck": "Hakim, Loreweaver",
+      "result": "Loss",
+      "id": "game-780"
+    },
+    {
+      "date": "2026-05-02",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-781"
+    },
+    {
+      "date": "2026-05-03",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-782"
+    },
+    {
+      "date": "2026-05-03",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-783"
+    },
+    {
+      "date": "2026-05-05",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-784"
+    },
+    {
+      "date": "2026-05-06",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-785"
+    },
+    {
+      "date": "2026-05-07",
+      "deck": "Hakim, Loreweaver",
+      "result": "Win",
+      "id": "game-786"
+    },
+    {
+      "date": "2026-05-08",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-787"
+    },
+    {
+      "date": "2026-05-10",
+      "deck": "Hakim, Loreweaver",
+      "result": "Loss",
+      "id": "game-788"
+    },
+    {
+      "date": "2026-05-12",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-789"
+    },
+    {
+      "date": "2026-05-12",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-790"
+    },
+    {
+      "date": "2026-05-13",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-791"
+    },
+    {
+      "date": "2026-05-13",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Win",
+      "id": "game-792"
+    },
+    {
+      "date": "2026-05-13",
+      "deck": "Hakim, Loreweaver",
+      "result": "Loss",
+      "id": "game-793"
+    },
+    {
+      "date": "2026-05-16",
+      "deck": "Cynette, Jelly Drover",
+      "result": "Loss",
+      "id": "game-794"
+    },
+    {
+      "date": "2026-05-17",
+      "deck": "Hakim, Loreweaver",
+      "result": "Loss",
+      "id": "game-795"
+    },
+    {
+      "date": "2026-05-17",
+      "deck": "Hakim, Loreweaver",
+      "result": "Loss",
+      "id": "game-796"
+    },
+    {
+      "date": "2026-05-17",
+      "deck": "Hakim, Loreweaver",
+      "result": "Win",
+      "id": "game-797"
+    },
+    {
+      "date": "2026-05-18",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-798"
+    },
+    {
+      "date": "2026-05-18",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-799"
+    },
+    {
+      "date": "2026-05-18",
+      "deck": "Hakim, Loreweaver",
+      "result": "Loss",
+      "id": "game-800"
+    },
+    {
+      "date": "2026-05-18",
+      "deck": "Hakim, Loreweaver",
+      "result": "Win",
+      "id": "game-801"
+    },
+    {
+      "date": "2026-05-19",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-802"
+    },
+    {
+      "date": "2026-05-21",
+      "deck": "Hakim, Loreweaver",
+      "result": "Win",
+      "id": "game-803"
+    },
+    {
+      "date": "2026-05-22",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-804"
+    },
+    {
+      "date": "2026-05-24",
+      "deck": "Hakim, Loreweaver",
+      "result": "Loss",
+      "id": "game-805"
+    },
+    {
+      "date": "2026-05-24",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-806"
+    },
+    {
+      "date": "2026-05-25",
+      "deck": "Hakim, Loreweaver",
+      "result": "Loss",
+      "id": "game-807"
+    },
+    {
+      "date": "2026-05-26",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-808"
+    },
+    {
+      "date": "2026-05-27",
+      "deck": "Hakim, Loreweaver",
+      "result": "Loss",
+      "id": "game-809"
+    },
+    {
+      "date": "2026-05-27",
+      "deck": "Hakim, Loreweaver",
+      "result": "Loss",
+      "id": "game-810"
+    },
+    {
+      "date": "2026-05-27",
+      "deck": "Hakim, Loreweaver",
+      "result": "Loss",
+      "id": "game-811"
+    },
+    {
+      "date": "2026-05-27",
+      "deck": "Hakim, Loreweaver",
+      "result": "Loss",
+      "id": "game-812"
+    },
+    {
+      "date": "2026-05-30",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-813"
+    },
+    {
+      "date": "2026-06-01",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-814"
+    },
+    {
+      "date": "2026-06-01",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-815"
+    },
+    {
+      "date": "2026-06-03",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-816"
+    },
+    {
+      "date": "2026-06-03",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-817"
+    },
+    {
+      "date": "2026-06-04",
+      "deck": "Hakim, Loreweaver",
+      "result": "Loss",
+      "id": "game-818"
+    },
+    {
+      "date": "2026-06-04",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-819"
+    },
+    {
+      "date": "2026-06-04",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-820"
+    },
+    {
+      "date": "2026-06-05",
+      "deck": "Hakim, Loreweaver",
+      "result": "Loss",
+      "id": "game-821"
+    },
+    {
+      "date": "2026-06-06",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-822"
+    },
+    {
+      "date": "2026-06-08",
+      "deck": "Hakim, Loreweaver",
+      "result": "Win",
+      "id": "game-823"
+    },
+    {
+      "date": "2026-06-09",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-824"
+    },
+    {
+      "date": "2026-06-09",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-825"
+    },
+    {
+      "date": "2026-06-09",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-826"
+    },
+    {
+      "date": "2026-06-11",
+      "deck": "Hakim, Loreweaver",
+      "result": "Loss",
+      "id": "game-827"
+    },
+    {
+      "date": "2026-06-18",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-828"
+    },
+    {
+      "date": "2026-06-19",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-829"
+    },
+    {
+      "date": "2026-06-21",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-830"
+    },
+    {
+      "date": "2026-06-22",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-831"
+    },
+    {
+      "date": "2026-06-22",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-832"
+    },
+    {
+      "date": "2026-06-22",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-833"
+    },
+    {
+      "date": "2026-06-23",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-834"
+    },
+    {
+      "date": "2026-06-23",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-835"
+    },
+    {
+      "date": "2026-06-23",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-836"
+    },
+    {
+      "date": "2026-07-02",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-837"
+    },
+    {
+      "date": "2026-07-02",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-838"
+    },
+    {
+      "date": "2026-07-06",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-839"
+    },
+    {
+      "date": "2026-07-06",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-840"
+    },
+    {
+      "date": "2026-07-06",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-841"
+    },
+    {
+      "date": "2026-07-06",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-842"
+    },
+    {
+      "date": "2026-07-07",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-843"
+    },
+    {
+      "date": "2026-07-07",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-844"
+    },
+    {
+      "date": "2026-07-07",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-845"
+    },
+    {
+      "date": "2026-07-08",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-846"
+    },
+    {
+      "date": "2026-07-08",
+      "deck": "Hakim, Loreweaver",
+      "result": "Loss",
+      "id": "game-847"
+    },
+    {
+      "date": "2026-07-09",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-848"
+    },
+    {
+      "date": "2026-07-11",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-849"
+    },
+    {
+      "date": "2026-07-11",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-850"
+    },
+    {
+      "date": "2026-07-11",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-851"
+    },
+    {
+      "date": "2026-07-11",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-852"
+    },
+    {
+      "date": "2026-07-12",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-853"
+    },
+    {
+      "date": "2026-07-12",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Win",
+      "id": "game-854"
+    },
+    {
+      "date": "2026-07-12",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Loss",
+      "id": "game-855"
+    },
+    {
+      "date": "2026-07-13",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Loss",
+      "id": "game-856"
+    },
+    {
+      "date": "2026-07-13",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Loss",
+      "id": "game-857"
+    },
+    {
+      "date": "2026-07-13",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Loss",
+      "id": "game-858"
+    },
+    {
+      "date": "2026-07-15",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Loss",
+      "id": "game-859"
+    },
+    {
+      "date": "2026-07-15",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Loss",
+      "id": "game-860"
+    },
+    {
+      "date": "2026-07-15",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Win",
+      "id": "game-861"
+    },
+    {
+      "date": "2026-07-15",
+      "deck": "Hakim, Loreweaver",
+      "result": "Win",
+      "id": "game-862"
+    },
+    {
+      "date": "2026-07-16",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-863"
+    },
+    {
+      "date": "2026-07-16",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Win",
+      "id": "game-864"
+    },
+    {
+      "date": "2026-07-16",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-865"
+    },
+    {
+      "date": "2026-07-17",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Win",
+      "id": "game-866"
+    },
+    {
+      "date": "2026-07-18",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-867"
+    },
+    {
+      "date": "2026-07-18",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-868"
+    },
+    {
+      "date": "2026-07-19",
+      "deck": "Hakim, Loreweaver",
+      "result": "Loss",
+      "id": "game-869"
+    },
+    {
+      "date": "2026-07-19",
+      "deck": "Hakim, Loreweaver",
+      "result": "Loss",
+      "id": "game-870"
+    },
+    {
+      "date": "2026-07-19",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-871"
+    },
+    {
+      "date": "2026-07-20",
+      "deck": "Hakim, Loreweaver",
+      "result": "Loss",
+      "id": "game-872"
+    },
+    {
+      "date": "2026-07-20",
+      "deck": "Hakim, Loreweaver",
+      "result": "Loss",
+      "id": "game-873"
+    },
+    {
+      "date": "2026-07-20",
+      "deck": "Hakim, Loreweaver",
+      "result": "Win",
+      "id": "game-874"
+    },
+    {
+      "date": "2026-07-20",
+      "deck": "Hakim, Loreweaver",
+      "result": "Win",
+      "id": "game-875"
+    },
+    {
+      "date": "2026-07-21",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Loss",
+      "id": "game-876"
+    },
+    {
+      "date": "2026-07-21",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-877"
+    },
+    {
+      "date": "2026-07-21",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-878"
+    },
+    {
+      "date": "2026-07-22",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Loss",
+      "id": "game-879"
+    },
+    {
+      "date": "2026-07-24",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Win",
+      "id": "game-880"
+    },
+    {
+      "date": "2026-07-24",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Loss",
+      "id": "game-881"
+    },
+    {
+      "date": "2026-07-24",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Win",
+      "id": "game-882"
+    },
+    {
+      "date": "2026-07-25",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-883"
+    },
+    {
+      "date": "2026-07-25",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Loss",
+      "id": "game-884"
+    },
+    {
+      "date": "2026-07-26",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-885"
+    },
+    {
+      "date": "2026-07-27",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-886"
+    },
+    {
+      "date": "2026-07-27",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Win",
+      "id": "game-887"
+    },
+    {
+      "date": "2026-07-27",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-888"
+    },
+    {
+      "date": "2026-07-27",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-889"
+    },
+    {
+      "date": "2026-07-28",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-890"
+    },
+    {
+      "date": "2026-07-28",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-891"
+    },
+    {
+      "date": "2026-08-01",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Win",
+      "id": "game-892"
+    },
+    {
+      "date": "2026-08-02",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-893"
+    },
+    {
+      "date": "2026-08-02",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-894"
+    },
+    {
+      "date": "2026-08-05",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Win",
+      "id": "game-895"
+    },
+    {
+      "date": "2026-08-06",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-896"
+    },
+    {
+      "date": "2026-08-06",
+      "deck": "Kroxa and Kunoros",
+      "result": "Loss",
+      "id": "game-897"
+    },
+    {
+      "date": "2026-08-07",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Loss",
+      "id": "game-898"
+    },
+    {
+      "date": "2026-08-07",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Win",
+      "id": "game-899"
+    },
+    {
+      "date": "2026-08-07",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-900"
+    },
+    {
+      "date": "2026-08-07",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-901"
+    },
+    {
+      "date": "2026-08-08",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-902"
+    },
+    {
+      "date": "2026-08-08",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-903"
+    },
+    {
+      "date": "2026-08-08",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-904"
+    },
+    {
+      "date": "2026-08-09",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-905"
+    },
+    {
+      "date": "2026-08-09",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-906"
+    },
+    {
+      "date": "2026-08-10",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-907"
+    },
+    {
+      "date": "2026-08-11",
+      "deck": "Multani, Yavimaya's Avatar",
+      "result": "Loss",
+      "id": "game-908"
+    },
+    {
+      "date": "2026-08-11",
+      "deck": "Kroxa and Kunoros",
+      "result": "Win",
+      "id": "game-909"
+    },
+    {
+      "date": "2026-08-12",
+      "deck": "Brenard, Ginger Sculpter",
+      "result": "Loss",
+      "id": "game-910"
+    },
+    {
+      "date": "2026-08-12",
+      "deck": "Y'shtola Rhul",
+      "result": "Win",
+      "id": "game-911"
+    },
+    {
+      "date": "2026-08-12",
+      "deck": "Colfenor, the Last Yew",
+      "result": "Win",
+      "id": "game-912"
+    },
+    {
+      "date": "2026-08-12",
+      "deck": "Colfenor, the Last Yew",
+      "result": "Win",
+      "id": "game-913"
+    },
+    {
+      "date": "2026-08-13",
+      "deck": "Colfenor, the Last Yew",
+      "result": "Loss",
+      "id": "game-914"
+    },
+    {
+      "date": "2026-08-13",
+      "deck": "Colfenor, the Last Yew",
+      "result": "Win",
+      "id": "game-915"
+    },
+    {
+      "date": "2026-08-14",
+      "deck": "Colfenor, the Last Yew",
+      "result": "Win",
+      "id": "game-916"
+    },
+    {
+      "date": "2026-08-15",
+      "deck": "Colfenor, the Last Yew",
+      "result": "Loss",
+      "id": "game-917"
+    },
+    {
+      "date": "2026-08-16",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-918"
+    },
+    {
+      "date": "2026-08-17",
+      "deck": "Y'shtola Rhul",
+      "result": "Loss",
+      "id": "game-919"
+    },
+    {
+      "date": "2026-08-17",
+      "deck": "Colfenor, the Last Yew",
+      "result": "Win",
+      "id": "game-920"
+    },
+    {
+      "date": "2026-08-18",
+      "deck": "Colfenor, the Last Yew",
+      "result": "Win",
+      "id": "game-921"
+    },
+    {
+      "date": "2026-08-18",
+      "deck": "Colfenor, the Last Yew",
+      "result": "Win",
+      "id": "game-922"
+    },
+    {
+      "date": "2026-08-19",
+      "deck": "Colfenor, the Last Yew",
+      "result": "Win",
+      "id": "game-923"
+    }
+  ]
 }

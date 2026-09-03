@@ -135,9 +135,10 @@ export function buildPodDeckRankings(games, decks, options = {}) {
 
 /**
  * @param {import('./store.js').Game[]} games
+ * @param {import('./store.js').Deck[]} decks
  * @param {{ excludeMyPlayer?: boolean }} [options]
  */
-export function buildPodPlayerRankings(games, options = {}) {
+export function buildPodPlayerRankings(games, decks, options = {}) {
   const { excludeMyPlayer = false } = options;
   const rows = new Map();
 
@@ -271,7 +272,7 @@ export function computeAllTotals(games, decks, options = {}) {
 
   return {
     decks: buildPodDeckRankings(filteredGames, decks, rankingOptions),
-    players: buildPodPlayerRankings(filteredGames, rankingOptions),
+    players: buildPodPlayerRankings(filteredGames, decks, rankingOptions),
     colors: buildPodColorRankings(filteredGames, decks, rankingOptions),
   };
 }
