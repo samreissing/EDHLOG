@@ -1,3 +1,5 @@
+import { appBaseUrl } from "./base-url.js";
+
 const COLORS = ["W", "U", "B", "R", "G"];
 export const COLOR_ORDER = ["W", "U", "B", "R", "G", "C"];
 export const COLOR_NAMES = {
@@ -280,18 +282,21 @@ export function computeRolling100Stats(games) {
   return { windows, cumulative };
 }
 
-const MANA_BASE = `${import.meta.env.BASE_URL}mana`;
+function manaBase() {
+  return `${appBaseUrl()}mana`;
+}
 
 /** Standard MTG mana symbol SVGs (Scryfall glyphs, retinted circle fills). */
 export function colorBadge(colors) {
   const canon = canonicalizeColors(colors);
+  const base = manaBase();
   if (!canon.length) {
-    return `<img class="mana-img" src="${MANA_BASE}/C.svg" alt="C" title="Colorless" />`;
+    return `<img class="mana-img" src="${base}/C.svg" alt="C" title="Colorless" />`;
   }
   return canon
     .map(
       (c) =>
-        `<img class="mana-img" src="${MANA_BASE}/${c}.svg" alt="${c}" title="${COLOR_NAMES[c] || c}" />`
+        `<img class="mana-img" src="${base}/${c}.svg" alt="${c}" title="${COLOR_NAMES[c] || c}" />`
     )
     .join("");
 }

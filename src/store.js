@@ -1,3 +1,4 @@
+import { appBaseUrl } from "./base-url.js";
 import { normalizeDate, todayISO } from "./dates.js";
 import { deckKey, deckCommander, findDeck, resolveDeckCommanderOnDate } from "./deck-identity.js";
 
@@ -25,7 +26,7 @@ export function gameFingerprint(game) {
 }
 
 export async function loadSeed() {
-  const res = await fetch(`${import.meta.env.BASE_URL}data/seed.json`, { cache: "no-store" });
+  const res = await fetch(`${appBaseUrl()}data/seed.json`, { cache: "no-store" });
   return /** @type {AppData} */ (await res.json());
 }
 
