@@ -150,6 +150,7 @@ let matchupColorView = "wubrgc";
 let matchupColorAgg = "inclusive";
 let matchupSplitPartners = false;
 let matchupSplitPlayers = false;
+let matchupCombineDecks = false;
 let totalsTab = "decks";
 let totalsSearch = "";
 let totalsSplitPartners = false;
@@ -259,6 +260,7 @@ function resetStatsTabState(tab) {
     matchupColorAgg = "inclusive";
     matchupSplitPartners = false;
     matchupSplitPlayers = false;
+    matchupCombineDecks = false;
     tableSort.matchups = { col: "normalizedMatchupImpact", dir: "desc" };
   } else if (tab === "totals") {
     totalsTab = "decks";
@@ -563,6 +565,12 @@ function bindEvents() {
       if (statsTab === "colors") colorsChartSelection = new Set();
       if (statsTab === "brackets") bracketsChartSelection = newChartSelection();
       pieAnimKey++;
+      render();
+      return;
+    }
+
+    if (e.target.id === "matchup-combine-decks") {
+      matchupCombineDecks = e.target.checked;
       render();
       return;
     }
@@ -1185,6 +1193,7 @@ function getStats() {
     matchups: computeAllMatchups(statsGames, {
       splitPartners: matchupSplitPartners,
       splitPlayers: matchupSplitPlayers,
+      combineDecks: matchupCombineDecks,
       colorOptions: {
         decks: data.decks,
         deckFilter: statsDeckFilter,
@@ -1965,6 +1974,12 @@ function renderStats() {
     const rows = ranked.filter((row) => {
       if (!query) return true;
       if (isDeckTab) {
+        if (matchupCombineDecks) {
+          return (
+            row.opponent.toLowerCase().includes(query) ||
+            (row.opponentPlayer && row.opponentPlayer.toLowerCase().includes(query))
+          );
+        }
         return (
           row.opponent.toLowerCase().includes(query) ||
           row.subject.toLowerCase().includes(query) ||
@@ -1979,7 +1994,9 @@ function renderStats() {
     lastMatchupDeckRows = isDeckTab ? rows : [];
 
     const searchPlaceholder = isDeckTab
-      ? "Search my or opponent decks"
+      ? matchupCombineDecks
+        ? "Search opponent decks"
+        : "Search my or opponent decks"
       : isColorTab
         ? 'Search Color: "WUB"'
         : "Search opponents";
@@ -1994,7 +2011,11 @@ function renderStats() {
       : "";
 
     const deckToolbarControls = isDeckTab
-      ? `<label class="checkbox matchup-split-partners">
+      ? `<label class="checkbox matchup-combine-decks">
+          <input type="checkbox" id="matchup-combine-decks" ${matchupCombineDecks ? "checked" : ""} />
+          Combine Decks
+        </label>
+        <label class="checkbox matchup-split-partners">
           <input type="checkbox" id="matchup-split-partners" ${matchupSplitPartners ? "checked" : ""} />
           Split partners
         </label>
@@ -2004,7 +2025,7 @@ function renderStats() {
         </label>`
       : "";
 
-    const subjectHeader = isDeckTab
+    const subjectHeader = isDeckTab && !matchupCombineDecks
       ? sortHeader("matchups", "subject", "Deck", tableSort.matchups)
       : isColorTab
         ? sortHeader("matchups", "subject", "My Colors", tableSort.matchups)
@@ -2046,7 +2067,7 @@ function renderStats() {
             <tr>
               <td class="col-rank">${row.rank}</td>
               ${
-                isDeckTab
+                isDeckTab && !matchupCombineDecks
                   ? `<td class="matchup-deck-col">${renderMatchupDeckCell(row.subject, data.decks)}</td>`
                   : isColorTab
                     ? `<td class="matchup-color-col"><span class="color-label">${colorBadge(row.subjectColors || [])}</span></td>`
