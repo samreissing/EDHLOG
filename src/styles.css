@@ -900,7 +900,8 @@ button.year-chip.active,
 }
 
 .trends-game-range-input {
-  width: 3.25rem;
+  width: 4rem;
+  min-width: 4rem;
   padding: 0.2rem 0.35rem;
   font-family: var(--mono);
   font-size: 0.8rem;
