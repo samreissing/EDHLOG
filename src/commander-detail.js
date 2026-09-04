@@ -1,7 +1,7 @@
 import { pctCell } from "./wr-color.js";
 import { colorBadge, winRate, normalizedWinRate } from "./stats.js";
 import { formatDate, compareGamesChronologically } from "./dates.js";
-import { commanderNames } from "./scryfall.js";
+import { renderCommanderImageTags } from "./scryfall.js";
 import { parseGameSeats } from "./matchups.js";
 import { commanderMatchesTarget } from "./commander-names.js";
 import { MY_PLAYER_NAME } from "./opponent-search.js";
@@ -94,13 +94,7 @@ export function computeOpponentCommanderStats(games, commanderName, options = {}
  */
 export function renderCommanderDetail(profile, options = {}) {
   const backLabel = options.backLabel ?? "← Back to matchups";
-  const commanders = commanderNames(profile.name);
-  const commanderImgs = commanders
-    .map(
-      (name) =>
-        `<img class="commander-img loading" data-card-name="${escapeHtml(name)}" alt="${escapeHtml(name)}" title="${escapeHtml(name)}" />`
-    )
-    .join("");
+  const commanderImgs = renderCommanderImageTags(profile.name, { escapeHtml });
 
   const playerRows = profile.players.length
     ? `<div class="commander-players-section">

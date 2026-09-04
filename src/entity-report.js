@@ -11,7 +11,8 @@ import { resolveCommanderColors } from "./commander-colors.js";
 import { deckKey, deckCommander, deckId, deckTitle, findDeck, deckLabelForKey, deckTitleForKey, deckMapByKey } from "./deck-identity.js";
 import { winRate, normalizedWinRate, computeTurnAverages, gameBracket } from "./stats.js";
 import { compareGamesChronologically, formatDate, gameSortKey } from "./dates.js";
-import { commanderNames } from "./scryfall.js";
+import { commanderImageSlots } from "./commander-names.js";
+import { renderCommanderImageTags } from "./scryfall.js";
 import { computeWinRateSeries, renderWinRateLineChart } from "./trends-chart.js";
 import { pctCell } from "./wr-color.js";
 import { MY_PLAYER_NAME } from "./opponent-search.js";
@@ -836,12 +837,14 @@ function renderPlayerDeckGrid(deckList, decks, playerScope) {
       ${deckList
         .map((row) => {
           const commander = row.commander || row.name;
-          const commanders = commanderNames(commander);
-          const imgName = commanders[0] || commander;
+          const artSlot = commanderImageSlots(commander)[0];
+          const artImg = artSlot
+            ? `<img class="commander-img commander-art-img loading" data-card-name="${escapeHtml(artSlot.name)}"${artSlot.face ? ` data-card-face="${artSlot.face}"` : ""} data-card-image="art" alt="${escapeHtml(commander)}" />`
+            : "";
           return `
         <div class="entity-deck-card">
           <div class="entity-deck-card-art">
-            <img class="commander-img commander-art-img loading" data-card-name="${escapeHtml(imgName)}" data-card-image="art" alt="${escapeHtml(commander)}" />
+            ${artImg}
           </div>
           <div class="entity-deck-card-body">
             <div class="entity-deck-card-name">${renderDeckReportLink(commander, decks, {
@@ -886,13 +889,9 @@ export function renderEntityReportModal(report, decks, activeTab = "games", matc
   const tabsSection = renderEntityTabsSection(report, decks, activeTab, matchupSort, gamesSort);
 
   if (report.kind === "deck") {
-    const commanders = commanderNames(report.displayCommander || report.title);
-    const commanderImgs = commanders
-      .map(
-        (name) =>
-          `<img class="commander-img loading" data-card-name="${escapeHtml(name)}" alt="${escapeHtml(name)}" title="${escapeHtml(name)}" />`
-      )
-      .join("");
+    const commanderImgs = renderCommanderImageTags(report.displayCommander || report.title, {
+      escapeHtml,
+    });
 
     const pilotSection =
       !report.playerScope && report.pilots.length

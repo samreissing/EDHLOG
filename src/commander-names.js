@@ -126,6 +126,26 @@ export function getCommanderInfo(name) {
   return partnerInfo(parts);
 }
 
+/** @returns {{ name: string, face: number }[]} */
+export function commanderImageSlots(name) {
+  const info = getCommanderInfo(name);
+  if (info.kind === "dfc") {
+    return [
+      { name: info.canonicalName, face: 0 },
+      { name: info.canonicalName, face: 1 },
+    ];
+  }
+  if (info.kind === "partner") {
+    return info.parts.map((part) => ({ name: part, face: 0 }));
+  }
+  return [{ name: info.canonicalName, face: 0 }];
+}
+
+/** @deprecated Use commanderImageSlots for card images */
+export function commanderNamesFromLabel(name) {
+  return commanderImageSlots(name).map((slot) => slot.name);
+}
+
 /** True when name refers to one card in a partner pair, not the combined pair. */
 export function isPartnerPartName(name) {
   const info = getCommanderInfo(name);
