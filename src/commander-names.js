@@ -1,6 +1,6 @@
 import { fetchCardMetadata, getCachedCardMetadata } from "./scryfall.js";
 
-const CACHE_KEY = "edhlog:commander-matchup-keys:v4";
+const CACHE_KEY = "edhlog:commander-matchup-keys:v5";
 const DFC_LAYOUTS = new Set([
   "transform",
   "modal_dfc",
@@ -122,7 +122,12 @@ function partnerInfo(parts) {
 function storeCommanderInfo(originalName, info) {
   const aliases = new Set([originalName, info.canonicalName]);
   if (info.kind === "partner") {
-    for (const part of info.parts) aliases.add(part);
+    for (const part of info.parts) {
+      const partKey = cacheKey(part);
+      if (!matchupCache.has(partKey)) {
+        matchupCache.set(partKey, singleInfo(part));
+      }
+    }
     aliases.add([...info.parts].reverse().join(" // "));
   }
   if (info.kind === "singleFront") {
@@ -222,12 +227,22 @@ export function commanderMatchesTarget(commanderName, targetName, options = {}) 
     return commanderInfo.canonicalName === targetInfo.canonicalName;
   }
 
+  const targetKey = cacheKey(target);
+  const targetIsSplitPart = targetInfo.kind === "single" || isPartnerPartName(target);
+
+  if (targetIsSplitPart) {
+    if (commanderInfo.kind === "partner") {
+      return commanderInfo.parts.some((part) => cacheKey(part) === targetKey);
+    }
+    return cacheKey(commanderInfo.canonicalName) === targetKey;
+  }
+
   if (targetInfo.kind === "partner") {
     return commanderInfo.canonicalName === targetInfo.canonicalName;
   }
 
   if (commanderInfo.kind === "partner") {
-    return commanderInfo.parts.some((part) => cacheKey(part) === cacheKey(target));
+    return commanderInfo.parts.some((part) => cacheKey(part) === targetKey);
   }
 
   return commanderInfo.canonicalName === targetInfo.canonicalName;
