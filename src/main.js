@@ -545,6 +545,7 @@ function bindEvents() {
       trendsChartRange.customized = true;
       trendsChartRange.start = document.getElementById("trends-range-start")?.value || null;
       trendsChartRange.end = document.getElementById("trends-range-end")?.value || null;
+      resetTrendsGameRange();
       render();
     }
   });
@@ -570,6 +571,7 @@ function bindEvents() {
         statsDeckFilter === "all" ? "active" : statsDeckFilter === "active" ? "retired" : "all";
       if (statsTab === "colors") colorsChartSelection = new Set();
       if (statsTab === "brackets") bracketsChartSelection = newChartSelection();
+      if (statsTab === "trends") resetTrendsGameRange();
       pieAnimKey++;
       render();
       return;
@@ -663,6 +665,7 @@ function bindEvents() {
         colorsChartSelection = new Set();
         pieAnimKey++;
       }
+      if (statsTab === "trends") resetTrendsGameRange();
       render();
       return;
     }
@@ -757,6 +760,7 @@ function bindEvents() {
       trendsWindowSelection = newChartSelection();
       trendsWindowMeta = new Map();
       resetTrendsChartRange();
+      resetTrendsGameRange();
       render();
       return;
     }
@@ -797,6 +801,7 @@ function bindEvents() {
       const rowCount = getStats().rolling.windows.length;
       trendsFilter = { kind: "all" };
       resetTrendsChartRange();
+      resetTrendsGameRange();
       if (trendsWindowSelection.has(id)) {
         trendsWindowSelection.delete(id);
         trendsWindowMeta.delete(id);
