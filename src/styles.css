@@ -184,17 +184,15 @@ main {
 
 .trends-summary-section {
   margin: 1rem 0 1.25rem;
-  overflow-x: auto;
 }
 
 .trends-summary-section .stat-grid {
-  grid-template-columns: repeat(6, minmax(120px, 1fr));
-  min-width: min(100%, 720px);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  width: 100%;
 }
 
 .trends-summary-section .stat-grid.trends-summary-stats--compact {
-  grid-template-columns: repeat(5, minmax(120px, 1fr));
-  min-width: min(100%, 600px);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .trends-summary-stats .stat-value {
