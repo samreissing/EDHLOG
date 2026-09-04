@@ -1064,33 +1064,45 @@ function globalGameIndices(sortedGames, poolGames) {
   return indices;
 }
 
-/** @param {import('./store.js').Game[]} statsGames @param {Array<{ rangeStart: number, rangeEnd: number }>} windowsForChart @param {{ start: string, end: string }} chartRange */
-function getTrendsGameRangeBounds(statsGames, windowsForChart, chartRange) {
+/** @param {import('./store.js').Game[]} sortedStatsGames @param {Array<{ rangeStart: number, rangeEnd: number }>} windowsForChart */
+function getTrendsPoolGames(sortedStatsGames, windowsForChart) {
+  if (trendsWindowSelection.size && windowsForChart?.length) {
+    return windowsForChart
+      .filter((window) => trendsWindowSelection.has(`${window.rangeStart}-${window.rangeEnd}`))
+      .flatMap((window) => sortedStatsGames.slice(window.rangeStart - 1, window.rangeEnd));
+  }
+  return gamesForTrendsFilter(sortedStatsGames);
+}
+
+/** @param {import('./store.js').Game[]} statsGames @param {Array<{ rangeStart: number, rangeEnd: number }>} windowsForChart */
+function getTrendsChartContext(statsGames, windowsForChart) {
   const sorted = [...statsGames].sort(compareGamesChronologically);
   const total = sorted.length;
-  if (!total) return { boundsMin: 1, boundsMax: 1 };
-
-  let poolGames;
-  if (trendsWindowSelection.size && windowsForChart?.length) {
-    poolGames = windowsForChart
-      .filter((window) => trendsWindowSelection.has(`${window.rangeStart}-${window.rangeEnd}`))
-      .flatMap((window) => sorted.slice(window.rangeStart - 1, window.rangeEnd));
-  } else {
-    poolGames = gamesForTrendsFilter(statsGames);
-  }
+  let poolGames = getTrendsPoolGames(sorted, windowsForChart);
+  const filterBounds = getChartDateBounds(poolGames.length ? poolGames : sorted);
 
   if (trendsChartRange.customized) {
-    poolGames = gamesInChartRange(poolGames, chartRange);
+    const dateRange = getEffectiveChartRange(poolGames.length ? poolGames : sorted, trendsChartRange);
+    poolGames = gamesInChartRange(poolGames, dateRange);
   }
 
   const indices = globalGameIndices(sorted, poolGames);
-  if (!indices.length) {
-    return { boundsMin: 1, boundsMax: total };
-  }
+  const boundsMin = indices.length ? Math.min(...indices) : 1;
+  const boundsMax = indices.length ? Math.max(...indices) : Math.max(1, total);
+  const gameRange = normalizeTrendsGameRange(boundsMin, boundsMax);
+  const rangeGames = gamesForTrendsGameRange(sorted, gameRange);
+  const chartGames = rangeGames.length ? rangeGames : poolGames.length ? poolGames : sorted;
+  const chartRange = getEffectiveChartRange(chartGames, trendsChartRange);
 
   return {
-    boundsMin: Math.min(...indices),
-    boundsMax: Math.max(...indices),
+    sorted,
+    poolGames,
+    filterBounds,
+    boundsMin,
+    boundsMax,
+    gameRange,
+    rangeGames,
+    chartRange,
   };
 }
 
@@ -1529,9 +1541,7 @@ function render() {
     bindWinRateLineCharts();
     if (statsTab === "trends") {
       const { statsGames } = getStatsScope();
-      const windowsForChart = getStats().rolling.windows;
-      const chartRange = getEffectiveChartRange(statsGames, trendsChartRange);
-      const { boundsMin, boundsMax } = getTrendsGameRangeBounds(statsGames, windowsForChart, chartRange);
+      const { boundsMin, boundsMax } = getTrendsChartContext(statsGames, getStats().rolling.windows);
       bindTrendsGameRangeControls(boundsMin, boundsMax, ({ min, max }) => {
         trendsGameRange = { min, max, customized: true };
         render();
@@ -1860,7 +1870,6 @@ function renderStats() {
       ${renderChartSection(bracketChart, "clear-brackets-chart")}`;
   } else if (statsTab === "trends") {
     const { statsGames } = getStatsScope();
-    const sortedStatsGames = [...statsGames].sort(compareGamesChronologically);
     const windowsForChart = s.rolling.windows.length
       ? applySort(s.rolling.windows, tableSort["trends-windows"], {
           label: (w) => w.label,
@@ -1869,10 +1878,15 @@ function renderStats() {
           winRate: (w) => w.winRate,
         })
       : [];
-    const chartRange = getEffectiveChartRange(statsGames, trendsChartRange);
-    const { boundsMin, boundsMax } = getTrendsGameRangeBounds(statsGames, windowsForChart, chartRange);
-    const gameRange = normalizeTrendsGameRange(boundsMin, boundsMax);
-    const rangeGames = gamesForTrendsGameRange(sortedStatsGames, gameRange);
+    const {
+      sorted: sortedStatsGames,
+      filterBounds,
+      boundsMin,
+      boundsMax,
+      gameRange,
+      rangeGames,
+      chartRange,
+    } = getTrendsChartContext(statsGames, windowsForChart);
     const rangeWins = rangeGames.filter((g) => g.result === "Win").length;
     const headerWinRate = rangeGames.length ? winRate(rangeWins, rangeGames.length) : null;
     const chartHeader = renderTrendsChartHeader({
@@ -1929,7 +1943,7 @@ function renderStats() {
     }
 
     if (!s.rolling.windows.length) {
-      body = `${renderDateRangeFilters("trends", chartRange.bounds, chartRange, { bracketFilter: true, deckFilter: true })}${trendsSummary}${renderChartSection(chart, "clear-trends-chart")}`;
+      body = `${renderDateRangeFilters("trends", filterBounds, chartRange, { bracketFilter: true, deckFilter: true })}${trendsSummary}${renderChartSection(chart, "clear-trends-chart")}`;
     } else {
       const windows = windowsForChart;
       const cumulative = applySort(s.rolling.cumulative, tableSort["trends-cumulative"], {
@@ -1939,7 +1953,7 @@ function renderStats() {
       });
 
       body = `
-        ${renderDateRangeFilters("trends", chartRange.bounds, chartRange, { bracketFilter: true, deckFilter: true })}
+        ${renderDateRangeFilters("trends", filterBounds, chartRange, { bracketFilter: true, deckFilter: true })}
         ${trendsSummary}
         <h3 class="section-sub">By Year</h3>
         <div class="year-row">
