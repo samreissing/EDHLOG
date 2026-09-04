@@ -28,7 +28,8 @@ function cardImage(card, crop = "normal", faceIndex = 0) {
   if (card.card_faces?.length) {
     const face = card.card_faces[faceIndex] ?? card.card_faces[0];
     uris = face.image_uris;
-  } else {
+  }
+  if (!uris) {
     uris = card.image_uris;
   }
   if (!uris) return null;
@@ -71,6 +72,13 @@ function rememberCard(name, card) {
   metadataCache.set(key, meta);
   if (card.name && card.name !== key) metadataCache.set(card.name, meta);
   return meta;
+}
+
+/** @param {string} name */
+export function getCachedCardMetadata(name) {
+  const key = String(name || "").trim();
+  if (!key) return null;
+  return metadataCache.get(key) ?? null;
 }
 
 /** @param {string} name */
