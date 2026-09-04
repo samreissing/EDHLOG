@@ -1054,16 +1054,53 @@ function resetTrendsGameRange() {
   trendsGameRange = { min: 1, max: null, customized: false };
 }
 
-function normalizeTrendsGameRange(totalGames) {
-  if (totalGames <= 0) return { min: 1, max: 1 };
-  const maxDefault = totalGames;
-  const min = trendsGameRange.customized
-    ? trendsGameRange.min ?? 1
-    : 1;
-  const max = trendsGameRange.customized
-    ? trendsGameRange.max ?? maxDefault
-    : maxDefault;
-  return clampTrendsGameRange(min, max, totalGames);
+function globalGameIndices(sortedGames, poolGames) {
+  if (!poolGames.length) return [];
+  const idSet = new Set(poolGames.map((g) => g.id));
+  const indices = [];
+  sortedGames.forEach((game, index) => {
+    if (idSet.has(game.id)) indices.push(index + 1);
+  });
+  return indices;
+}
+
+/** @param {import('./store.js').Game[]} statsGames @param {Array<{ rangeStart: number, rangeEnd: number }>} windowsForChart @param {{ start: string, end: string }} chartRange */
+function getTrendsGameRangeBounds(statsGames, windowsForChart, chartRange) {
+  const sorted = [...statsGames].sort(compareGamesChronologically);
+  const total = sorted.length;
+  if (!total) return { boundsMin: 1, boundsMax: 1 };
+
+  let poolGames;
+  if (trendsWindowSelection.size && windowsForChart?.length) {
+    poolGames = windowsForChart
+      .filter((window) => trendsWindowSelection.has(`${window.rangeStart}-${window.rangeEnd}`))
+      .flatMap((window) => sorted.slice(window.rangeStart - 1, window.rangeEnd));
+  } else {
+    poolGames = gamesForTrendsFilter(statsGames);
+  }
+
+  if (trendsChartRange.customized) {
+    poolGames = gamesInChartRange(poolGames, chartRange);
+  }
+
+  const indices = globalGameIndices(sorted, poolGames);
+  if (!indices.length) {
+    return { boundsMin: 1, boundsMax: total };
+  }
+
+  return {
+    boundsMin: Math.min(...indices),
+    boundsMax: Math.max(...indices),
+  };
+}
+
+function normalizeTrendsGameRange(boundsMin, boundsMax) {
+  if (boundsMin > boundsMax) {
+    return { min: boundsMax, max: boundsMax };
+  }
+  const min = trendsGameRange.customized ? trendsGameRange.min ?? boundsMin : boundsMin;
+  const max = trendsGameRange.customized ? trendsGameRange.max ?? boundsMax : boundsMax;
+  return clampTrendsGameRange(min, max, boundsMin, boundsMax);
 }
 
 /** @param {import('./store.js').Game[]} games @param {{ min: number, max: number }} range */
@@ -1492,9 +1529,10 @@ function render() {
     bindWinRateLineCharts();
     if (statsTab === "trends") {
       const { statsGames } = getStatsScope();
-      const baseGames = gamesForTrendsFilter(statsGames);
-      const gameRange = normalizeTrendsGameRange(baseGames.length);
-      bindTrendsGameRangeControls(baseGames.length, ({ min, max }) => {
+      const windowsForChart = getStats().rolling.windows;
+      const chartRange = getEffectiveChartRange(statsGames, trendsChartRange);
+      const { boundsMin, boundsMax } = getTrendsGameRangeBounds(statsGames, windowsForChart, chartRange);
+      bindTrendsGameRangeControls(boundsMin, boundsMax, ({ min, max }) => {
         trendsGameRange = { min, max, customized: true };
         render();
       });
@@ -1822,18 +1860,7 @@ function renderStats() {
       ${renderChartSection(bracketChart, "clear-brackets-chart")}`;
   } else if (statsTab === "trends") {
     const { statsGames } = getStatsScope();
-    const baseGames = gamesForTrendsFilter(statsGames);
-    const gameRange = normalizeTrendsGameRange(baseGames.length);
-    const rangeGames = gamesForTrendsGameRange(baseGames, gameRange);
-    const rangeWins = rangeGames.filter((g) => g.result === "Win").length;
-    const headerWinRate = rangeGames.length ? winRate(rangeWins, rangeGames.length) : null;
-    const chartHeader = renderTrendsChartHeader({
-      title: trendsChartTitle(),
-      winRate: headerWinRate,
-      min: gameRange.min,
-      max: gameRange.max,
-      totalGames: baseGames.length,
-    });
+    const sortedStatsGames = [...statsGames].sort(compareGamesChronologically);
     const windowsForChart = s.rolling.windows.length
       ? applySort(s.rolling.windows, tableSort["trends-windows"], {
           label: (w) => w.label,
@@ -1842,10 +1869,20 @@ function renderStats() {
           winRate: (w) => w.winRate,
         })
       : [];
-    const chartRange = getEffectiveChartRange(
-      rangeGames.length ? rangeGames : baseGames,
-      trendsChartRange
-    );
+    const chartRange = getEffectiveChartRange(statsGames, trendsChartRange);
+    const { boundsMin, boundsMax } = getTrendsGameRangeBounds(statsGames, windowsForChart, chartRange);
+    const gameRange = normalizeTrendsGameRange(boundsMin, boundsMax);
+    const rangeGames = gamesForTrendsGameRange(sortedStatsGames, gameRange);
+    const rangeWins = rangeGames.filter((g) => g.result === "Win").length;
+    const headerWinRate = rangeGames.length ? winRate(rangeWins, rangeGames.length) : null;
+    const chartHeader = renderTrendsChartHeader({
+      title: trendsChartTitle(),
+      winRate: headerWinRate,
+      min: gameRange.min,
+      max: gameRange.max,
+      boundsMin,
+      boundsMax,
+    });
     const summaryGames = gamesInChartRange(statsGames, chartRange);
     let streakMode = "current";
     if (trendsFilter.kind !== "all") {

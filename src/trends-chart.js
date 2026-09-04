@@ -217,26 +217,30 @@ function renderBaselineAndGrid(plotH) {
  * @param {string} title
  * @param {{ start: string, end: string }|null} [range]
  */
-/** @param {number} min @param {number} max @param {number} totalGames */
-export function clampTrendsGameRange(min, max, totalGames) {
-  const total = Math.max(1, totalGames || 1);
-  let lo = Math.round(Number(min)) || 1;
-  let hi = Math.round(Number(max)) || total;
-  lo = Math.max(1, Math.min(lo, total));
-  hi = Math.max(1, Math.min(hi, total));
+/** @param {number} min @param {number} max @param {number} boundsMin @param {number} boundsMax */
+export function clampTrendsGameRange(min, max, boundsMin, boundsMax) {
+  const loBound = Math.round(Number(boundsMin)) || 1;
+  const hiBound = Math.round(Number(boundsMax)) || loBound;
+  const minBound = Math.min(loBound, hiBound);
+  const maxBound = Math.max(loBound, hiBound);
+  let lo = Math.round(Number(min)) || minBound;
+  let hi = Math.round(Number(max)) || maxBound;
+  lo = Math.max(minBound, Math.min(lo, maxBound));
+  hi = Math.max(minBound, Math.min(hi, maxBound));
   if (lo > hi) lo = hi;
   if (hi < lo) hi = lo;
   return { min: lo, max: hi };
 }
 
 /**
- * @param {{ title: string, winRate: number | null, min: number, max: number, totalGames: number }} options
+ * @param {{ title: string, winRate: number | null, min: number, max: number, boundsMin: number, boundsMax: number }} options
  */
 export function renderTrendsChartHeader(options) {
-  const { title, winRate, min, max, totalGames } = options;
-  const showRange = totalGames > 1;
-  const startPct = showRange ? ((min - 1) / (totalGames - 1)) * 100 : 0;
-  const endPct = showRange ? ((max - 1) / (totalGames - 1)) * 100 : 100;
+  const { title, winRate, min, max, boundsMin, boundsMax } = options;
+  const span = boundsMax - boundsMin;
+  const showRange = span > 0;
+  const startPct = showRange ? ((min - boundsMin) / span) * 100 : 0;
+  const endPct = showRange ? ((max - boundsMin) / span) * 100 : 100;
 
   return `
     <div class="trends-chart-header">
@@ -248,53 +252,55 @@ export function renderTrendsChartHeader(options) {
         showRange
           ? `<div class="trends-game-range">
         <input type="number" class="trends-game-range-input" id="trends-game-min-input"
-          min="1" max="${totalGames}" value="${min}" aria-label="Minimum game" />
+          min="${boundsMin}" max="${boundsMax}" value="${min}" aria-label="Minimum game" />
         <div class="trends-game-range-track">
           <div class="trends-game-range-fill" style="--range-start:${startPct}%;--range-end:${endPct}%"></div>
           <input type="range" class="trends-game-range-slider" id="trends-game-min-slider"
-            min="1" max="${totalGames}" value="${min}" aria-label="Minimum game slider" />
+            min="${boundsMin}" max="${boundsMax}" value="${min}" aria-label="Minimum game slider" />
           <input type="range" class="trends-game-range-slider" id="trends-game-max-slider"
-            min="1" max="${totalGames}" value="${max}" aria-label="Maximum game slider" />
+            min="${boundsMin}" max="${boundsMax}" value="${max}" aria-label="Maximum game slider" />
         </div>
         <input type="number" class="trends-game-range-input" id="trends-game-max-input"
-          min="1" max="${totalGames}" value="${max}" aria-label="Maximum game" />
+          min="${boundsMin}" max="${boundsMax}" value="${max}" aria-label="Maximum game" />
       </div>`
           : ""
       }
     </div>`;
 }
 
-/** @param {number} min @param {number} max @param {number} totalGames */
-function syncTrendsGameRangeDom(min, max, totalGames) {
+/** @param {number} min @param {number} max @param {number} boundsMin @param {number} boundsMax */
+function syncTrendsGameRangeDom(min, max, boundsMin, boundsMax) {
   const minSlider = document.getElementById("trends-game-min-slider");
   const maxSlider = document.getElementById("trends-game-max-slider");
   const minInput = document.getElementById("trends-game-min-input");
   const maxInput = document.getElementById("trends-game-max-input");
   const fill = document.querySelector(".trends-game-range-fill");
+  const span = boundsMax - boundsMin;
   if (minSlider) minSlider.value = String(min);
   if (maxSlider) maxSlider.value = String(max);
   if (minInput) minInput.value = String(min);
   if (maxInput) maxInput.value = String(max);
-  if (fill && totalGames > 1) {
-    fill.style.setProperty("--range-start", `${((min - 1) / (totalGames - 1)) * 100}%`);
-    fill.style.setProperty("--range-end", `${((max - 1) / (totalGames - 1)) * 100}%`);
+  if (fill && span > 0) {
+    fill.style.setProperty("--range-start", `${((min - boundsMin) / span) * 100}%`);
+    fill.style.setProperty("--range-end", `${((max - boundsMin) / span) * 100}%`);
   }
 }
 
 /**
- * @param {number} totalGames
+ * @param {number} boundsMin
+ * @param {number} boundsMax
  * @param {(range: { min: number, max: number }) => void} onChange
  */
-export function bindTrendsGameRangeControls(totalGames, onChange) {
+export function bindTrendsGameRangeControls(boundsMin, boundsMax, onChange) {
   const minSlider = document.getElementById("trends-game-min-slider");
   const maxSlider = document.getElementById("trends-game-max-slider");
   const minInput = document.getElementById("trends-game-min-input");
   const maxInput = document.getElementById("trends-game-max-input");
-  if (!minSlider || !maxSlider || !minInput || !maxInput || totalGames <= 1) return;
+  if (!minSlider || !maxSlider || !minInput || !maxInput || boundsMax <= boundsMin) return;
 
   const commit = (min, max) => {
-    const clamped = clampTrendsGameRange(min, max, totalGames);
-    syncTrendsGameRangeDom(clamped.min, clamped.max, totalGames);
+    const clamped = clampTrendsGameRange(min, max, boundsMin, boundsMax);
+    syncTrendsGameRangeDom(clamped.min, clamped.max, boundsMin, boundsMax);
     onChange(clamped);
   };
 
@@ -302,13 +308,13 @@ export function bindTrendsGameRangeControls(totalGames, onChange) {
     let min = Number(minSlider.value);
     let max = Number(maxSlider.value);
     if (min > max) max = min;
-    syncTrendsGameRangeDom(min, max, totalGames);
+    syncTrendsGameRangeDom(min, max, boundsMin, boundsMax);
   });
   maxSlider.addEventListener("input", () => {
     let min = Number(minSlider.value);
     let max = Number(maxSlider.value);
     if (max < min) min = max;
-    syncTrendsGameRangeDom(min, max, totalGames);
+    syncTrendsGameRangeDom(min, max, boundsMin, boundsMax);
   });
   minSlider.addEventListener("change", () => {
     commit(Number(minSlider.value), Number(maxSlider.value));
