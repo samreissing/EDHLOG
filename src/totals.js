@@ -95,8 +95,7 @@ export function buildPodDeckRankings(games, decks, options = {}) {
             losses: 0,
             sharedLosses: 0,
             pilots: new Map(),
-            bracketTotal: 0,
-            bracketCount: 0,
+            pilotBrackets: new Map(),
             lastPlayed: null,
           });
 
@@ -106,9 +105,13 @@ export function buildPodDeckRankings(games, decks, options = {}) {
         else if (outcome === "loss") row.losses += 1;
         else row.sharedLosses += 1;
 
-        if (bracket) {
-          row.bracketTotal += bracket;
-          row.bracketCount += 1;
+        if (bracket && seat.player) {
+          const pilotKey = normalizeKey(seat.player);
+          const pilotBracket =
+            row.pilotBrackets.get(pilotKey) ?? { total: 0, count: 0 };
+          pilotBracket.total += bracket;
+          pilotBracket.count += 1;
+          row.pilotBrackets.set(pilotKey, pilotBracket);
         }
 
         if (seat.player) {
@@ -127,9 +130,17 @@ export function buildPodDeckRankings(games, decks, options = {}) {
         .map(([player, count]) => ({ player, games: count }))
         .sort((a, b) => b.games - a.games || a.player.localeCompare(b.player));
 
+      const pilotBracketAvgs = [...row.pilotBrackets.values()]
+        .filter((stats) => stats.count > 0)
+        .map((stats) => stats.total / stats.count);
+
       const avgBracket =
-        row.bracketCount > 0
-          ? Math.round((row.bracketTotal / row.bracketCount) * 10) / 10
+        pilotBracketAvgs.length > 0
+          ? Math.round(
+              (pilotBracketAvgs.reduce((sum, value) => sum + value, 0) /
+                pilotBracketAvgs.length) *
+                10
+            ) / 10
           : owned?.bracket ?? null;
 
       return finalizePodRow({
@@ -142,6 +153,7 @@ export function buildPodDeckRankings(games, decks, options = {}) {
         isOwned: !!owned,
         pilots,
         pilotCount: pilots.length,
+        pilotBrackets: undefined,
       });
     })
   );
