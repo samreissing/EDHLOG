@@ -18,6 +18,7 @@ import {
   colorBadge,
   sortDeckList,
   pct,
+  winRate,
   bracketFilterLabel,
   cycleBracketFilter,
   gameBracket,
@@ -89,9 +90,12 @@ import {
   computeWinRateSeries,
   computeTrendsSummary,
   renderTrendsSummaryStats,
+  renderTrendsChartHeader,
   renderWinRateLineChart,
   renderMultiWinRateLineChart,
   bindWinRateLineCharts,
+  bindTrendsGameRangeControls,
+  clampTrendsGameRange,
 } from "./trends-chart.js";
 import {
   gamesForColorSeries,
@@ -199,6 +203,7 @@ let trendsWindowSelection = newChartSelection();
 /** @type {Map<string, { rangeStart: number, rangeEnd: number, label: string }>} */
 let trendsWindowMeta = new Map();
 let trendsChartRange = { start: null, end: null, customized: false };
+let trendsGameRange = { min: 1, max: null, customized: false };
 let pieAnimKey = 0;
 let colorsPieAnimKey = 0;
 let bracketsPieAnimKey = 0;
@@ -247,6 +252,7 @@ function resetStatsTabState(tab) {
     trendsWindowSelection = newChartSelection();
     trendsWindowMeta = new Map();
     trendsChartRange = { start: null, end: null, customized: false };
+    trendsGameRange = { min: 1, max: null, customized: false };
     tableSort["trends-windows"] = { col: "rangeStart", dir: "asc" };
     tableSort["trends-cumulative"] = { col: "games", dir: "asc" };
   } else if (tab === "seats") {
@@ -672,6 +678,7 @@ function bindEvents() {
       trendsWindowSelection = newChartSelection();
       trendsWindowMeta = new Map();
       resetTrendsChartRange();
+      resetTrendsGameRange();
       trendsFilter = {
         kind: "cumulative",
         rangeEnd: Number(trendsCumulativeBtn.dataset.rangeEnd),
@@ -685,6 +692,7 @@ function bindEvents() {
       trendsWindowSelection = newChartSelection();
       trendsWindowMeta = new Map();
       resetTrendsChartRange();
+      resetTrendsGameRange();
       trendsFilter = { kind: "year", year: trendsYearBtn.dataset.trendsYear };
       render();
       return;
@@ -695,6 +703,7 @@ function bindEvents() {
       trendsWindowSelection = newChartSelection();
       trendsWindowMeta = new Map();
       resetTrendsChartRange();
+      resetTrendsGameRange();
       trendsFilter = { kind: "all" };
       render();
       return;
@@ -1034,6 +1043,28 @@ function subTabs(tabs, active, attr) {
 
 function resetTrendsChartRange() {
   trendsChartRange = { start: null, end: null, customized: false };
+}
+
+function resetTrendsGameRange() {
+  trendsGameRange = { min: 1, max: null, customized: false };
+}
+
+function normalizeTrendsGameRange(totalGames) {
+  if (totalGames <= 0) return { min: 1, max: 1 };
+  const maxDefault = totalGames;
+  const min = trendsGameRange.customized
+    ? trendsGameRange.min ?? 1
+    : 1;
+  const max = trendsGameRange.customized
+    ? trendsGameRange.max ?? maxDefault
+    : maxDefault;
+  return clampTrendsGameRange(min, max, totalGames);
+}
+
+/** @param {import('./store.js').Game[]} games @param {{ min: number, max: number }} range */
+function gamesForTrendsGameRange(games, range) {
+  const sorted = [...games].sort(compareGamesChronologically);
+  return sorted.slice(range.min - 1, range.max);
 }
 
 function getTrendsChartGames(games, windows, windowSelection) {
@@ -1454,6 +1485,15 @@ function render() {
   bindPieCharts();
   if (currentView === "stats" && (statsTab === "trends" || statsTab === "seats" || statsTab === "colors" || statsTab === "brackets")) {
     bindWinRateLineCharts();
+    if (statsTab === "trends") {
+      const { statsGames } = getStatsScope();
+      const baseGames = gamesForTrendsFilter(statsGames);
+      const gameRange = normalizeTrendsGameRange(baseGames.length);
+      bindTrendsGameRangeControls(baseGames.length, ({ min, max }) => {
+        trendsGameRange = { min, max, customized: true };
+        render();
+      });
+    }
   }
   if (currentView === "stats" && statsTab === "matchups" && matchupTab === "decks") {
     bindMatchupDeckTips();
@@ -1777,6 +1817,18 @@ function renderStats() {
       ${renderChartSection(bracketChart, "clear-brackets-chart")}`;
   } else if (statsTab === "trends") {
     const { statsGames } = getStatsScope();
+    const baseGames = gamesForTrendsFilter(statsGames);
+    const gameRange = normalizeTrendsGameRange(baseGames.length);
+    const rangeGames = gamesForTrendsGameRange(baseGames, gameRange);
+    const rangeWins = rangeGames.filter((g) => g.result === "Win").length;
+    const headerWinRate = rangeGames.length ? winRate(rangeWins, rangeGames.length) : null;
+    const chartHeader = renderTrendsChartHeader({
+      title: trendsChartTitle(),
+      winRate: headerWinRate,
+      min: gameRange.min,
+      max: gameRange.max,
+      totalGames: baseGames.length,
+    });
     const windowsForChart = s.rolling.windows.length
       ? applySort(s.rolling.windows, tableSort["trends-windows"], {
           label: (w) => w.label,
@@ -1785,9 +1837,8 @@ function renderStats() {
           winRate: (w) => w.winRate,
         })
       : [];
-    const chartGames = getTrendsChartGames(statsGames, windowsForChart, trendsWindowSelection);
     const chartRange = getEffectiveChartRange(
-      chartGames.length ? chartGames : statsGames,
+      rangeGames.length ? rangeGames : baseGames,
       trendsChartRange
     );
     const summaryGames = gamesInChartRange(statsGames, chartRange);
@@ -1804,27 +1855,34 @@ function renderStats() {
 
     let chart = "";
     if (trendsWindowSelection.size && windowsForChart.length) {
+      const rangeGameIds = new Set(rangeGames.map((g) => g.id));
       chart = renderMultiWinRateLineChart(
         windowsForChart
           .filter((window) => trendsWindowSelection.has(`${window.rangeStart}-${window.rangeEnd}`))
           .map((window) => {
             const id = `${window.rangeStart}-${window.rangeEnd}`;
+            const windowGames = gamesForTrendsWindowSeries(
+              statsGames,
+              window.rangeStart,
+              window.rangeEnd
+            ).filter((g) => rangeGameIds.has(g.id));
             return {
               id,
               label: window.label,
               color: colorForChartSelection(trendsWindowSelection, id, windowsForChart.length),
-              series: computeWinRateSeries(
-                gamesForTrendsWindowSeries(statsGames, window.rangeStart, window.rangeEnd)
-              ),
+              series: computeWinRateSeries(windowGames),
             };
           }),
-        chartRange
+        chartRange,
+        trendsChartTitle(),
+        chartHeader
       );
     } else {
       chart = renderWinRateLineChart(
-        computeWinRateSeries(chartGames),
+        computeWinRateSeries(rangeGames),
         trendsChartTitle(),
-        chartRange
+        chartRange,
+        chartHeader
       );
     }
 

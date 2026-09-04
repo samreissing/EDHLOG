@@ -68,10 +68,12 @@ function dateToX(date, startDate, endDate, plotW) {
   return CHART_PAD.left + fraction * plotW;
 }
 
-function renderChartFrame({ plotW, plotH, baselineY, xLabels, title, body }) {
+function renderChartFrame({ plotW, plotH, baselineY, xLabels, title, headerHtml, body }) {
+  const header =
+    headerHtml || (title ? `<div class="trends-chart-title">${escAttr(title)}</div>` : "");
   return `
     <div class="trends-chart-wrap">
-      ${title ? `<div class="trends-chart-title">${escAttr(title)}</div>` : ""}
+      ${header}
       <svg class="trends-chart" viewBox="0 0 ${CHART_WIDTH} ${CHART_HEIGHT}" role="img" aria-label="Win rate over time">
         ${body}
         ${xLabels}
@@ -215,7 +217,115 @@ function renderBaselineAndGrid(plotH) {
  * @param {string} title
  * @param {{ start: string, end: string }|null} [range]
  */
-export function renderWinRateLineChart(series, title = "", range = null) {
+/** @param {number} min @param {number} max @param {number} totalGames */
+export function clampTrendsGameRange(min, max, totalGames) {
+  const total = Math.max(1, totalGames || 1);
+  let lo = Math.round(Number(min)) || 1;
+  let hi = Math.round(Number(max)) || total;
+  lo = Math.max(1, Math.min(lo, total));
+  hi = Math.max(1, Math.min(hi, total));
+  if (lo > hi) lo = hi;
+  if (hi < lo) hi = lo;
+  return { min: lo, max: hi };
+}
+
+/**
+ * @param {{ title: string, winRate: number | null, min: number, max: number, totalGames: number }} options
+ */
+export function renderTrendsChartHeader(options) {
+  const { title, winRate, min, max, totalGames } = options;
+  const showRange = totalGames > 1;
+  const startPct = showRange ? ((min - 1) / (totalGames - 1)) * 100 : 0;
+  const endPct = showRange ? ((max - 1) / (totalGames - 1)) * 100 : 100;
+
+  return `
+    <div class="trends-chart-header">
+      <div class="trends-chart-header-title">
+        <span class="trends-chart-title">${escAttr(title)}</span>
+        <span class="trends-chart-wr">${winRate != null ? escAttr(pct(winRate)) : "—"}</span>
+      </div>
+      ${
+        showRange
+          ? `<div class="trends-game-range">
+        <input type="number" class="trends-game-range-input" id="trends-game-min-input"
+          min="1" max="${totalGames}" value="${min}" aria-label="Minimum game" />
+        <div class="trends-game-range-track">
+          <div class="trends-game-range-fill" style="--range-start:${startPct}%;--range-end:${endPct}%"></div>
+          <input type="range" class="trends-game-range-slider" id="trends-game-min-slider"
+            min="1" max="${totalGames}" value="${min}" aria-label="Minimum game slider" />
+          <input type="range" class="trends-game-range-slider" id="trends-game-max-slider"
+            min="1" max="${totalGames}" value="${max}" aria-label="Maximum game slider" />
+        </div>
+        <input type="number" class="trends-game-range-input" id="trends-game-max-input"
+          min="1" max="${totalGames}" value="${max}" aria-label="Maximum game" />
+      </div>`
+          : ""
+      }
+    </div>`;
+}
+
+/** @param {number} min @param {number} max @param {number} totalGames */
+function syncTrendsGameRangeDom(min, max, totalGames) {
+  const minSlider = document.getElementById("trends-game-min-slider");
+  const maxSlider = document.getElementById("trends-game-max-slider");
+  const minInput = document.getElementById("trends-game-min-input");
+  const maxInput = document.getElementById("trends-game-max-input");
+  const fill = document.querySelector(".trends-game-range-fill");
+  if (minSlider) minSlider.value = String(min);
+  if (maxSlider) maxSlider.value = String(max);
+  if (minInput) minInput.value = String(min);
+  if (maxInput) maxInput.value = String(max);
+  if (fill && totalGames > 1) {
+    fill.style.setProperty("--range-start", `${((min - 1) / (totalGames - 1)) * 100}%`);
+    fill.style.setProperty("--range-end", `${((max - 1) / (totalGames - 1)) * 100}%`);
+  }
+}
+
+/**
+ * @param {number} totalGames
+ * @param {(range: { min: number, max: number }) => void} onChange
+ */
+export function bindTrendsGameRangeControls(totalGames, onChange) {
+  const minSlider = document.getElementById("trends-game-min-slider");
+  const maxSlider = document.getElementById("trends-game-max-slider");
+  const minInput = document.getElementById("trends-game-min-input");
+  const maxInput = document.getElementById("trends-game-max-input");
+  if (!minSlider || !maxSlider || !minInput || !maxInput || totalGames <= 1) return;
+
+  const commit = (min, max) => {
+    const clamped = clampTrendsGameRange(min, max, totalGames);
+    syncTrendsGameRangeDom(clamped.min, clamped.max, totalGames);
+    onChange(clamped);
+  };
+
+  minSlider.addEventListener("input", () => {
+    let min = Number(minSlider.value);
+    let max = Number(maxSlider.value);
+    if (min > max) max = min;
+    syncTrendsGameRangeDom(min, max, totalGames);
+  });
+  maxSlider.addEventListener("input", () => {
+    let min = Number(minSlider.value);
+    let max = Number(maxSlider.value);
+    if (max < min) min = max;
+    syncTrendsGameRangeDom(min, max, totalGames);
+  });
+  minSlider.addEventListener("change", () => {
+    commit(Number(minSlider.value), Number(maxSlider.value));
+  });
+  maxSlider.addEventListener("change", () => {
+    commit(Number(minSlider.value), Number(maxSlider.value));
+  });
+
+  minInput.addEventListener("change", () => {
+    commit(Number(minInput.value), Number(maxInput.value));
+  });
+  maxInput.addEventListener("change", () => {
+    commit(Number(minInput.value), Number(maxInput.value));
+  });
+}
+
+export function renderWinRateLineChart(series, title = "", range = null, headerHtml = null) {
   const plotW = CHART_WIDTH - CHART_PAD.left - CHART_PAD.right;
   const plotH = CHART_HEIGHT - CHART_PAD.top - CHART_PAD.bottom;
   const { baselineY, markup: gridMarkup } = renderBaselineAndGrid(plotH);
@@ -228,6 +338,7 @@ export function renderWinRateLineChart(series, title = "", range = null) {
       baselineY,
       xLabels,
       title,
+      headerHtml,
       body: gridMarkup,
     });
   }
@@ -243,6 +354,7 @@ export function renderWinRateLineChart(series, title = "", range = null) {
     baselineY,
     xLabels: range ? renderFixedRangeXLabels(range) : renderXLabels(points, series),
     title,
+    headerHtml,
     body: `
       ${gridMarkup}
       <path class="trends-line" d="${rendered.linePath}" />
@@ -255,7 +367,7 @@ export function renderWinRateLineChart(series, title = "", range = null) {
  * @param {{ start: string, end: string }} range
  * @param {string} title
  */
-export function renderMultiWinRateLineChart(seriesList, range, title = "") {
+export function renderMultiWinRateLineChart(seriesList, range, title = "", headerHtml = null) {
   const plotW = CHART_WIDTH - CHART_PAD.left - CHART_PAD.right;
   const plotH = CHART_HEIGHT - CHART_PAD.top - CHART_PAD.bottom;
   const { baselineY, markup: gridMarkup } = renderBaselineAndGrid(plotH);
@@ -295,6 +407,7 @@ export function renderMultiWinRateLineChart(seriesList, range, title = "") {
       baselineY,
       xLabels: renderFixedRangeXLabels(range),
       title,
+      headerHtml,
       body: `
         ${gridMarkup}
         ${renderedSeries
@@ -306,8 +419,6 @@ export function renderMultiWinRateLineChart(seriesList, range, title = "") {
           .join("")}`,
     })}`;
 }
-
-const RECENT_FORM_GAMES = 20;
 
 function formatMonthLabel(monthKey) {
   const [year, month] = monthKey.split("-");
@@ -401,22 +512,10 @@ export function computeTrendsSummary(games) {
     currentStreak = { type: lastResult, length };
   }
 
-  const recentSlice = sorted.slice(-RECENT_FORM_GAMES);
-  const recentWins = recentSlice.filter((game) => game.result === "Win").length;
-  const recentForm = recentSlice.length
-    ? {
-        games: recentSlice.length,
-        wins: recentWins,
-        losses: recentSlice.length - recentWins,
-        winRate: winRate(recentWins, recentSlice.length),
-      }
-    : null;
-
   return {
     longestWinStreak,
     longestLossStreak,
     currentStreak,
-    recentForm,
     mostActiveMonth: computeMostActiveMonth(sorted),
     longestBreak: computeLongestBreak(sorted),
   };
@@ -443,9 +542,6 @@ export function renderTrendsSummaryStats(summary, options = {}) {
       : summary.currentStreak.type === "loss"
         ? " trends-streak-loss"
         : "";
-  const recentDetail = summary.recentForm
-    ? `${summary.recentForm.wins}W · ${summary.recentForm.losses}L · last ${summary.recentForm.games}`
-    : "";
   const activeMonthDetail = summary.mostActiveMonth ? `${summary.mostActiveMonth.games} games` : "";
   const longestBreakDetail = summary.longestBreak
     ? `${formatDate(summary.longestBreak.from)} – ${formatDate(summary.longestBreak.to)}`
@@ -473,11 +569,6 @@ export function renderTrendsSummaryStats(summary, options = {}) {
         <div class="stat-card">
           <span class="stat-label">Longest Losing Streak</span>
           <span class="stat-value trends-streak-loss">${formatStreakCount(summary.longestLossStreak)}</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-label">Recent Form</span>
-          <span class="stat-value">${summary.recentForm ? pct(summary.recentForm.winRate) : "—"}</span>
-          ${recentDetail ? `<span class="stat-sub">${escAttr(recentDetail)}</span>` : ""}
         </div>
         <div class="stat-card">
           <span class="stat-label">Most Active Month</span>
