@@ -205,10 +205,10 @@ export function matchupImpactClass(value) {
  * Matchups from Brass's perspective only: me vs players, or my deck vs opponent decks.
  * @param {import('./store.js').Game[]} games
  * @param {'players' | 'decks'} tabId
- * @param {{ splitPartners?: boolean, splitPlayers?: boolean }} [options]
+ * @param {{ splitPartners?: boolean, splitPlayers?: boolean, combineDecks?: boolean }} [options]
  */
 export function buildMyMatchupRows(games, tabId, options = {}) {
-  const { splitPartners = false, splitPlayers = false, decks = [] } = options;
+  const { splitPartners = false, splitPlayers = false, combineDecks = false, decks = [] } = options;
   const rows = new Map();
 
   for (const game of games) {
@@ -226,13 +226,13 @@ export function buildMyMatchupRows(games, tabId, options = {}) {
         const { subjectKey, subjectLabel, opponentKey, opponentLabel, opponentPlayer } = pair;
         if (subjectKey === opponentKey) continue;
 
-        const mapKey = `${subjectKey}__${opponentKey}`;
+        const mapKey = combineDecks && tabId === "decks" ? opponentKey : `${subjectKey}__${opponentKey}`;
         const row =
           rows.get(mapKey) ??
           ({
-            subjectKey,
+            subjectKey: combineDecks && tabId === "decks" ? "" : subjectKey,
             opponentKey,
-            subject: subjectLabel,
+            subject: combineDecks && tabId === "decks" ? "" : subjectLabel,
             opponent: opponentLabel,
             opponentPlayer,
             games: 0,
@@ -276,7 +276,7 @@ export function buildMyMatchupRows(games, tabId, options = {}) {
       if (b.matchupImpact !== a.matchupImpact) {
         return b.matchupImpact - a.matchupImpact;
       }
-      if (tabId === "decks" && a.subject !== b.subject) {
+      if (tabId === "decks" && !combineDecks && a.subject !== b.subject) {
         return a.subject.localeCompare(b.subject, undefined, { numeric: true });
       }
       return a.opponent.localeCompare(b.opponent, undefined, { numeric: true });
@@ -391,14 +391,20 @@ export function buildColorMatchupRows(games, options) {
   });
 }
 
-/** @param {import('./store.js').Game[]} games @param {{ splitPartners?: boolean, splitPlayers?: boolean, colorOptions?: object }} [options] */
+/** @param {import('./store.js').Game[]} games @param {{ splitPartners?: boolean, splitPlayers?: boolean, combineDecks?: boolean, colorOptions?: object }} [options] */
 export function computeAllMatchups(games, options = {}) {
   const splitPartners = options.splitPartners ?? false;
   const splitPlayers = options.splitPlayers ?? false;
+  const combineDecks = options.combineDecks ?? false;
   const decks = options.colorOptions?.decks ?? [];
   return {
     players: buildMyMatchupRows(games, "players", { splitPartners, decks }),
-    decks: buildMyMatchupRows(games, "decks", { splitPartners, splitPlayers, decks }),
+    decks: buildMyMatchupRows(games, "decks", {
+      splitPartners,
+      splitPlayers,
+      combineDecks,
+      decks,
+    }),
     colors: options.colorOptions
       ? buildColorMatchupRows(games, { ...options.colorOptions, splitPartners })
       : [],
