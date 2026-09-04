@@ -1,6 +1,6 @@
 import { fetchCardMetadata, getCachedCardMetadata } from "./scryfall.js";
 
-const CACHE_KEY = "edhlog:commander-matchup-keys:v3";
+const CACHE_KEY = "edhlog:commander-matchup-keys:v4";
 const DFC_LAYOUTS = new Set([
   "transform",
   "modal_dfc",
@@ -45,11 +45,25 @@ function cacheKey(name) {
     .toLowerCase();
 }
 
+function commanderBaseName(name) {
+  return String(name || "")
+    .split(",")[0]
+    .trim()
+    .toLowerCase();
+}
+
 function sameCardNameHeuristic(parts) {
   if (parts.length !== 2) return false;
   const leftBase = parts[0].split(",")[0].trim().toLowerCase();
   const rightBase = parts[1].split(",")[0].trim().toLowerCase();
   return leftBase.length > 0 && leftBase === rightBase;
+}
+
+/** Two different cards joined with // (not a DFC or single-front print). */
+function looksLikePartnerPair(parts) {
+  if (parts.length !== 2) return false;
+  if (sameCardNameHeuristic(parts)) return false;
+  return commanderBaseName(parts[0]) !== commanderBaseName(parts[1]);
 }
 
 function isDoubleFacedMetadata(meta, parts) {
@@ -160,6 +174,10 @@ export function commanderImageSlots(name) {
     ];
   }
   if (info.kind === "partner") {
+    if (isPartnerPartName(name)) {
+      const part = info.parts.find((part) => cacheKey(part) === cacheKey(name));
+      return [{ name: part || name, face: 0 }];
+    }
     return info.parts.map((part) => ({ name: part, face: 0 }));
   }
   return [{ name: info.canonicalName, face: 0 }];
@@ -234,6 +252,24 @@ async function resolveCommanderInfo(fullName) {
     return info;
   }
 
+  if (looksLikePartnerPair(parts)) {
+    let meta = await fetchCardMetadata(parts[0]);
+    if (isDoubleFacedMetadata(meta, parts)) {
+      const info = dfcInfo(trimmed);
+      storeCommanderInfo(trimmed, info);
+      return info;
+    }
+    meta = await fetchCardMetadata(parts[1]);
+    if (isDoubleFacedMetadata(meta, parts)) {
+      const info = dfcInfo(trimmed);
+      storeCommanderInfo(trimmed, info);
+      return info;
+    }
+    const info = partnerInfo(parts);
+    storeCommanderInfo(trimmed, info);
+    return info;
+  }
+
   let meta = await fetchCardMetadata(trimmed);
   if (isSingleFrontMetadata(meta)) {
     const info = singleFrontInfo(trimmed, parts);
@@ -241,13 +277,6 @@ async function resolveCommanderInfo(fullName) {
     return info;
   }
 
-  if (isDoubleFacedMetadata(meta, parts)) {
-    const info = dfcInfo(trimmed);
-    storeCommanderInfo(trimmed, info);
-    return info;
-  }
-
-  meta = await fetchCardMetadata(parts[0]);
   if (isDoubleFacedMetadata(meta, parts)) {
     const info = dfcInfo(trimmed);
     storeCommanderInfo(trimmed, info);
