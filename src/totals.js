@@ -1,6 +1,6 @@
 import { parseGameSeats } from "./matchups.js";
 import { MY_PLAYER_NAME } from "./opponent-search.js";
-import { getCommanderInfo, getCommanderMatchupIdentities, commanderBaseName, sameCommanderIdentity } from "./commander-names.js";
+import { getCommanderInfo, getCommanderMatchupIdentities } from "./commander-names.js";
 import { resolveCommanderColors } from "./commander-colors.js";
 import { deckKey, deckCommander, findDeck, deckMapByKey } from "./deck-identity.js";
 import { winRate, normalizedWinRate, filterGamesByBracket, gameBracket } from "./stats.js";
@@ -29,34 +29,18 @@ function isMyPlayer(seat) {
 
 /** @param {import('./store.js').Deck[]} decks @param {string} commander */
 function findOwnedDeck(commander, decks) {
+  const target = getCommanderInfo(commander).canonicalName;
   for (const deck of decks) {
-    if (sameCommanderIdentity(commander, deckCommander(deck))) return deck;
+    if (getCommanderInfo(deckCommander(deck)).canonicalName === target) {
+      return deck;
+    }
     for (const entry of deck.history || []) {
-      if (sameCommanderIdentity(commander, entry.commander)) return deck;
+      if (getCommanderInfo(entry.commander).canonicalName === target) {
+        return deck;
+      }
     }
   }
   return null;
-}
-
-/** Stable totals row key — merges short names with owned-deck full names. */
-function commanderTotalsKey(commander, decks) {
-  const trimmed = String(commander || "").trim();
-  if (!trimmed) return "";
-  const owned = findOwnedDeck(trimmed, decks);
-  const info = getCommanderInfo(owned ? deckCommander(owned) : trimmed);
-  if (info.kind === "partner") {
-    return normalizeKey(info.canonicalName);
-  }
-  return commanderBaseName(info.canonicalName);
-}
-
-/** Bracket for a seat appearance — my seat uses my deck; opponents use pod bracket. */
-function seatBracket(game, seat, deckMap) {
-  if (isMyPlayer(seat) && seat.deckSlotId) {
-    const myDeck = deckMap.get(seat.deckSlotId);
-    return game.bracket ?? myDeck?.bracket ?? 4;
-  }
-  return gameBracket(game, deckMap);
 }
 
 /** @param {import('./matchups.js').GameSeat} seat @param {import('./matchups.js').GameSeat[]} seats */
@@ -94,15 +78,13 @@ export function buildPodDeckRankings(games, decks, options = {}) {
 
   for (const game of games) {
     const seats = parseGameSeats(game, decks);
+    const bracket = gameBracket(game, deckMap);
     for (const seat of seats) {
       if (excludeMyPlayer && isMyPlayer(seat)) continue;
       if (!seat.commander) continue;
 
-      const bracket = seatBracket(game, seat, deckMap);
-
       for (const commander of getCommanderMatchupIdentities(seat.commander, { splitPartners })) {
-        const key = commanderTotalsKey(commander, decks);
-        if (!key) continue;
+        const key = normalizeKey(commander);
         const row =
           rows.get(key) ??
           ({
@@ -123,8 +105,8 @@ export function buildPodDeckRankings(games, decks, options = {}) {
         else if (outcome === "loss") row.losses += 1;
         else row.sharedLosses += 1;
 
-        if (bracket) {
-          const pilotKey = normalizeKey(seat.player || "");
+        if (bracket && seat.player) {
+          const pilotKey = normalizeKey(seat.player);
           const pilotBracket =
             row.pilotBrackets.get(pilotKey) ?? { total: 0, count: 0 };
           pilotBracket.total += bracket;
@@ -159,14 +141,11 @@ export function buildPodDeckRankings(games, decks, options = {}) {
                 pilotBracketAvgs.length) *
                 10
             ) / 10
-          : null;
-
-      const displayName = owned ? deckCommander(owned) : row.name;
+          : owned?.bracket ?? null;
 
       return finalizePodRow({
         ...row,
-        name: displayName,
-        colors: resolveCommanderColors(displayName, {
+        colors: resolveCommanderColors(row.name, {
           splitPartners,
           ownedDeck: owned,
         }),

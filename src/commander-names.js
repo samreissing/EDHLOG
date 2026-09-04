@@ -43,34 +43,6 @@ function cacheKey(name) {
     .toLowerCase();
 }
 
-/** First segment before comma, lowercased — matches common short commander names. */
-export function commanderBaseName(name) {
-  return String(name || "")
-    .split(",")[0]
-    .trim()
-    .toLowerCase();
-}
-
-/**
- * True when two labels refer to the same single commander card, including
- * short names like "Tatyova" vs "Tatyova, Benalish Hero".
- */
-export function sameCommanderIdentity(a, b) {
-  const left = String(a || "").trim();
-  const right = String(b || "").trim();
-  if (!left || !right) return false;
-  if (cacheKey(left) === cacheKey(right)) return true;
-  if (commanderMatchesTarget(left, right)) return true;
-
-  const baseA = commanderBaseName(left);
-  const baseB = commanderBaseName(right);
-  if (!baseA || baseA !== baseB) return false;
-
-  const shortA = cacheKey(left) === baseA;
-  const shortB = cacheKey(right) === baseB;
-  return shortA || shortB;
-}
-
 function sameCardNameHeuristic(parts) {
   if (parts.length !== 2) return false;
   const leftBase = parts[0].split(",")[0].trim().toLowerCase();
