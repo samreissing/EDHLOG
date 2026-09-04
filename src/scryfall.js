@@ -1,4 +1,5 @@
 import { canonicalizeColors } from "./color-identity.js";
+import { commanderImageSlots } from "./commander-names.js";
 
 const imageCache = new Map();
 const metadataCache = new Map();
@@ -16,21 +17,29 @@ async function throttle() {
   lastRequestAt = Date.now();
 }
 
+/** @deprecated Prefer commanderImageSlots from commander-names.js */
 export function commanderNames(deckName) {
-  return deckName.split(/\s*\/\/\s*/).map((s) => s.trim()).filter(Boolean);
+  return commanderImageSlots(deckName).map((slot) => slot.name);
 }
 
-function cardImage(card, crop = "normal") {
+function cardImage(card, crop = "normal", faceIndex = 0) {
   if (!card) return null;
-  const uris = card.image_uris || card.card_faces?.[0]?.image_uris;
+  let uris;
+  if (card.card_faces?.length) {
+    const face = card.card_faces[faceIndex] ?? card.card_faces[0];
+    uris = face.image_uris;
+  } else {
+    uris = card.image_uris;
+  }
   if (!uris) return null;
   if (crop === "art") return uris.art_crop || uris.normal || null;
   return uris.normal || uris.art_crop || null;
 }
 
-function imageCacheKey(name, crop = "normal") {
+function imageCacheKey(name, crop = "normal", faceIndex = 0) {
   const key = String(name || "").trim();
-  return crop === "art" ? `${key}:art` : key;
+  const faceSuffix = faceIndex ? `:face${faceIndex}` : "";
+  return crop === "art" ? `${key}:art${faceSuffix}` : `${key}${faceSuffix}`;
 }
 
 /** @param {string} name @param {object} card */
@@ -38,15 +47,20 @@ function rememberCard(name, card) {
   const key = String(name || "").trim();
   if (!key || !card) return null;
 
-  const image = cardImage(card, "normal");
-  const art = cardImage(card, "art");
-  if (image) {
-    imageCache.set(imageCacheKey(key, "normal"), image);
-    if (card.name && card.name !== key) imageCache.set(imageCacheKey(card.name, "normal"), image);
-  }
-  if (art) {
-    imageCache.set(imageCacheKey(key, "art"), art);
-    if (card.name && card.name !== key) imageCache.set(imageCacheKey(card.name, "art"), art);
+  const faceCount = card.card_faces?.length || 1;
+  for (let faceIndex = 0; faceIndex < faceCount; faceIndex++) {
+    const image = cardImage(card, "normal", faceIndex);
+    const art = cardImage(card, "art", faceIndex);
+    const faceName = card.card_faces?.[faceIndex]?.name || card.name || key;
+
+    if (image) {
+      imageCache.set(imageCacheKey(key, "normal", faceIndex), image);
+      if (faceName !== key) imageCache.set(imageCacheKey(faceName, "normal", faceIndex), image);
+    }
+    if (art) {
+      imageCache.set(imageCacheKey(key, "art", faceIndex), art);
+      if (faceName !== key) imageCache.set(imageCacheKey(faceName, "art", faceIndex), art);
+    }
   }
 
   const meta = {
@@ -78,13 +92,10 @@ export async function fetchCardMetadata(name) {
   return rememberCard(key, card);
 }
 
-/** @param {string} name @param {"normal" | "art"} [crop] */
-export async function fetchCardByName(name, crop = "normal") {
-  const cacheKey = imageCacheKey(name, crop);
+/** @param {string} name @param {"normal" | "art"} [crop] @param {number} [faceIndex] */
+export async function fetchCardByName(name, crop = "normal", faceIndex = 0) {
+  const cacheKey = imageCacheKey(name, crop, faceIndex);
   if (imageCache.has(cacheKey)) return imageCache.get(cacheKey);
-
-  const cachedMeta = metadataCache.get(name);
-  if (cachedMeta && imageCache.has(cacheKey)) return imageCache.get(cacheKey);
 
   await throttle();
   const res = await fetch(
@@ -98,6 +109,22 @@ export async function fetchCardByName(name, crop = "normal") {
   const card = await res.json();
   rememberCard(name, card);
   return imageCache.get(cacheKey) ?? null;
+}
+
+/**
+ * @param {string} name
+ * @param {{ className?: string, art?: boolean, escapeHtml: (value: string) => string }} options
+ */
+export function renderCommanderImageTags(name, options) {
+  const { className = "commander-img loading", art = false, escapeHtml } = options;
+  return commanderImageSlots(name)
+    .map((slot) => {
+      const artAttr = art ? ' data-card-image="art"' : "";
+      const faceAttr = slot.face ? ` data-card-face="${slot.face}"` : "";
+      const label = slot.name;
+      return `<img class="${className}" data-card-name="${escapeHtml(label)}"${faceAttr}${artAttr} alt="${escapeHtml(label)}" title="${escapeHtml(label)}" />`;
+    })
+    .join("");
 }
 
 /** @param {string[]} names @param {"normal" | "art"} [crop] */
@@ -157,25 +184,35 @@ export async function loadImagesIntoRoot(root) {
   if (!root) return;
 
   const imgs = root.querySelectorAll("img[data-card-name]");
-  const normalNames = new Set();
-  const artNames = new Set();
+  /** @type {Map<string, { crop: "normal" | "art", face: number }[]>} */
+  const requests = new Map();
 
   for (const img of imgs) {
     const name = img.dataset.cardName;
     if (!name) continue;
-    if (img.dataset.cardImage === "art") artNames.add(name);
-    else normalNames.add(name);
+    const crop = img.dataset.cardImage === "art" ? "art" : "normal";
+    const face = Number(img.dataset.cardFace) || 0;
+    const list = requests.get(name) ?? [];
+    if (!list.some((entry) => entry.crop === crop && entry.face === face)) {
+      list.push({ crop, face });
+    }
+    requests.set(name, list);
   }
 
-  const [normalImages, artImages] = await Promise.all([
-    normalNames.size ? fetchCardImages([...normalNames], "normal") : Promise.resolve(new Map()),
-    artNames.size ? fetchCardImages([...artNames], "art") : Promise.resolve(new Map()),
-  ]);
+  const imageMaps = new Map();
+  for (const [name, entries] of requests) {
+    for (const { crop, face } of entries) {
+      const cacheKey = imageCacheKey(name, crop, face);
+      if (imageCache.has(cacheKey)) continue;
+      await fetchCardByName(name, crop, face);
+    }
+  }
 
   for (const img of imgs) {
     const name = img.dataset.cardName;
-    const images = img.dataset.cardImage === "art" ? artImages : normalImages;
-    const url = images.get(name);
+    const crop = img.dataset.cardImage === "art" ? "art" : "normal";
+    const face = Number(img.dataset.cardFace) || 0;
+    const url = imageCache.get(imageCacheKey(name, crop, face));
     if (url) {
       img.src = url;
       img.classList.remove("loading");

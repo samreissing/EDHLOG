@@ -1,7 +1,7 @@
 import { pctCell } from "./wr-color.js";
 import { colorBadge } from "./stats.js";
 import { formatDate } from "./dates.js";
-import { commanderNames } from "./scryfall.js";
+import { renderCommanderImageTags } from "./scryfall.js";
 import { deckKey, deckTitle, deckLabel } from "./deck-identity.js";
 
 function escapeHtml(str) {
@@ -38,7 +38,7 @@ function cardRow(card) {
 /** @param {import('./store.js').Deck} deck @param {object} stats @param {{ backLabel?: string }} [options] */
 export function renderDeckDetail(deck, stats, options = {}) {
   const backLabel = options.backLabel ?? "← Back to decks";
-  const commanders = commanderNames(deckLabel(deck));
+  const commanderImgs = renderCommanderImageTags(deckLabel(deck), { escapeHtml });
   const cards = deck.cards || [];
   const grouped = new Map();
 
@@ -61,13 +61,6 @@ export function renderDeckDetail(deck, stats, options = {}) {
           <div class="deck-card-list">${rows}</div>
         </div>`;
     })
-    .join("");
-
-  const commanderImgs = commanders
-    .map(
-      (name) =>
-        `<img class="commander-img loading" data-card-name="${escapeHtml(name)}" alt="${escapeHtml(name)}" title="${escapeHtml(name)}" />`
-    )
     .join("");
 
   return `

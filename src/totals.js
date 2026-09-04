@@ -2,8 +2,8 @@ import { parseGameSeats } from "./matchups.js";
 import { MY_PLAYER_NAME } from "./opponent-search.js";
 import { getCommanderInfo, getCommanderMatchupIdentities } from "./commander-names.js";
 import { resolveCommanderColors } from "./commander-colors.js";
-import { deckKey, deckCommander, findDeck } from "./deck-identity.js";
-import { winRate, normalizedWinRate, filterGamesByBracket } from "./stats.js";
+import { deckKey, deckCommander, findDeck, deckMapByKey } from "./deck-identity.js";
+import { winRate, normalizedWinRate, filterGamesByBracket, gameBracket } from "./stats.js";
 import {
   colorKeysForIdentity,
   rowColorsFromKey,
@@ -73,10 +73,12 @@ function sortRankings(rows) {
  */
 export function buildPodDeckRankings(games, decks, options = {}) {
   const { splitPartners = false, excludeMyPlayer = false } = options;
+  const deckMap = deckMapByKey(decks);
   const rows = new Map();
 
   for (const game of games) {
     const seats = parseGameSeats(game, decks);
+    const bracket = gameBracket(game, deckMap);
     for (const seat of seats) {
       if (excludeMyPlayer && isMyPlayer(seat)) continue;
       if (!seat.commander) continue;
@@ -93,6 +95,8 @@ export function buildPodDeckRankings(games, decks, options = {}) {
             losses: 0,
             sharedLosses: 0,
             pilots: new Map(),
+            bracketTotal: 0,
+            bracketCount: 0,
             lastPlayed: null,
           });
 
@@ -101,6 +105,11 @@ export function buildPodDeckRankings(games, decks, options = {}) {
         if (outcome === "win") row.wins += 1;
         else if (outcome === "loss") row.losses += 1;
         else row.sharedLosses += 1;
+
+        if (bracket) {
+          row.bracketTotal += bracket;
+          row.bracketCount += 1;
+        }
 
         if (seat.player) {
           row.pilots.set(seat.player, (row.pilots.get(seat.player) || 0) + 1);
@@ -118,13 +127,18 @@ export function buildPodDeckRankings(games, decks, options = {}) {
         .map(([player, count]) => ({ player, games: count }))
         .sort((a, b) => b.games - a.games || a.player.localeCompare(b.player));
 
+      const avgBracket =
+        row.bracketCount > 0
+          ? Math.round((row.bracketTotal / row.bracketCount) * 10) / 10
+          : owned?.bracket ?? null;
+
       return finalizePodRow({
         ...row,
         colors: resolveCommanderColors(row.name, {
           splitPartners,
           ownedDeck: owned,
         }),
-        bracket: owned?.bracket,
+        bracket: avgBracket,
         isOwned: !!owned,
         pilots,
         pilotCount: pilots.length,

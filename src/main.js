@@ -836,8 +836,10 @@ function bindEvents() {
       return;
     }
 
-    if (e.target.id === "close-game-detail") {
-      viewingGameId = null;
+    if (e.target.closest(".game-detail-step")) {
+      const btn = e.target.closest(".game-detail-step");
+      if (btn.disabled || !btn.dataset.id) return;
+      viewingGameId = btn.dataset.id;
       render();
       return;
     }
@@ -2348,9 +2350,6 @@ function renderGames() {
       <div class="modal-content modal-content-wide">
         <h3>Game Details</h3>
         ${viewing ? renderGameDetail(viewing) : ""}
-        <div class="form-actions">
-          <button type="button" class="btn btn-ghost" id="close-game-detail">Close</button>
-        </div>
       </div>
     </div>`;
 }
@@ -2419,11 +2418,60 @@ function seatOutcomeClass(game, seat) {
   return seat === winnerSeat ? "pod-seat-win" : "pod-seat-loss";
 }
 
+function getFilteredSortedGames() {
+  let games = [...data.games];
+  games = applySort(games, tableSort["game-log"], {
+    date: (g) => gameSortKey(g),
+    deck: (g) => g.deck,
+    bracket: (g) => gameBracket(g, deckMapByKey(data.decks)),
+    mySeat: (g) => g.mySeat || 0,
+    turn: (g) => (Number(g.turn) > 0 ? Number(g.turn) : null),
+    result: (g) => (g.result === "Win" ? 1 : 0),
+  });
+  const { deck, result, year } = logFilters;
+  return games.filter((game) => {
+    if (deck && game.deck !== deck) return false;
+    if (result && game.result !== result) return false;
+    if (year && gameYear(game.date) !== year) return false;
+    return true;
+  });
+}
+
+function gameDetailNeighbors(gameId) {
+  const games = getFilteredSortedGames();
+  const index = games.findIndex((game) => game.id === gameId);
+  return {
+    prev: index > 0 ? games[index - 1].id : null,
+    next: index >= 0 && index < games.length - 1 ? games[index + 1].id : null,
+    index,
+    total: games.length,
+  };
+}
+
+function renderGameDetailNav(gameId) {
+  const { prev, next, index, total } = gameDetailNeighbors(gameId);
+  const position = index >= 0 ? `${index + 1} / ${total}` : "";
+  return `
+    <div class="game-detail-nav">
+      <button type="button" class="btn btn-ghost game-detail-step" id="game-detail-prev" ${prev ? `data-id="${escapeHtml(prev)}"` : "disabled"} aria-label="Previous game">←</button>
+      <span class="game-detail-position">${position}</span>
+      <button type="button" class="btn btn-ghost game-detail-step" id="game-detail-next" ${next ? `data-id="${escapeHtml(next)}"` : "disabled"} aria-label="Next game">→</button>
+    </div>`;
+}
+
 function renderGameDetail(game) {
+  const bracket = gameBracket(game, deckMapByKey(data.decks));
+  const turn = Number(game.turn) > 0 ? String(game.turn) : "—";
   return `
     <div class="game-form game-form-readonly game-detail-view">
-      <label>Date${fieldValue(formatDate(game.date))}</label>
-      <label>Time${fieldValue(game.time)}</label>
+      <div class="game-form-row game-form-row-split">
+        <label>Date${fieldValue(formatDate(game.date))}</label>
+        <label>Time${fieldValue(game.time)}</label>
+      </div>
+      <div class="game-form-row game-form-row-split">
+        <label>Bracket${fieldValue(bracket)}</label>
+        <label>Turn Ended${fieldValue(turn)}</label>
+      </div>
       <fieldset class="pod-fieldset">
         <legend>Pod</legend>
         ${[1, 2, 3, 4]
@@ -2436,6 +2484,7 @@ function renderGameDetail(game) {
           )
           .join("")}
       </fieldset>
+      ${renderGameDetailNav(game.id)}
     </div>`;
 }
 
@@ -2481,24 +2530,28 @@ function renderLogForm() {
   return `
     <form id="add-game-form" class="game-form">
       ${editing ? `<input type="hidden" name="gameId" value="${escapeHtml(editing.id)}" />` : ""}
-      <label>Date<input type="date" name="date" value="${dateVal}" required /></label>
-      <label>Time<input type="time" name="time" value="${escapeHtml(timeVal)}" /></label>
+      <div class="game-form-row game-form-row-split">
+        <label>Date<input type="date" name="date" value="${dateVal}" required /></label>
+        <label>Time<input type="time" name="time" value="${escapeHtml(timeVal)}" /></label>
+      </div>
+      <div class="game-form-row game-form-row-split">
+        <label>Bracket<select name="bracket"><option value="" ${!bracketVal ? "selected" : ""}>—</option>${[
+          1, 2, 3, 4, 5,
+        ]
+          .map(
+            (b) =>
+              `<option value="${b}" ${String(bracketVal) === String(b) ? "selected" : ""}>${b}</option>`
+          )
+          .join("")}</select></label>
+        <label>Turn ended<input type="number" name="turn" min="1" placeholder="Optional" value="${editing?.turn ?? ""}" /></label>
+      </div>
       <label>My deck<select name="deck" required><option value="">Select…</option>${decks
         .map(
           (d) =>
             `<option value="${escapeHtml(deckId(d))}" data-bracket="${d.bracket}" ${editing?.deck === deckId(d) ? "selected" : ""}>${escapeHtml(deckLabel(d))}</option>`
         )
         .join("")}</select></label>
-      <label>Bracket<select name="bracket"><option value="" ${!bracketVal ? "selected" : ""}>—</option>${[
-        1, 2, 3, 4, 5,
-      ]
-        .map(
-          (b) =>
-            `<option value="${b}" ${String(bracketVal) === String(b) ? "selected" : ""}>${b}</option>`
-        )
-        .join("")}</select></label>
       <label>My seat<select name="mySeat"><option value="">—</option>${seatOptions(editing?.mySeat)}</select></label>
-      <label>Turn ended<input type="number" name="turn" min="1" placeholder="Optional" value="${editing?.turn ?? ""}" /></label>
       <label>Winning seat<select name="winnerSeat"><option value="">—</option>${seatOptions(editing?.winnerSeat)}</select></label>
       <fieldset class="pod-fieldset">
         <legend>Pod</legend>
