@@ -1,6 +1,6 @@
-import { fetchCardMetadata } from "./scryfall.js";
+import { fetchCardMetadata, getCachedCardMetadata } from "./scryfall.js";
 
-const CACHE_KEY = "edhlog:commander-matchup-keys:v2";
+const CACHE_KEY = "edhlog:commander-matchup-keys:v3";
 const DFC_LAYOUTS = new Set([
   "transform",
   "modal_dfc",
@@ -9,8 +9,10 @@ const DFC_LAYOUTS = new Set([
   "meld",
   "art_series",
 ]);
+/** Cards with // in the name but one shared front print (no per-face image URIs). */
+const SINGLE_FRONT_LAYOUTS = new Set(["adventure", "split"]);
 
-/** @typedef {{ kind: "single" | "dfc" | "partner", canonicalName: string, parts: string[] }} CommanderInfo */
+/** @typedef {{ kind: "single" | "dfc" | "partner" | "singleFront", canonicalName: string, parts: string[] }} CommanderInfo */
 
 /** @type {Map<string, CommanderInfo>} */
 const matchupCache = loadCache();
@@ -52,12 +54,17 @@ function sameCardNameHeuristic(parts) {
 
 function isDoubleFacedMetadata(meta, parts) {
   if (!meta) return false;
+  if (SINGLE_FRONT_LAYOUTS.has(meta.layout)) return false;
   if (DFC_LAYOUTS.has(meta.layout)) return true;
   if (meta.faceNames?.length >= 2 && parts.length === 2) {
     const faces = meta.faceNames.map((face) => face.toLowerCase());
     return faces.includes(parts[0].toLowerCase()) && faces.includes(parts[1].toLowerCase());
   }
   return false;
+}
+
+function isSingleFrontMetadata(meta) {
+  return !!meta && SINGLE_FRONT_LAYOUTS.has(meta.layout);
 }
 
 /** @param {string[]} parts */
@@ -79,6 +86,12 @@ function dfcInfo(name) {
   return { kind: "dfc", canonicalName: trimmed, parts: [trimmed] };
 }
 
+/** @param {string} name @param {string[]} parts */
+function singleFrontInfo(name, parts) {
+  const trimmed = name.trim();
+  return { kind: "singleFront", canonicalName: trimmed, parts };
+}
+
 /** @param {string[]} parts */
 function partnerInfo(parts) {
   const sortedParts = [...parts].sort((a, b) =>
@@ -97,6 +110,9 @@ function storeCommanderInfo(originalName, info) {
   if (info.kind === "partner") {
     for (const part of info.parts) aliases.add(part);
     aliases.add([...info.parts].reverse().join(" // "));
+  }
+  if (info.kind === "singleFront") {
+    for (const part of info.parts) aliases.add(part);
   }
   for (const alias of aliases) {
     if (alias) matchupCache.set(cacheKey(alias), info);
@@ -129,6 +145,14 @@ export function getCommanderInfo(name) {
 /** @returns {{ name: string, face: number }[]} */
 export function commanderImageSlots(name) {
   const info = getCommanderInfo(name);
+  const meta =
+    getCachedCardMetadata(name) ||
+    getCachedCardMetadata(info.canonicalName) ||
+    info.parts?.map((part) => getCachedCardMetadata(part)).find(Boolean);
+
+  if (info.kind === "singleFront" || info.kind === "single" || isSingleFrontMetadata(meta)) {
+    return [{ name: info.canonicalName, face: 0 }];
+  }
   if (info.kind === "dfc") {
     return [
       { name: info.canonicalName, face: 0 },
@@ -211,6 +235,12 @@ async function resolveCommanderInfo(fullName) {
   }
 
   let meta = await fetchCardMetadata(trimmed);
+  if (isSingleFrontMetadata(meta)) {
+    const info = singleFrontInfo(trimmed, parts);
+    storeCommanderInfo(trimmed, info);
+    return info;
+  }
+
   if (isDoubleFacedMetadata(meta, parts)) {
     const info = dfcInfo(trimmed);
     storeCommanderInfo(trimmed, info);
