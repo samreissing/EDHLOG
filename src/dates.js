@@ -16,6 +16,18 @@ export function nowTime() {
   }).format(new Date());
 }
 
+/** Timestamp for backup filenames: YYYY-MM-DD-HH-MM-SS in US Eastern. */
+export function backupFileStamp() {
+  const time = new Intl.DateTimeFormat("en-GB", {
+    timeZone: APP_TIMEZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(new Date());
+  return `${todayISO()}-${time.replace(/:/g, "-")}`;
+}
+
 /** Normalize to HH:MM when possible. */
 export function normalizeTime(timeStr) {
   if (!timeStr || typeof timeStr !== "string") return "";
