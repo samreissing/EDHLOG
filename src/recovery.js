@@ -4,7 +4,16 @@ import { gameFingerprint } from "./store.js";
 
 export const EDHLOG_STORAGE_KEY = "edhlog-data-v1";
 
-const STORAGE_KEY_HINTS = ["edhlog-data-v1", "edhlog-data", "edhlog_data", "edhlog"];
+const DATA_STORAGE_KEY = /^edhlog[-_]data(?:[-_]v\d+)?$/i;
+
+/** Keys that contain "edhlog" but are not game/deck data (commander caches, etc.). */
+const IGNORED_STORAGE_KEY = /^edhlog:/i;
+
+/** @param {string} key */
+function isDataStorageKey(key) {
+  if (IGNORED_STORAGE_KEY.test(key)) return false;
+  return DATA_STORAGE_KEY.test(key);
+}
 
 /** @param {unknown} value */
 export function isAppData(value) {
@@ -103,7 +112,6 @@ async function scanStorageArea(storage, sourceLabel) {
     const raw = storage.getItem(key);
     if (!raw) continue;
 
-    const hinted = STORAGE_KEY_HINTS.some((hint) => key.toLowerCase().includes(hint));
     const parsed = tryParseAppData(raw);
     if (parsed) {
       findings.push({
@@ -118,7 +126,7 @@ async function scanStorageArea(storage, sourceLabel) {
       continue;
     }
 
-    if (hinted) {
+    if (isDataStorageKey(key)) {
       findings.push({
         id: `${sourceLabel}:${key}`,
         label: key,
