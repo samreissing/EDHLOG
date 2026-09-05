@@ -5,7 +5,7 @@
   "homepage": "https://samreissing.github.io/EDHLOG/",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --open /index.dev.html",
     "build": "vite build",
     "preview": "vite preview",
     "import:seed": "python3 scripts/import_xlsx.py"
