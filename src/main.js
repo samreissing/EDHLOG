@@ -3,6 +3,7 @@ import {
   saveData,
   exportData,
   importData,
+  downloadDataBackup,
   resetToSeed,
   nextGameId,
   nextDeckId,
@@ -2845,7 +2846,11 @@ function saveGameFromForm(fd) {
     }
     editingGameId = null;
     gameModalOpen = false;
-    saveData(data);
+    if (!saveData(data)) {
+      toast("Failed to save game — storage may be full", true);
+      return;
+    }
+    downloadDataBackup(data);
     toast("Game saved");
     void refreshCommanderColorCache();
     return;
@@ -2853,7 +2858,12 @@ function saveGameFromForm(fd) {
 
   applyGameCommanderSnapshot(payload);
   data.games.push({ id: nextGameId(data.games), ...payload });
-  saveData(data);
+  if (!saveData(data)) {
+    data.games.pop();
+    toast("Failed to save game — storage may be full", true);
+    return;
+  }
+  downloadDataBackup(data);
   gameModalOpen = false;
   toast(`${payload.result} logged`);
   void refreshCommanderColorCache();

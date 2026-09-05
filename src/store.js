@@ -1,5 +1,5 @@
 import { appBaseUrl } from "./base-url.js";
-import { normalizeDate, todayISO } from "./dates.js";
+import { normalizeDate, todayISO, backupFileStamp } from "./dates.js";
 import { deckKey, deckCommander, findDeck, resolveDeckCommanderOnDate } from "./deck-identity.js";
 
 const STORAGE_KEY = "edhlog-data-v1";
@@ -281,16 +281,28 @@ export async function resetToSeed() {
   return data;
 }
 
-export function exportData() {
-  const data = loadData();
-  if (!data) return;
+/** @param {AppData} data @param {string} filename */
+function downloadJsonFile(data, filename) {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `edhlog-${todayISO()}.json`;
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+export function exportData() {
+  const data = loadData();
+  if (!data) return;
+  downloadJsonFile(data, `edhlog-${todayISO()}.json`);
+}
+
+/** @param {AppData} [data] */
+export function downloadDataBackup(data) {
+  const payload = data || loadData();
+  if (!payload) return;
+  downloadJsonFile(payload, `edhlog-${backupFileStamp()}.json`);
 }
 
 /** @param {File} file */
