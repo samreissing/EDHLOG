@@ -3,6 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <title>EDHLOG</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -32,6 +35,22 @@
         </div>
       </footer>
     </div>
+    <script>
+      (function () {
+        var KEY = "edhlog-stale-reload";
+        window.addEventListener(
+          "error",
+          function (e) {
+            var el = e.target;
+            if (!el || el.tagName !== "SCRIPT") return;
+            if (sessionStorage.getItem(KEY)) return;
+            sessionStorage.setItem(KEY, "1");
+            location.replace(location.href);
+          },
+          true
+        );
+      })();
+    </script>
     <script type="module" src="./src/main.js"></script>
   </body>
 </html>

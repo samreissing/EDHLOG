@@ -30,7 +30,7 @@ export default defineConfig({
           }
 
           // Pre-built deploy bundles in /assets are not Vite source modules.
-          const assetMatch = url.match(/^\/(?:EDHLOG\/)?assets\/(index\.dev-[^/]+\.js)$/);
+          const assetMatch = url.match(/^\/(?:EDHLOG\/)?assets\/(index(?:\.dev-[^/]+)?\.js)$/);
           if (assetMatch) {
             const filePath = resolve(repoRoot, "assets", assetMatch[1]);
             if (existsSync(filePath)) {
@@ -58,6 +58,11 @@ export default defineConfig({
   build: {
     rollupOptions: {
       input: devIndex,
+      output: {
+        entryFileNames: "assets/index.js",
+        chunkFileNames: "assets/[name].js",
+        assetFileNames: "assets/[name][extname]",
+      },
     },
   },
 });
