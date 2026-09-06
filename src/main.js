@@ -3,6 +3,7 @@ import {
   saveData,
   exportData,
   importData,
+  downloadDataBackup,
   resetToSeed,
   nextGameId,
   nextDeckId,
@@ -2842,53 +2843,46 @@ function saveGameFromForm(fd) {
   const payload = parseGameForm(fd);
   if (!payload.deck) return toast("Pick a deck", true);
 
+  const wasEditing = Boolean(editingGameId);
+
   if (editingGameId) {
     const idx = data.games.findIndex((g) => g.id === editingGameId);
-    if (idx >= 0) {
-      const existing = data.games[idx];
-      applyGameCommanderSnapshot(payload, existing);
-      const updated = {
-        id: editingGameId,
-        date: payload.date,
-        deck: payload.deck,
-        result: payload.result,
-        source: "local",
-      };
-      if (payload.myCommander) updated.myCommander = payload.myCommander;
-      if (payload.mySeat) {
-        updated.mySeat = payload.mySeat;
-        updated.opponents = payload.opponents || [];
-        if (payload.myPlayer) updated.myPlayer = payload.myPlayer;
-      }
-      if (payload.winnerSeat) updated.winnerSeat = payload.winnerSeat;
-      if (payload.turn) updated.turn = payload.turn;
-      if (payload.time) updated.time = payload.time;
-      if (payload.bracket) updated.bracket = payload.bracket;
-      data.games[idx] = updated;
+    if (idx < 0) return toast("Game not found", true);
+    const existing = data.games[idx];
+    applyGameCommanderSnapshot(payload, existing);
+    const updated = {
+      id: editingGameId,
+      date: payload.date,
+      deck: payload.deck,
+      result: payload.result,
+      source: "local",
+    };
+    if (payload.myCommander) updated.myCommander = payload.myCommander;
+    if (payload.mySeat) {
+      updated.mySeat = payload.mySeat;
+      updated.opponents = payload.opponents || [];
+      if (payload.myPlayer) updated.myPlayer = payload.myPlayer;
     }
-    editingGameId = null;
-    gameModalOpen = false;
-    if (!saveData(data)) {
-      toast("Failed to save game — storage may be full", true);
-      return;
-    }
-    downloadDataBackup(data);
-    toast("Game saved");
-    render();
-    void refreshCommanderColorCache();
-    return;
+    if (payload.winnerSeat) updated.winnerSeat = payload.winnerSeat;
+    if (payload.turn) updated.turn = payload.turn;
+    if (payload.time) updated.time = payload.time;
+    if (payload.bracket) updated.bracket = payload.bracket;
+    data.games[idx] = updated;
+  } else {
+    applyGameCommanderSnapshot(payload);
+    data.games.push({ id: nextGameId(data.games), ...payload });
   }
 
-  applyGameCommanderSnapshot(payload);
-  data.games.push({ id: nextGameId(data.games), ...payload });
   if (!saveData(data)) {
-    data.games.pop();
+    if (!wasEditing) data.games.pop();
     toast("Failed to save game — storage may be full", true);
     return;
   }
-  downloadDataBackup(data);
+
+  editingGameId = null;
   gameModalOpen = false;
-  toast(`${payload.result} logged`);
+  downloadDataBackup(data);
+  toast(wasEditing ? "Game saved" : `${payload.result} logged`);
   render();
   void refreshCommanderColorCache();
 }
