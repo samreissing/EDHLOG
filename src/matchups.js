@@ -160,7 +160,48 @@ export function matchupOutcomeTieRank(row) {
   return (row.sharedLosses ?? 0) - (row.losses ?? 0);
 }
 
-function finalizeMatchupRow(row) {
+/**
+ * Unique pilots per commander identity across all logged games (any seat, any pod).
+ * @param {import('./store.js').Game[]} games
+ * @param {import('./store.js').Deck[]} decks
+ * @param {{ splitPartners?: boolean }} [options]
+ * @returns {Map<string, Map<string, number>>}
+ */
+function buildCommanderPilotIndex(games, decks, { splitPartners = false } = {}) {
+  /** @type {Map<string, Map<string, number>>} */
+  const index = new Map();
+
+  for (const game of games) {
+    const seats = parseGameSeats(game, decks);
+    for (const seat of seats) {
+      if (!seat.commander || !seat.player) continue;
+
+      for (const commander of getCommanderMatchupIdentities(seat.commander, { splitPartners })) {
+        const commanderKey = normalizeKey(commander);
+        let pilots = index.get(commanderKey);
+        if (!pilots) {
+          pilots = new Map();
+          index.set(commanderKey, pilots);
+        }
+        pilots.set(seat.player, (pilots.get(seat.player) || 0) + 1);
+      }
+    }
+  }
+
+  return index;
+}
+
+/** @param {Map<string, Map<string, number>> | null} pilotIndex @param {string} commanderLabel */
+function pilotBreakdownFromIndex(pilotIndex, commanderLabel) {
+  const pilots = pilotIndex?.get(normalizeKey(commanderLabel));
+  if (!pilots?.size) return [];
+  return [...pilots.entries()]
+    .map(([player, games]) => ({ player, games }))
+    .sort((a, b) => b.games - a.games || a.player.localeCompare(b.player));
+}
+
+/** @param {object} row @param {Map<string, Map<string, number>> | null} [pilotIndex] */
+function finalizeMatchupRow(row, pilotIndex = null) {
   const winRateVal = row.games > 0 ? winRate(row.wins, row.games) : 0;
   const opponentWins = row.losses;
   const opponentWinRate = row.games > 0 ? winRate(opponentWins, row.games) : 0;
@@ -168,11 +209,13 @@ function finalizeMatchupRow(row) {
     (row.wins + MATCHUP_PRIOR_WINS) / (row.games + MATCHUP_PRIOR_GAMES);
   const normalizedOpponentWinRate =
     (opponentWins + MATCHUP_PRIOR_WINS) / (row.games + MATCHUP_PRIOR_GAMES);
-  const opponentPlayerBreakdown = row.opponentPlayers
-    ? [...row.opponentPlayers.entries()]
-        .map(([player, games]) => ({ player, games }))
-        .sort((a, b) => b.games - a.games || a.player.localeCompare(b.player))
-    : [];
+  const opponentPlayerBreakdown = pilotIndex
+    ? pilotBreakdownFromIndex(pilotIndex, row.opponent)
+    : row.opponentPlayers
+      ? [...row.opponentPlayers.entries()]
+          .map(([player, games]) => ({ player, games }))
+          .sort((a, b) => b.games - a.games || a.player.localeCompare(b.player))
+      : [];
 
   return {
     ...row,
@@ -210,6 +253,10 @@ export function matchupImpactClass(value) {
 export function buildMyMatchupRows(games, tabId, options = {}) {
   const { splitPartners = false, splitPlayers = false, combineDecks = false, decks = [] } = options;
   const rows = new Map();
+  const pilotIndex =
+    tabId === "decks" && !splitPlayers
+      ? buildCommanderPilotIndex(games, decks, { splitPartners })
+      : null;
 
   for (const game of games) {
     const seats = parseGameSeats(game, decks);
@@ -239,7 +286,6 @@ export function buildMyMatchupRows(games, tabId, options = {}) {
             wins: 0,
             losses: 0,
             sharedLosses: 0,
-            opponentPlayers: tabId === "decks" && !splitPlayers ? new Map() : undefined,
           });
 
         row.games += 1;
@@ -247,19 +293,12 @@ export function buildMyMatchupRows(games, tabId, options = {}) {
         else if (opponentSeat.didWin) row.losses += 1;
         else row.sharedLosses += 1;
 
-        if (tabId === "decks" && !splitPlayers && opponentSeat.player && row.opponentPlayers) {
-          row.opponentPlayers.set(
-            opponentSeat.player,
-            (row.opponentPlayers.get(opponentSeat.player) || 0) + 1
-          );
-        }
-
         rows.set(mapKey, row);
       }
     }
   }
 
-  const finalized = [...rows.values()].map(finalizeMatchupRow);
+  const finalized = [...rows.values()].map((row) => finalizeMatchupRow(row, pilotIndex));
 
   return finalized.sort((a, b) => {
       if (b.normalizedMatchupImpact !== a.normalizedMatchupImpact) {
