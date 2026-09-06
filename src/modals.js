@@ -1,5 +1,32 @@
 /** @typedef {{ deck?: () => void, game?: () => void, gameDetail?: () => void, entityReport?: () => void, recovery?: () => void }} ModalDismissHandlers */
 
+/**
+ * Ctrl/Cmd/Shift/middle-click on a submit button submits the form to the current URL
+ * in a new tab, bypassing JS submit handlers. Block that for in-app forms.
+ * @param {ParentNode} [root]
+ */
+export function bindFormAccidentalNavigationGuard(root = document) {
+  root.addEventListener(
+    "click",
+    (e) => {
+      if (!(e.ctrlKey || e.metaKey || e.shiftKey)) return;
+      const submit = e.target.closest('button[type="submit"], input[type="submit"]');
+      if (submit?.form) e.preventDefault();
+    },
+    true
+  );
+
+  root.addEventListener(
+    "auxclick",
+    (e) => {
+      if (e.button !== 1) return;
+      const submit = e.target.closest('button[type="submit"], input[type="submit"]');
+      if (submit?.form) e.preventDefault();
+    },
+    true
+  );
+}
+
 /** @param {ModalDismissHandlers} handlers */
 export function bindModalBackdropDismiss(handlers) {
   /** @type {string | null} */

@@ -78,7 +78,7 @@ import {
   getCommanderColorIdentity,
   getDeckColors,
 } from "./commander-colors.js";
-import { bindModalBackdropDismiss } from "./modals.js";
+import { bindFormAccidentalNavigationGuard, bindModalBackdropDismiss } from "./modals.js";
 import {
   scanForRecoverableData,
   scanBackupFiles,
@@ -493,6 +493,8 @@ async function boot() {
 }
 
 function bindEvents() {
+  bindFormAccidentalNavigationGuard();
+
   document.addEventListener("click", (e) => {
     const entityBtn = e.target.closest("[data-entity-report]");
     if (entityBtn) {
@@ -863,7 +865,9 @@ function bindEvents() {
       return;
     }
 
-    if (e.target.id === "add-game-btn") {
+    const addGameBtn = e.target.closest("#add-game-btn");
+    if (addGameBtn) {
+      e.preventDefault();
       editingGameId = null;
       viewingGameId = null;
       gameModalOpen = true;
@@ -2964,7 +2968,7 @@ function saveGameFromForm(fd) {
     }
     editingGameId = null;
     gameModalOpen = false;
-    downloadDataBackup(data);
+    window.setTimeout(() => downloadDataBackup(data), 0);
     toast("Game saved");
     render();
     void refreshCommanderColorCache();
@@ -2979,7 +2983,7 @@ function saveGameFromForm(fd) {
     toast("Failed to save game — storage may be full", true);
     return;
   }
-  downloadDataBackup(data);
+  window.setTimeout(() => downloadDataBackup(data), 0);
   gameModalOpen = false;
   toast(`${payload.result} logged`);
   render();
