@@ -1,17 +1,31 @@
-/** @typedef {{ deck?: () => void, game?: () => void, gameDetail?: () => void, entityReport?: () => void, recovery?: () => void }} ModalDismissHandlers */
+/** @typedef {{ deck?: () => void, game?: () => void, gameDetail?: () => void, entityReport?: () => void }} ModalDismissHandlers */
+
+const APP_FORM_IDS = new Set(["add-game-form", "deck-form", "deck-list-form"]);
+
+function isAppForm(form) {
+  return form instanceof HTMLFormElement && APP_FORM_IDS.has(form.id);
+}
 
 /**
- * Ctrl/Cmd/Shift/middle-click on a submit button submits the form to the current URL
- * in a new tab, bypassing JS submit handlers. Block that for in-app forms.
+ * In-app forms have no action; native submit (incl. modifier-clicks on submit buttons)
+ * reloads this page — often in a new tab. Block that entirely; JS handlers do the work.
  * @param {ParentNode} [root]
  */
 export function bindFormAccidentalNavigationGuard(root = document) {
   root.addEventListener(
+    "submit",
+    (e) => {
+      if (isAppForm(e.target)) e.preventDefault();
+    },
+    true
+  );
+
+  root.addEventListener(
     "click",
     (e) => {
-      if (!(e.ctrlKey || e.metaKey || e.shiftKey)) return;
       const submit = e.target.closest('button[type="submit"], input[type="submit"]');
-      if (submit?.form) e.preventDefault();
+      if (!submit || !isAppForm(submit.form)) return;
+      if (e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1) e.preventDefault();
     },
     true
   );
@@ -21,7 +35,7 @@ export function bindFormAccidentalNavigationGuard(root = document) {
     (e) => {
       if (e.button !== 1) return;
       const submit = e.target.closest('button[type="submit"], input[type="submit"]');
-      if (submit?.form) e.preventDefault();
+      if (submit && isAppForm(submit.form)) e.preventDefault();
     },
     true
   );
@@ -55,6 +69,5 @@ export function bindModalBackdropDismiss(handlers) {
     else if (id === "game-modal") handlers.game?.();
     else if (id === "game-detail-modal") handlers.gameDetail?.();
     else if (id === "entity-report-modal") handlers.entityReport?.();
-    else if (id === "recovery-modal") handlers.recovery?.();
   });
 }
