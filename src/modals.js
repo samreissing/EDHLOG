@@ -1,4 +1,4 @@
-/** @typedef {{ deck?: () => void, game?: () => void, gameDetail?: () => void, entityReport?: () => void }} ModalDismissHandlers */
+/** @typedef {{ deck?: () => void, game?: () => void, gameDetail?: () => void, entityReport?: () => void, recovery?: () => void }} ModalDismissHandlers */
 
 const APP_FORM_IDS = new Set(["add-game-form", "deck-form", "deck-list-form"]);
 
@@ -69,5 +69,6 @@ export function bindModalBackdropDismiss(handlers) {
     else if (id === "game-modal") handlers.game?.();
     else if (id === "game-detail-modal") handlers.gameDetail?.();
     else if (id === "entity-report-modal") handlers.entityReport?.();
+    else if (id === "recovery-modal") handlers.recovery?.();
   });
 }
