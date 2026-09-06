@@ -1312,6 +1312,7 @@ function getStats() {
       splitPartners: matchupSplitPartners,
       splitPlayers: matchupSplitPlayers,
       combineDecks: matchupCombineDecks,
+      allGames: data.games,
       colorOptions: {
         decks: data.decks,
         deckFilter: statsDeckFilter,
