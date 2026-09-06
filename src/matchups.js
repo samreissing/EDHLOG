@@ -1,6 +1,6 @@
 import { MY_PLAYER_NAME } from "./opponent-search.js";
 import { winRate } from "./stats.js";
-import { getCommanderMatchupIdentities, commanderMatchesTarget } from "./commander-names.js";
+import { getCommanderMatchupIdentities } from "./commander-names.js";
 import { resolveCommanderColors } from "./commander-colors.js";
 import { colorKeyLabel, colorKeysForIdentity, rowColorsFromKey } from "./color-stats.js";
 import { deckMapByKey, resolveMyCommander } from "./deck-identity.js";
@@ -160,64 +160,7 @@ export function matchupOutcomeTieRank(row) {
   return (row.sharedLosses ?? 0) - (row.losses ?? 0);
 }
 
-/**
- * Unique pilots per commander across all logged games (any seat, any pod).
- * Indexed under every commander spelling/alias so lookups stay consistent.
- * @param {import('./store.js').Game[]} games
- * @param {import('./store.js').Deck[]} decks
- * @param {{ splitPartners?: boolean }} [options]
- * @returns {Map<string, Map<string, { name: string, games: number }>>}
- */
-function buildCommanderPilotIndex(games, decks, { splitPartners = false } = {}) {
-  /** @type {Map<string, Map<string, { name: string, games: number }>>} */
-  const index = new Map();
-
-  for (const game of games) {
-    const seats = parseGameSeats(game, decks);
-    for (const seat of seats) {
-      if (!seat.commander || !seat.player) continue;
-
-      for (const identity of getCommanderMatchupIdentities(seat.commander, { splitPartners })) {
-        const key = normalizeKey(identity);
-        let pilots = index.get(key);
-        if (!pilots) {
-          pilots = new Map();
-          index.set(key, pilots);
-        }
-        const playerKey = normalizeKey(seat.player);
-        const existing = pilots.get(playerKey);
-        if (existing) existing.games += 1;
-        else pilots.set(playerKey, { name: String(seat.player).trim(), games: 1 });
-      }
-    }
-  }
-
-  return index;
-}
-
-/** @param {Map<string, Map<string, { name: string, games: number }>> | null} pilotIndex @param {string} commanderLabel @param {boolean} splitPartners */
-function pilotBreakdownFromIndex(pilotIndex, commanderLabel, splitPartners) {
-  if (!pilotIndex?.size) return [];
-
-  /** @type {Map<string, { player: string, games: number }>} */
-  const merged = new Map();
-
-  for (const [storedKey, pilots] of pilotIndex) {
-    if (!commanderMatchesTarget(storedKey, commanderLabel, { splitPartners })) continue;
-    for (const [playerKey, row] of pilots) {
-      const existing = merged.get(playerKey);
-      if (existing) existing.games += row.games;
-      else merged.set(playerKey, { player: row.name, games: row.games });
-    }
-  }
-
-  return [...merged.values()].sort(
-    (a, b) => b.games - a.games || a.player.localeCompare(b.player)
-  );
-}
-
-/** @param {object} row @param {Map<string, Map<string, { name: string, games: number }>> | null} [pilotIndex] @param {boolean} [splitPartners] */
-function finalizeMatchupRow(row, pilotIndex = null, splitPartners = false) {
+function finalizeMatchupRow(row) {
   const winRateVal = row.games > 0 ? winRate(row.wins, row.games) : 0;
   const opponentWins = row.losses;
   const opponentWinRate = row.games > 0 ? winRate(opponentWins, row.games) : 0;
@@ -225,13 +168,11 @@ function finalizeMatchupRow(row, pilotIndex = null, splitPartners = false) {
     (row.wins + MATCHUP_PRIOR_WINS) / (row.games + MATCHUP_PRIOR_GAMES);
   const normalizedOpponentWinRate =
     (opponentWins + MATCHUP_PRIOR_WINS) / (row.games + MATCHUP_PRIOR_GAMES);
-  const opponentPlayerBreakdown = pilotIndex
-    ? pilotBreakdownFromIndex(pilotIndex, row.opponent, splitPartners)
-    : row.opponentPlayers
-      ? [...row.opponentPlayers.entries()]
-          .map(([player, games]) => ({ player, games }))
-          .sort((a, b) => b.games - a.games || a.player.localeCompare(b.player))
-      : [];
+  const opponentPlayerBreakdown = row.opponentPlayers
+    ? [...row.opponentPlayers.entries()]
+        .map(([player, games]) => ({ player, games }))
+        .sort((a, b) => b.games - a.games || a.player.localeCompare(b.player))
+    : [];
 
   return {
     ...row,
@@ -267,18 +208,8 @@ export function matchupImpactClass(value) {
  * @param {{ splitPartners?: boolean, splitPlayers?: boolean, combineDecks?: boolean }} [options]
  */
 export function buildMyMatchupRows(games, tabId, options = {}) {
-  const {
-    splitPartners = false,
-    splitPlayers = false,
-    combineDecks = false,
-    decks = [],
-    allGamesForPilots = games,
-  } = options;
+  const { splitPartners = false, splitPlayers = false, combineDecks = false, decks = [] } = options;
   const rows = new Map();
-  const pilotIndex =
-    tabId === "decks" && !splitPlayers
-      ? buildCommanderPilotIndex(allGamesForPilots, decks, { splitPartners })
-      : null;
 
   for (const game of games) {
     const seats = parseGameSeats(game, decks);
@@ -308,6 +239,7 @@ export function buildMyMatchupRows(games, tabId, options = {}) {
             wins: 0,
             losses: 0,
             sharedLosses: 0,
+            opponentPlayers: tabId === "decks" && !splitPlayers ? new Map() : undefined,
           });
 
         row.games += 1;
@@ -315,14 +247,19 @@ export function buildMyMatchupRows(games, tabId, options = {}) {
         else if (opponentSeat.didWin) row.losses += 1;
         else row.sharedLosses += 1;
 
+        if (tabId === "decks" && !splitPlayers && opponentSeat.player && row.opponentPlayers) {
+          row.opponentPlayers.set(
+            opponentSeat.player,
+            (row.opponentPlayers.get(opponentSeat.player) || 0) + 1
+          );
+        }
+
         rows.set(mapKey, row);
       }
     }
   }
 
-  const finalized = [...rows.values()].map((row) =>
-    finalizeMatchupRow(row, pilotIndex, splitPartners)
-  );
+  const finalized = [...rows.values()].map(finalizeMatchupRow);
 
   return finalized.sort((a, b) => {
       if (b.normalizedMatchupImpact !== a.normalizedMatchupImpact) {
@@ -454,12 +391,11 @@ export function buildColorMatchupRows(games, options) {
   });
 }
 
-/** @param {import('./store.js').Game[]} games @param {{ splitPartners?: boolean, splitPlayers?: boolean, combineDecks?: boolean, allGames?: import('./store.js').Game[], colorOptions?: object }} [options] */
+/** @param {import('./store.js').Game[]} games @param {{ splitPartners?: boolean, splitPlayers?: boolean, combineDecks?: boolean, colorOptions?: object }} [options] */
 export function computeAllMatchups(games, options = {}) {
   const splitPartners = options.splitPartners ?? false;
   const splitPlayers = options.splitPlayers ?? false;
   const combineDecks = options.combineDecks ?? false;
-  const allGamesForPilots = options.allGames ?? games;
   const decks = options.colorOptions?.decks ?? [];
   return {
     players: buildMyMatchupRows(games, "players", { splitPartners, decks }),
@@ -468,7 +404,6 @@ export function computeAllMatchups(games, options = {}) {
       splitPlayers,
       combineDecks,
       decks,
-      allGamesForPilots,
     }),
     colors: options.colorOptions
       ? buildColorMatchupRows(games, { ...options.colorOptions, splitPartners })
