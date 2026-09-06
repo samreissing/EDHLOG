@@ -173,6 +173,7 @@ let gameModalOpen = false;
 let deckModalOpen = false;
 let viewingGameId = null;
 let editingGameId = null;
+let gameSaveInFlight = false;
 let editingDeckName = null;
 let editingDeckIndex = -1;
 /** @type {{ kind: 'player' | 'deck', key: string, playerScope?: string | null, deckSlotId?: string | null } | null} */
@@ -2687,7 +2688,7 @@ function renderLogForm() {
     editing?.bracket ?? (editing?.deck ? deckBracketValue(editing.deck) : "");
 
   return `
-    <form id="add-game-form" class="game-form" action="#">
+    <form id="add-game-form" class="game-form">
       ${editing ? `<input type="hidden" name="gameId" value="${escapeHtml(editing.id)}" />` : ""}
       <div class="game-form-row game-form-row-split">
         <label>Date<input type="date" name="date" value="${dateVal}" required /></label>
@@ -2702,7 +2703,7 @@ function renderLogForm() {
               `<option value="${b}" ${String(bracketVal) === String(b) ? "selected" : ""}>${b}</option>`
           )
           .join("")}</select></label>
-        <label>Turn ended<input type="number" name="turn" min="1" placeholder="Optional" value="${editing?.turn ?? ""}" /></label>
+        <label>Turn ended<input type="number" name="turn" min="0" step="1" placeholder="Optional (blank or 0 = none)" value="${editing?.turn ?? ""}" /></label>
       </div>
       <label>My deck<select name="deck" required><option value="">Select…</option>${decks
         .map(
@@ -2823,7 +2824,7 @@ function parseGameForm(fd) {
       game.result = Number(winnerSeatRaw) === Number(mySeatRaw) ? "Win" : "Loss";
     }
   }
-  if (turnRaw) {
+  if (turnRaw !== null && String(turnRaw).trim() !== "") {
     const turn = Number(turnRaw);
     if (!Number.isNaN(turn) && turn > 0) game.turn = turn;
   }
@@ -2839,42 +2840,52 @@ function applyGameCommanderSnapshot(payload, existingGame = null) {
   if (deck) payload.myCommander = deckCommander(deck);
 }
 
+/** @param {ReturnType<typeof parseGameForm>} payload @param {string} gameId @param {object} [existing] */
+function buildGameRecordFromPayload(payload, gameId, existing = null) {
+  applyGameCommanderSnapshot(payload, existing);
+  const record = {
+    id: gameId,
+    date: payload.date,
+    deck: payload.deck,
+    result: payload.result,
+    source: "local",
+  };
+  if (payload.myCommander) record.myCommander = payload.myCommander;
+  if (payload.mySeat) {
+    record.mySeat = payload.mySeat;
+    record.opponents = payload.opponents || [];
+    if (payload.myPlayer) record.myPlayer = payload.myPlayer;
+  }
+  if (payload.winnerSeat) record.winnerSeat = payload.winnerSeat;
+  if (payload.turn) record.turn = payload.turn;
+  if (payload.time) record.time = payload.time;
+  if (payload.bracket) record.bracket = payload.bracket;
+  return record;
+}
+
 function saveGameFromForm(fd) {
+  if (gameSaveInFlight) return;
   const payload = parseGameForm(fd);
   if (!payload.deck) return toast("Pick a deck", true);
 
-  const wasEditing = Boolean(editingGameId);
+  const gameId = String(fd.get("gameId") || editingGameId || "").trim();
+  gameSaveInFlight = true;
 
-  if (editingGameId) {
-    const idx = data.games.findIndex((g) => g.id === editingGameId);
-    if (idx < 0) return toast("Game not found", true);
-    const existing = data.games[idx];
-    applyGameCommanderSnapshot(payload, existing);
-    const updated = {
-      id: editingGameId,
-      date: payload.date,
-      deck: payload.deck,
-      result: payload.result,
-      source: "local",
-    };
-    if (payload.myCommander) updated.myCommander = payload.myCommander;
-    if (payload.mySeat) {
-      updated.mySeat = payload.mySeat;
-      updated.opponents = payload.opponents || [];
-      if (payload.myPlayer) updated.myPlayer = payload.myPlayer;
+  if (gameId) {
+    const idx = data.games.findIndex((g) => g.id === gameId);
+    if (idx < 0) {
+      gameSaveInFlight = false;
+      return toast("Game not found", true);
     }
-    if (payload.winnerSeat) updated.winnerSeat = payload.winnerSeat;
-    if (payload.turn) updated.turn = payload.turn;
-    if (payload.time) updated.time = payload.time;
-    if (payload.bracket) updated.bracket = payload.bracket;
-    data.games[idx] = updated;
+    data.games[idx] = buildGameRecordFromPayload(payload, gameId, data.games[idx]);
   } else {
-    applyGameCommanderSnapshot(payload);
-    data.games.push({ id: nextGameId(data.games), ...payload });
+    const newId = nextGameId(data.games);
+    data.games.push(buildGameRecordFromPayload(payload, newId));
   }
 
   if (!saveData(data)) {
-    if (!wasEditing) data.games.pop();
+    if (!gameId) data.games.pop();
+    gameSaveInFlight = false;
     toast("Failed to save game — storage may be full", true);
     return;
   }
@@ -2882,8 +2893,9 @@ function saveGameFromForm(fd) {
   editingGameId = null;
   gameModalOpen = false;
   downloadDataBackup(data);
-  toast(wasEditing ? "Game saved" : `${payload.result} logged`);
+  toast(gameId ? "Game saved" : `${payload.result} logged`);
   render();
+  gameSaveInFlight = false;
   void refreshCommanderColorCache();
 }
 
