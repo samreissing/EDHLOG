@@ -3,7 +3,6 @@ import {
   saveData,
   exportData,
   importData,
-  downloadDataBackup,
   resetToSeed,
   nextGameId,
   nextDeckId,
@@ -872,6 +871,24 @@ function bindEvents() {
       viewingGameId = null;
       gameModalOpen = true;
       render();
+      return;
+    }
+
+    if (e.target.closest("#save-game-btn")) {
+      e.preventDefault();
+      const form = document.getElementById("add-game-form");
+      if (!form) return;
+      form.querySelectorAll('[name="result"]').forEach((el) => {
+        el.disabled = false;
+      });
+      saveGameFromForm(new FormData(form));
+      return;
+    }
+
+    if (e.target.closest("#save-deck-btn")) {
+      e.preventDefault();
+      const form = document.getElementById("deck-form");
+      if (form) saveDeckFromForm(form);
       return;
     }
 
@@ -2537,7 +2554,7 @@ function renderDecks() {
           <label class="checkbox"><input type="checkbox" name="retired" ${editingDeck?.retired ? "checked" : ""} /> Retired</label>
           <div class="form-actions${editingDeck ? " form-actions--split" : ""}">
             ${editingDeck ? `<button type="button" class="btn btn-danger" id="delete-deck-modal">Delete</button>` : ""}
-            <button type="submit" class="btn btn-primary">${editingDeck ? "Save" : "Add Deck"}</button>
+            <button type="button" class="btn btn-primary" id="save-deck-btn">${editingDeck ? "Save" : "Add Deck"}</button>
           </div>
         </form>
       </div>
@@ -2777,7 +2794,7 @@ function renderLogForm() {
     editing?.bracket ?? (editing?.deck ? deckBracketValue(editing.deck) : "");
 
   return `
-    <form id="add-game-form" class="game-form">
+    <form id="add-game-form" class="game-form" action="#">
       ${editing ? `<input type="hidden" name="gameId" value="${escapeHtml(editing.id)}" />` : ""}
       <div class="game-form-row game-form-row-split">
         <label>Date<input type="date" name="date" value="${dateVal}" required /></label>
@@ -2832,7 +2849,7 @@ function renderLogForm() {
       </label>
       <div class="form-actions${editing ? " form-actions--split" : ""}">
         ${editing ? `<button type="button" class="btn btn-danger" id="delete-game-modal">Delete</button>` : ""}
-        <button type="submit" class="btn btn-primary btn-lg">${editing ? "Save" : "Save Game"}</button>
+        <button type="button" class="btn btn-primary btn-lg" id="save-game-btn">${editing ? "Save" : "Save Game"}</button>
       </div>
     </form>
     <div class="quick-log">
