@@ -2928,6 +2928,11 @@ function saveGameFromForm(fd) {
   const payload = parseGameForm(fd);
   if (!payload.deck) return toast("Pick a deck", true);
 
+  const form = document.getElementById("add-game-form");
+  const submitBtn = form?.querySelector('button[type="submit"]');
+  if (submitBtn?.disabled) return;
+  if (submitBtn) submitBtn.disabled = true;
+
   if (editingGameId) {
     const idx = data.games.findIndex((g) => g.id === editingGameId);
     if (idx >= 0) {
@@ -2952,14 +2957,16 @@ function saveGameFromForm(fd) {
       if (payload.bracket) updated.bracket = payload.bracket;
       data.games[idx] = updated;
     }
-    editingGameId = null;
-    gameModalOpen = false;
     if (!saveData(data)) {
+      if (submitBtn) submitBtn.disabled = false;
       toast("Failed to save game — storage may be full", true);
       return;
     }
+    editingGameId = null;
+    gameModalOpen = false;
     downloadDataBackup(data);
     toast("Game saved");
+    render();
     void refreshCommanderColorCache();
     return;
   }
@@ -2968,12 +2975,14 @@ function saveGameFromForm(fd) {
   data.games.push({ id: nextGameId(data.games), ...payload });
   if (!saveData(data)) {
     data.games.pop();
+    if (submitBtn) submitBtn.disabled = false;
     toast("Failed to save game — storage may be full", true);
     return;
   }
   downloadDataBackup(data);
   gameModalOpen = false;
   toast(`${payload.result} logged`);
+  render();
   void refreshCommanderColorCache();
 }
 
