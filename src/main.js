@@ -79,13 +79,6 @@ import {
 } from "./commander-colors.js";
 import { bindFormAccidentalNavigationGuard, bindModalBackdropDismiss } from "./modals.js";
 import {
-  scanForRecoverableData,
-  scanBackupFiles,
-  renderRecoveryModal,
-  getRecoveryFinding,
-  mergeRecovery,
-} from "./recovery.js";
-import {
   computeAllMatchups,
   formatMatchupImpact,
   matchupImpactClass,
@@ -191,8 +184,6 @@ let entityReportMatchupSort = {
   decks: { col: "normalizedMatchupImpact", dir: "desc" },
 };
 let entityReportGamesSort = { col: "date", dir: "desc" };
-/** @type {import('./recovery.js').RecoveryFinding[]} */
-let recoveryFindings = [];
 let deckSort = "normWr";
 let deckSortDir = "desc";
 let deckBracketFilter = "";
@@ -437,23 +428,10 @@ async function refreshCommanderColorCache() {
   render();
 }
 
-function ensureRecoverButton() {
-  const actions = document.querySelector(".footer-actions");
-  if (!actions || document.getElementById("recover-btn")) return;
-  const resetBtn = document.getElementById("reset-btn");
-  const btn = document.createElement("button");
-  btn.type = "button";
-  btn.className = "btn btn-ghost";
-  btn.id = "recover-btn";
-  btn.textContent = "Recover data";
-  if (resetBtn) actions.insertBefore(btn, resetBtn);
-  else actions.appendChild(btn);
-}
-
 async function boot() {
+  sessionStorage.removeItem("edhlog-stale-reload");
   data = await initData();
   const sync = getLastSeedSync();
-  ensureRecoverButton();
   bindEvents();
   renderNav();
   render();
@@ -478,7 +456,6 @@ async function boot() {
       entityReport = null;
       syncEntityReportModal();
     },
-    recovery: closeRecoveryModal,
   });
   if (sync) {
     if (sync.removed > 0) {
@@ -1073,10 +1050,6 @@ function bindEvents() {
     render();
     toast("Site reset");
   });
-
-  document.getElementById("recover-btn")?.addEventListener("click", () => {
-    void openRecoveryModal();
-  });
 }
 
 function renderNav() {
@@ -1366,86 +1339,6 @@ function handleEntityReportModalClick(e) {
   }
 
   syncEntityReportModal();
-}
-
-function closeRecoveryModal() {
-  document.getElementById("recovery-modal")?.remove();
-}
-
-async function openRecoveryModal() {
-  closeRecoveryModal();
-  recoveryFindings = await scanForRecoverableData();
-  paintRecoveryModal();
-}
-
-function paintRecoveryModal() {
-  closeRecoveryModal();
-  const wrapper = document.createElement("div");
-  wrapper.innerHTML = renderRecoveryModal(recoveryFindings, {
-    currentGames: data.games.length,
-    currentDecks: data.decks.length,
-    origin: window.location.origin + window.location.pathname,
-  });
-  const modal = wrapper.firstElementChild;
-  if (!modal) return;
-  document.body.appendChild(modal);
-  bindRecoveryModalEvents(modal);
-}
-
-function bindRecoveryModalEvents(modal) {
-  modal.querySelector("#recovery-close-btn")?.addEventListener("click", closeRecoveryModal);
-  modal.querySelector("#recovery-rescan-btn")?.addEventListener("click", async () => {
-    recoveryFindings = await scanForRecoverableData();
-    paintRecoveryModal();
-    toast("Scan complete");
-  });
-  modal.querySelector("#recovery-file-input")?.addEventListener("change", async (e) => {
-    const files = [...(e.target.files || [])];
-    if (!files.length) return;
-    recoveryFindings = [...recoveryFindings, ...(await scanBackupFiles(files))];
-    paintRecoveryModal();
-    e.target.value = "";
-  });
-  modal.querySelectorAll("[data-recovery-merge]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const finding = getRecoveryFinding(recoveryFindings, btn.getAttribute("data-recovery-merge"));
-      if (!finding?.data) return;
-      const { merged, missingGames, missingDecks } = mergeRecovery(data, finding.data);
-      if (!missingGames.length && !missingDecks.length) {
-        toast("Nothing new to merge from that snapshot");
-        return;
-      }
-      if (!saveData(merged)) {
-        toast("Recovery merge failed — storage may be full", true);
-        return;
-      }
-      data = merged;
-      closeRecoveryModal();
-      render();
-      toast(`Recovered ${missingGames.length} games and ${missingDecks.length} decks`);
-    });
-  });
-  modal.querySelectorAll("[data-recovery-replace]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const finding = getRecoveryFinding(recoveryFindings, btn.getAttribute("data-recovery-replace"));
-      if (!finding?.data) return;
-      if (
-        !confirm(
-          `Replace all current data with this snapshot (${finding.stats?.games || 0} games, ${finding.stats?.decks || 0} decks)? Export a backup first if you are unsure.`
-        )
-      ) {
-        return;
-      }
-      if (!saveData(finding.data)) {
-        toast("Recovery replace failed — storage may be full", true);
-        return;
-      }
-      data = finding.data;
-      closeRecoveryModal();
-      render();
-      toast("Data restored from snapshot");
-    });
-  });
 }
 
 function syncEntityReportModal() {
@@ -2949,11 +2842,6 @@ function saveGameFromForm(fd) {
   const payload = parseGameForm(fd);
   if (!payload.deck) return toast("Pick a deck", true);
 
-  const form = document.getElementById("add-game-form");
-  const submitBtn = form?.querySelector('button[type="submit"]');
-  if (submitBtn?.disabled) return;
-  if (submitBtn) submitBtn.disabled = true;
-
   if (editingGameId) {
     const idx = data.games.findIndex((g) => g.id === editingGameId);
     if (idx >= 0) {
@@ -2978,14 +2866,13 @@ function saveGameFromForm(fd) {
       if (payload.bracket) updated.bracket = payload.bracket;
       data.games[idx] = updated;
     }
+    editingGameId = null;
+    gameModalOpen = false;
     if (!saveData(data)) {
-      if (submitBtn) submitBtn.disabled = false;
       toast("Failed to save game — storage may be full", true);
       return;
     }
-    editingGameId = null;
-    gameModalOpen = false;
-    window.setTimeout(() => downloadDataBackup(data), 0);
+    downloadDataBackup(data);
     toast("Game saved");
     render();
     void refreshCommanderColorCache();
@@ -2996,11 +2883,10 @@ function saveGameFromForm(fd) {
   data.games.push({ id: nextGameId(data.games), ...payload });
   if (!saveData(data)) {
     data.games.pop();
-    if (submitBtn) submitBtn.disabled = false;
     toast("Failed to save game — storage may be full", true);
     return;
   }
-  window.setTimeout(() => downloadDataBackup(data), 0);
+  downloadDataBackup(data);
   gameModalOpen = false;
   toast(`${payload.result} logged`);
   render();

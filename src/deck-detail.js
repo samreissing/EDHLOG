@@ -100,7 +100,7 @@ export function renderDeckDetail(deck, stats, options = {}) {
             placeholder="https://www.moxfield.com/decks/… or https://deckstats.net/decks/…"
             value="${escapeHtml(deck.listUrl || "")}"
           />
-          <button type="submit" class="btn btn-primary">${deck.cards?.length ? "Refresh list" : "Import list"}</button>
+          <button type="button" class="btn btn-primary" id="import-deck-list-btn">${deck.cards?.length ? "Refresh list" : "Import list"}</button>
         </form>
         ${
           deck.listUrl
