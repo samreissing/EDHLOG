@@ -1369,6 +1369,18 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   align-items: center;
 }
 
+.game-log-filters .game-log-filter-deck select {
+  width: 5rem;
+  min-width: 5rem;
+  max-width: 5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.game-log-filters #filter-bracket {
+  min-width: 4.5rem;
+}
+
 .mana-check {
   margin-right: 0.5rem !important;
 }
@@ -2047,88 +2059,6 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .toast.error {
   border-color: var(--red);
   color: var(--red);
-}
-
-.recovery-modal {
-  max-width: 720px;
-}
-
-.recovery-lead,
-.recovery-meta,
-.recovery-empty,
-.recovery-detail,
-.recovery-stats {
-  color: var(--muted);
-  font-size: 0.9rem;
-  line-height: 1.45;
-}
-
-.recovery-meta {
-  margin-bottom: 0.75rem;
-}
-
-.recovery-actions-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-}
-
-.recovery-file-btn {
-  cursor: pointer;
-}
-
-.recovery-section h4 {
-  margin: 0 0 0.75rem;
-  font-size: 0.95rem;
-}
-
-.recovery-list {
-  display: grid;
-  gap: 0.75rem;
-}
-
-.recovery-card {
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0.85rem 1rem;
-}
-
-.recovery-card--active {
-  border-color: var(--accent);
-}
-
-.recovery-card-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.75rem;
-  align-items: baseline;
-}
-
-.recovery-source {
-  font-size: 0.75rem;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.recovery-card-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-}
-
-.recovery-errors {
-  margin: 0;
-  padding-left: 1.1rem;
-  color: var(--muted);
-  font-size: 0.85rem;
-}
-
-.recovery-errors li + li {
-  margin-top: 0.35rem;
 }
 
 .hint {
