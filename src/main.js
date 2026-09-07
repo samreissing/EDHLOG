@@ -198,7 +198,7 @@ let recoveryFindings = [];
 let deckSort = "normWr";
 let deckSortDir = "desc";
 let deckBracketFilter = "";
-let logFilters = { deck: "", result: "", year: "" };
+let logFilters = { deck: "", bracket: "", result: "", year: "" };
 let colorView = "wubrgc";
 let colorAgg = "inclusive";
 let colorSortOrder = "wubrgc";
@@ -310,7 +310,7 @@ function resetGamesViewState() {
   gameModalOpen = false;
   editingGameId = null;
   viewingGameId = null;
-  logFilters = { deck: "", result: "", year: "" };
+  logFilters = { deck: "", bracket: "", result: "", year: "" };
   tableSort["game-log"] = { col: "date", dir: "desc" };
 }
 
@@ -1025,9 +1025,15 @@ function bindEvents() {
       const form = document.getElementById("add-game-form");
       const winnerSeat = Number(form?.querySelector('[name="winnerSeat"]')?.value) || 0;
       if (winnerSeat > 0) syncResultFromSeats();
-    } else if (id === "filter-deck" || id === "filter-result" || id === "filter-year") {
+    } else if (
+      id === "filter-deck" ||
+      id === "filter-bracket" ||
+      id === "filter-result" ||
+      id === "filter-year"
+    ) {
       logFilters = {
         deck: document.getElementById("filter-deck")?.value || "",
+        bracket: document.getElementById("filter-bracket")?.value || "",
         result: document.getElementById("filter-result")?.value || "",
         year: document.getElementById("filter-year")?.value || "",
       };
@@ -1715,7 +1721,7 @@ function render() {
 }
 
 function applyLogFilters() {
-  const { deck, result, year } = logFilters;
+  const { deck, bracket, result, year } = logFilters;
   const count = document.getElementById("filter-count");
   if (!count) return;
 
@@ -1723,6 +1729,7 @@ function applyLogFilters() {
   document.querySelectorAll("#game-log-table tbody tr").forEach((row) => {
     const show =
       (!deck || row.dataset.deck === deck) &&
+      (!bracket || row.dataset.bracket === bracket) &&
       (!result || row.dataset.result === result) &&
       (!year || row.dataset.year === year);
     row.hidden = !show;
@@ -2584,8 +2591,14 @@ function renderGames() {
   return `
     <section class="section">
       <div class="section-header">
-        <div class="filters inline">
-          <label>Deck<select id="filter-deck"><option value="">All</option>${decks.map((d) => `<option value="${escapeHtml(d)}" ${logFilters.deck === d ? "selected" : ""}>${escapeHtml(deckLabelForKey(d, data.decks))}</option>`).join("")}</select></label>
+        <div class="filters inline game-log-filters">
+          <label class="game-log-filter-deck">Deck<select id="filter-deck" class="game-log-filter-deck-select"><option value="">All</option>${decks.map((d) => `<option value="${escapeHtml(d)}" ${logFilters.deck === d ? "selected" : ""}>${escapeHtml(deckLabelForKey(d, data.decks))}</option>`).join("")}</select></label>
+          <label>Bracket<select id="filter-bracket"><option value="">All</option>${[1, 2, 3, 4, 5]
+            .map(
+              (b) =>
+                `<option value="${b}" ${String(logFilters.bracket) === String(b) ? "selected" : ""}>${b}</option>`
+            )
+            .join("")}</select></label>
           <label>Result<select id="filter-result"><option value="">All</option><option value="Win" ${logFilters.result === "Win" ? "selected" : ""}>Wins</option><option value="Loss" ${logFilters.result === "Loss" ? "selected" : ""}>Losses</option></select></label>
           <label>Year<select id="filter-year"><option value="">All</option>${years.map((y) => `<option value="${y}" ${logFilters.year === y ? "selected" : ""}>${y}</option>`).join("")}</select></label>
           <span class="filter-count" id="filter-count">${games.length} games</span>
@@ -2695,9 +2708,11 @@ function getFilteredSortedGames() {
     turn: (g) => (Number(g.turn) > 0 ? Number(g.turn) : null),
     result: (g) => (g.result === "Win" ? 1 : 0),
   });
-  const { deck, result, year } = logFilters;
+  const { deck, bracket, result, year } = logFilters;
+  const deckMap = deckMapByKey(data.decks);
   return games.filter((game) => {
     if (deck && game.deck !== deck) return false;
+    if (bracket && String(gameBracket(game, deckMap)) !== String(bracket)) return false;
     if (result && game.result !== result) return false;
     if (year && gameYear(game.date) !== year) return false;
     return true;
@@ -2880,7 +2895,7 @@ function gameRow(g) {
     deckSlotId: g.deck,
   });
   const bracket = gameBracket(g, new Map(data.decks.map((d) => [deckId(d), d])));
-  return `<tr data-deck="${escapeHtml(g.deck)}" data-result="${g.result}" data-year="${gameYear(g.date)}">
+  return `<tr data-deck="${escapeHtml(g.deck)}" data-bracket="${bracket}" data-result="${g.result}" data-year="${gameYear(g.date)}">
     <td><button type="button" class="link-btn view-game" data-id="${g.id}">${formatDate(g.date)}</button></td><td class="deck-name">${deckLink}</td>
     <td>${bracket}</td><td>${g.mySeat || "—"}</td><td>${g.turn || "—"}</td>
     <td><span class="result-pill ${cls}">${g.result}</span></td>
