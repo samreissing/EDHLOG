@@ -2189,9 +2189,11 @@ function renderStats() {
             (seat) => `
           <button type="button" class="seat-toggle ${selectedSeats.includes(seat.seat) ? "active" : ""}"
             data-seat-toggle="${seat.seat}" style="--seat-color:${SEAT_COLORS[seat.seat]}">
-            <strong>${seat.label}</strong>
+            <div class="seat-toggle-header">
+              <strong>${seat.label}</strong>
+              <em class="seat-longest-streak">${formatSeatLongestStreak(seat.longestWinStreak)}</em>
+            </div>
             <span>${seat.games}G · ${seat.wins}W · ${seat.games ? pctCell(seat.winRate) : "—"}</span>
-            <em class="seat-longest-streak">${formatSeatLongestStreak(seat.longestWinStreak)}</em>
           </button>`
           )
           .join("")}

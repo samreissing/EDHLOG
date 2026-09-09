@@ -101,7 +101,7 @@ function gameHasSeatData(game, mode) {
 /** @param {number} count */
 export function formatSeatLongestStreak(count) {
   const n = count || 0;
-  return `Longest Streak: ${n} ${n === 1 ? "Game" : "Games"}`;
+  return `Longest Streak: ${n}`;
 }
 
 /** @param {import('./store.js').Game[]} games @param {'mine' | 'opponents' | 'total'} mode */
