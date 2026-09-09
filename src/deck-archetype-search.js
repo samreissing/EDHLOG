@@ -129,6 +129,22 @@ export function bindArchetypeAutocomplete(form, decks) {
 
   resizeArchetypeInput(input);
 
+  const wrap = input.closest(".deck-archetype-wrap");
+
+  const onDocumentMouseDown = (e) => {
+    if (!document.body.contains(input)) {
+      document.removeEventListener("mousedown", onDocumentMouseDown, true);
+      return;
+    }
+    if (wrap?.contains(e.target)) return;
+    hideList();
+  };
+  document.addEventListener("mousedown", onDocumentMouseDown, true);
+
+  input.addEventListener("click", () => {
+    renderList();
+  });
+
   input.addEventListener("input", () => {
     resizeArchetypeInput(input);
     renderList();
