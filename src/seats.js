@@ -105,20 +105,30 @@ function gameHasSeatData(game, mode, options = {}) {
 }
 
 /** @param {number} count */
-export function formatSeatLongestStreak(count) {
-  const n = count || 0;
-  return `Longest Streak: ${n}`;
+export function formatSeatBestWinStreak(count) {
+  return `Best Win Streak: ${count || 0}`;
+}
+
+/** @param {number} count */
+export function formatSeatSitStreak(count) {
+  return `Longest Streak: ${count || 0}`;
 }
 
 /** @param {import('./store.js').Game[]} games @param {'mine' | 'opponents' | 'total'} mode @param {{ excludeMySeat?: boolean }} [options] */
 export function computeSeatStats(games, mode = "mine", options = {}) {
   const seats = [1, 2, 3, 4].map((seat) => ({ seat, games: 0, wins: 0 }));
   /** @type {Map<number, { running: number, longest: number }>} */
-  const streaks = new Map(
+  const winStreaks = new Map(
+    [1, 2, 3, 4].map((seat) => [seat, { running: 0, longest: 0 }])
+  );
+  /** @type {Map<number, { running: number, longest: number }>} */
+  const sitStreaks = new Map(
     [1, 2, 3, 4].map((seat) => [seat, { running: 0, longest: 0 }])
   );
 
-  for (const game of [...games].sort(compareGamesChronologically)) {
+  const sorted = [...games].sort(compareGamesChronologically);
+
+  for (const game of sorted) {
     for (let seat = 1; seat <= 4; seat += 1) {
       if (!seatAppliesToMode(game, seat, mode, options)) continue;
       const result = seatOutcomeForSeat(game, seat);
@@ -127,12 +137,26 @@ export function computeSeatStats(games, mode = "mine", options = {}) {
       slot.games += 1;
       if (result === "win") slot.wins += 1;
 
-      const streak = streaks.get(seat);
+      const streak = winStreaks.get(seat);
       if (result === "win") {
         streak.running += 1;
         streak.longest = Math.max(streak.longest, streak.running);
       } else {
         streak.running = 0;
+      }
+    }
+
+    if (mode === "mine") {
+      const mySeat = mySeatForGame(game);
+      if (!mySeat) continue;
+      for (let seat = 1; seat <= 4; seat += 1) {
+        const sit = sitStreaks.get(seat);
+        if (mySeat === seat) {
+          sit.running += 1;
+          sit.longest = Math.max(sit.longest, sit.running);
+        } else {
+          sit.running = 0;
+        }
       }
     }
   }
@@ -141,7 +165,8 @@ export function computeSeatStats(games, mode = "mine", options = {}) {
     ...s,
     label: `Seat ${s.seat}`,
     winRate: winRate(s.wins, s.games),
-    longestWinStreak: streaks.get(s.seat)?.longest ?? 0,
+    longestWinStreak: winStreaks.get(s.seat)?.longest ?? 0,
+    longestSitStreak: sitStreaks.get(s.seat)?.longest ?? 0,
   }));
 }
 
