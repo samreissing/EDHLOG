@@ -212,6 +212,26 @@ main {
   gap: 0.5rem;
 }
 
+.turn-stat-gwl {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.35rem;
+}
+
+.turn-stat-gwl-item {
+  text-align: center;
+}
+
+.turn-stat-wr {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.totals-placeholder {
+  margin-top: 0.75rem;
+}
+
 .turn-stat-metric-label {
   display: block;
   font-size: 0.7rem;

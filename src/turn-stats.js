@@ -1,39 +1,81 @@
 import { winRate, normalizedWinRate } from "./stats.js";
+import { parseGameSeats } from "./matchups.js";
+import { MY_PLAYER_NAME } from "./opponent-search.js";
+
+/** @typedef {{ turn: number, games: number, wins: number, losses: number, winRate: number | null, normalizedWr: number | null }} TurnGridRow */
+
+function normalizeKey(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase();
+}
+
+/** @param {import('./matchups.js').GameSeat} seat */
+function isMyPlayer(seat) {
+  return normalizeKey(seat.player) === normalizeKey(MY_PLAYER_NAME);
+}
+
+/** @param {import('./matchups.js').GameSeat} seat @param {import('./matchups.js').GameSeat[]} seats */
+function seatOutcome(seat, seats) {
+  if (seat.didWin) return "win";
+  if (seats.some((s) => s !== seat && s.didWin)) return "loss";
+  return "shared";
+}
 
 /**
  * @param {import('./store.js').Game[]} games
+ * @param {{ allPlayers?: boolean, decks?: import('./store.js').Deck[], excludeMyPlayer?: boolean }} [options]
  */
-export function computeTurnGridStats(games) {
-  /** @type {Map<number, { turn: number, games: number, wins: number }>} */
-  const byTurn = new Map();
-  let maxTurn = 0;
+export function computeTurnGridStats(games, options = {}) {
+  const { allPlayers = false, decks = [], excludeMyPlayer = false } = options;
+  /** @type {Array<{ game: import('./store.js').Game, endTurn: number }>} */
+  const logged = [];
 
   for (const game of games) {
-    const turn = Number(game.turn);
-    if (!Number.isFinite(turn) || turn <= 0) continue;
-
-    maxTurn = Math.max(maxTurn, turn);
-    if (!byTurn.has(turn)) {
-      byTurn.set(turn, { turn, games: 0, wins: 0 });
-    }
-
-    const row = byTurn.get(turn);
-    row.games += 1;
-    if (game.result === "Win") row.wins += 1;
+    const endTurn = Number(game.turn);
+    if (!Number.isFinite(endTurn) || endTurn <= 0) continue;
+    logged.push({ game, endTurn });
   }
 
-  if (maxTurn <= 0) return [];
+  if (!logged.length) return [];
 
-  /** @type {ReturnType<typeof computeTurnGridStats>} */
+  const maxTurn = Math.max(...logged.map((entry) => entry.endTurn));
+  /** @type {TurnGridRow[]} */
   const rows = [];
+
   for (let turn = 1; turn <= maxTurn; turn += 1) {
-    const data = byTurn.get(turn) || { turn, games: 0, wins: 0 };
+    let gamesReached = 0;
+    let wins = 0;
+    let losses = 0;
+
+    for (const { game, endTurn } of logged) {
+      if (endTurn >= turn) gamesReached += 1;
+
+      if (endTurn !== turn) continue;
+
+      if (allPlayers) {
+        const seats = parseGameSeats(game, decks);
+        for (const seat of seats) {
+          if (excludeMyPlayer && isMyPlayer(seat)) continue;
+          const outcome = seatOutcome(seat, seats);
+          if (outcome === "win") wins += 1;
+          else if (outcome === "loss") losses += 1;
+        }
+      } else if (game.result === "Win") {
+        wins += 1;
+      } else if (game.result === "Loss") {
+        losses += 1;
+      }
+    }
+
+    const ended = wins + losses;
     rows.push({
-      turn: data.turn,
-      games: data.games,
-      wins: data.wins,
-      winRate: data.games ? winRate(data.wins, data.games) : null,
-      normalizedWr: data.games ? normalizedWinRate(data.wins, data.games) : null,
+      turn,
+      games: gamesReached,
+      wins,
+      losses,
+      winRate: ended ? winRate(wins, ended) : null,
+      normalizedWr: ended ? normalizedWinRate(wins, ended) : null,
     });
   }
 

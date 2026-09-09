@@ -14,6 +14,9 @@ export const TOTALS_TABS = [
   { id: "decks", label: "Decks" },
   { id: "players", label: "Players" },
   { id: "colors", label: "Colors" },
+  { id: "archetypes", label: "Archetypes" },
+  { id: "seats", label: "Seats" },
+  { id: "turns", label: "Turns" },
 ];
 
 function normalizeKey(value) {
