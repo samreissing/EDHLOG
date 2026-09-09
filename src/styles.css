@@ -1166,7 +1166,16 @@ button.year-chip.active,
   text-align: left;
 }
 
-.seat-toggle strong {
+.seat-toggle-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.seat-toggle-header strong {
+  flex-shrink: 0;
   color: var(--seat-color, var(--accent));
 }
 
@@ -1181,6 +1190,12 @@ button.year-chip.active,
   color: var(--muted);
   font-style: italic;
   font-family: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1 1 auto;
+  text-align: right;
 }
 
 .seat-toggle:hover {
