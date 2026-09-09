@@ -448,6 +448,11 @@ function getTotalsScopeGames() {
   return filterGamesByBracket(data.games, data.decks, totalsBracketFilter);
 }
 
+/** @param {{ turn: number, reachedPct: number }} row */
+function renderTurnStatHeading(row) {
+  return `<div class="turn-stat-label"><span class="turn-stat-title">Turn ${row.turn}</span><span class="turn-stat-reached">– ${pct(row.reachedPct, 2)} of games</span></div>`;
+}
+
 /** @param {ReturnType<typeof computeTurnGridStats>} turns */
 function renderTurnStatsGrid(turns) {
   return `<div class="turn-stats-grid">${turns
@@ -455,7 +460,7 @@ function renderTurnStatsGrid(turns) {
       const ended = row.wins + row.losses;
       return `
           <div class="turn-stat-box${row.games ? "" : " turn-stat-box-empty"}">
-            <div class="turn-stat-label">Turn ${row.turn}</div>
+            ${renderTurnStatHeading(row)}
             <div class="turn-stat-gwl">
               <div class="turn-stat-gwl-item"><span class="turn-stat-metric-label">G</span><strong>${row.games}</strong></div>
               <div class="turn-stat-gwl-item"><span class="turn-stat-metric-label">W</span><strong>${row.wins}</strong></div>
@@ -476,7 +481,7 @@ function renderTurnDistributionGrid(turns) {
     .map(
       (row) => `
           <div class="turn-stat-box${row.games ? "" : " turn-stat-box-empty"}">
-            <div class="turn-stat-label">Turn ${row.turn}</div>
+            ${renderTurnStatHeading(row)}
             <div class="turn-stat-gwl turn-stat-gw">
               <div class="turn-stat-gwl-item"><span class="turn-stat-metric-label">G</span><strong>${row.games}</strong></div>
               <div class="turn-stat-gwl-item"><span class="turn-stat-metric-label">WR</span><strong>${row.games ? pctCell(row.winRate) : "—"}</strong></div>
