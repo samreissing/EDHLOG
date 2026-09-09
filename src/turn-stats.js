@@ -2,7 +2,7 @@ import { winRate, normalizedWinRate } from "./stats.js";
 import { parseGameSeats } from "./matchups.js";
 import { MY_PLAYER_NAME } from "./opponent-search.js";
 
-/** @typedef {{ turn: number, games: number, wins: number, losses: number, winRate: number | null, normalizedWr: number | null }} TurnGridRow */
+/** @typedef {{ turn: number, games: number, gamesReached: number, reachedPct: number, wins: number, losses: number, winRate: number | null, normalizedWr: number | null }} TurnGridRow */
 
 function normalizeKey(value) {
   return String(value || "")
@@ -56,10 +56,16 @@ export function computeTurnDistributionStats(games, options = {}) {
   /** @type {TurnGridRow[]} */
   const rows = [];
   for (let turn = 1; turn <= maxTurn; turn += 1) {
+    let gamesReached = 0;
+    for (const { endTurn } of logged) {
+      if (endTurn >= turn) gamesReached += 1;
+    }
     const ended = endedByTurn.get(turn) || 0;
     rows.push({
       turn,
       games: ended,
+      gamesReached,
+      reachedPct: totalGames ? winRate(gamesReached, totalGames) : 0,
       wins: 0,
       losses: 0,
       winRate: totalGames ? winRate(ended, totalGames) : null,
@@ -87,6 +93,7 @@ export function computeTurnGridStats(games, options = {}) {
 
   if (!logged.length) return [];
 
+  const totalGames = logged.length;
   const maxTurn = Math.max(...logged.map((entry) => entry.endTurn));
   /** @type {TurnGridRow[]} */
   const rows = [];
@@ -120,6 +127,8 @@ export function computeTurnGridStats(games, options = {}) {
     rows.push({
       turn,
       games: gamesReached,
+      gamesReached,
+      reachedPct: totalGames ? winRate(gamesReached, totalGames) : 0,
       wins,
       losses,
       winRate: ended ? winRate(wins, ended) : null,
