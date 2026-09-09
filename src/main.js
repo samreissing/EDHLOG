@@ -1754,7 +1754,7 @@ function render() {
     syncPodFormSeats();
     syncResultFromSeats();
     syncBracketFromDeck();
-    bindPodAutocomplete(document.getElementById("add-game-form"), data.games);
+    bindPodAutocomplete(document.getElementById("add-game-form"), data.games, data.decks);
   }
   syncEntityReportModal();
 
