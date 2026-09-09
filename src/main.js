@@ -477,13 +477,9 @@ function renderTurnDistributionGrid(turns) {
       (row) => `
           <div class="turn-stat-box${row.games ? "" : " turn-stat-box-empty"}">
             <div class="turn-stat-label">Turn ${row.turn}</div>
-            <div class="turn-stat-games-only">
-              <span class="turn-stat-metric-label">G</span>
-              <strong>${row.games}</strong>
-            </div>
-            <div class="turn-stat-wr">
-              <div><span class="turn-stat-metric-label">WR</span><strong>${row.games ? pctCell(row.winRate) : "—"}</strong></div>
-              <div><span class="turn-stat-metric-label">Norm WR</span><strong>${row.games ? pctCell(row.normalizedWr) : "—"}</strong></div>
+            <div class="turn-stat-gwl turn-stat-gw">
+              <div class="turn-stat-gwl-item"><span class="turn-stat-metric-label">G</span><strong>${row.games}</strong></div>
+              <div class="turn-stat-gwl-item"><span class="turn-stat-metric-label">WR</span><strong>${row.games ? pctCell(row.winRate) : "—"}</strong></div>
             </div>
           </div>`
     )
@@ -2763,7 +2759,6 @@ function renderStats() {
           turn: (row) => row.turn,
           games: (row) => row.games,
           winRate: (row) => row.winRate ?? -1,
-          normalizedWr: (row) => row.normalizedWr ?? -1,
         },
         WINS_SORT_TIE_BREAKERS
       );
@@ -2782,7 +2777,6 @@ function renderStats() {
           ${sortHeader("turn-stats", "turn", "Turn", tableSort["turn-stats"])}
           ${sortHeader("turn-stats", "games", "Games", tableSort["turn-stats"])}
           ${sortHeader("turn-stats", "winRate", "WR", tableSort["turn-stats"])}
-          ${sortHeader("turn-stats", "normalizedWr", "Norm WR", tableSort["turn-stats"])}
         </tr></thead>
       </table>
       ${
