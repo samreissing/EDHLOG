@@ -52,7 +52,6 @@ import {
   deckCommander,
   findDeck,
   deckMapByKey,
-  deckLabelForKey,
   deckTitleForKey,
   resolveMyCommander,
   resolveDeckCommanderOnDate,
