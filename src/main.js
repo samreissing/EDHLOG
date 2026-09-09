@@ -204,6 +204,8 @@ let editingDeckName = null;
 let editingDeckIndex = -1;
 /** @type {{ kind: 'player' | 'deck', key: string, playerScope?: string | null, deckSlotId?: string | null } | null} */
 let entityReport = null;
+/** @type {ReturnType<typeof snapshotEntityReportState>[]} */
+let entityReportStack = [];
 /** @type {'games' | 'decks' | 'players'} */
 let entityReportTab = "games";
 /** @type {{ players: import('./table.js').SortState, decks: import('./table.js').SortState }} */
@@ -347,8 +349,35 @@ function resetGamesViewState() {
   tableSort["game-log"] = { col: "date", dir: "desc" };
 }
 
-function dismissEntityReport() {
-  entityReport = null;
+function snapshotEntityReportState() {
+  return {
+    entityReport: entityReport ? { ...entityReport } : null,
+    entityReportTab,
+    entityReportHeroTab,
+    entityReportChartRange: { ...entityReportChartRange },
+    entityReportGameRange: { ...entityReportGameRange },
+    entityReportMatchupSort: {
+      players: { ...entityReportMatchupSort.players },
+      decks: { ...entityReportMatchupSort.decks },
+    },
+    entityReportGamesSort: { ...entityReportGamesSort },
+  };
+}
+
+function restoreEntityReportState(snapshot) {
+  entityReport = snapshot.entityReport ? { ...snapshot.entityReport } : null;
+  entityReportTab = snapshot.entityReportTab;
+  entityReportHeroTab = snapshot.entityReportHeroTab;
+  entityReportChartRange = { ...snapshot.entityReportChartRange };
+  entityReportGameRange = { ...snapshot.entityReportGameRange };
+  entityReportMatchupSort = {
+    players: { ...snapshot.entityReportMatchupSort.players },
+    decks: { ...snapshot.entityReportMatchupSort.decks },
+  };
+  entityReportGamesSort = { ...snapshot.entityReportGamesSort };
+}
+
+function resetEntityReportViewState() {
   entityReportTab = "games";
   entityReportHeroTab = "overview";
   entityReportChartRange = { start: null, end: null, customized: false };
@@ -358,6 +387,21 @@ function dismissEntityReport() {
     decks: { col: "normalizedMatchupImpact", dir: "desc" },
   };
   entityReportGamesSort = { col: "date", dir: "desc" };
+}
+
+function dismissEntityReport() {
+  entityReport = null;
+  entityReportStack = [];
+  resetEntityReportViewState();
+  syncEntityReportModal();
+}
+
+function goBackEntityReport() {
+  if (!entityReportStack.length) {
+    dismissEntityReport();
+    return;
+  }
+  restoreEntityReportState(entityReportStack.pop());
   syncEntityReportModal();
 }
 
@@ -378,16 +422,11 @@ function renderMatchupOpponentDeckCell(row, decks) {
 
 function openEntityReport(kind, key, playerScope = null, deckSlotId = null) {
   if (deckModalOpen) closeDeckModal();
+  if (entityReport) {
+    entityReportStack.push(snapshotEntityReportState());
+  }
   entityReport = { kind, key, playerScope, deckSlotId };
-  entityReportTab = "games";
-  entityReportHeroTab = "overview";
-  entityReportChartRange = { start: null, end: null, customized: false };
-  entityReportGameRange = { min: 1, max: null, customized: false };
-  entityReportMatchupSort = {
-    players: { col: "normalizedMatchupImpact", dir: "desc" },
-    decks: { col: "normalizedMatchupImpact", dir: "desc" },
-  };
-  entityReportGamesSort = { col: "date", dir: "desc" };
+  resetEntityReportViewState();
   syncEntityReportModal();
 }
 
@@ -585,10 +624,7 @@ async function boot() {
       viewingGameId = null;
       render();
     },
-    entityReport: () => {
-      entityReport = null;
-      syncEntityReportModal();
-    },
+    entityReport: goBackEntityReport,
     recovery: closeRecoveryModal,
   });
   if (sync) {
@@ -606,6 +642,12 @@ function bindEvents() {
   bindFormAccidentalNavigationGuard();
 
   document.addEventListener("click", (e) => {
+    const entityReportBackBtn = e.target.closest("#entity-report-back");
+    if (entityReportBackBtn) {
+      goBackEntityReport();
+      return;
+    }
+
     const entityBtn = e.target.closest("[data-entity-report]");
     if (entityBtn) {
       openEntityReport(
@@ -1071,8 +1113,7 @@ function bindEvents() {
     if (e.target.id === "add-deck-btn") {
       editingDeckName = null;
       editingDeckIndex = -1;
-      entityReport = null;
-      syncEntityReportModal();
+      dismissEntityReport();
       deckModalOpen = true;
       render();
       return;
@@ -1088,8 +1129,7 @@ function bindEvents() {
       data.decks = data.decks.filter((d) => deckId(d) !== key);
       data.games = data.games.filter((g) => g.deck !== key);
       if (entityReport?.deckSlotId === key || entityReport?.key === key) {
-        entityReport = null;
-        syncEntityReportModal();
+        dismissEntityReport();
       }
       closeDeckModal();
       saveData(data);
@@ -1105,8 +1145,7 @@ function bindEvents() {
       if (deck && ensureDeckHasId(deck)) saveData(data);
       editingDeckIndex = deck ? data.decks.indexOf(deck) : -1;
       editingDeckName = deck ? deckId(deck) : ref;
-      entityReport = null;
-      syncEntityReportModal();
+      dismissEntityReport();
       deckModalOpen = true;
       render();
       return;
@@ -1639,7 +1678,7 @@ function syncEntityReportModal() {
     entityReportTab,
     entityReportMatchupSort,
     entityReportGamesSort,
-    { heroTab: entityReportHeroTab, chartContext }
+    { heroTab: entityReportHeroTab, chartContext, canGoBack: entityReportStack.length > 0 }
   );
   const newScrollEl = modal.querySelector(".modal-content-report");
   if (newScrollEl && scrollTop > 0) {
