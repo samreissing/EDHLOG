@@ -1263,7 +1263,7 @@ function gamesForTrendsFilter(games) {
 }
 
 function trendsChartTitle() {
-  if (trendsFilter.kind === "all") return "All Games";
+  if (trendsFilter.kind === "all") return "";
   if (trendsFilter.kind === "window") {
     return `Games ${trendsFilter.rangeStart}–${trendsFilter.rangeEnd}`;
   }
