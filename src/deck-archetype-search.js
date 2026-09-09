@@ -34,11 +34,15 @@ export function parseArchetypesFromInput(value) {
     .filter(Boolean);
 }
 
-/** @param {import('./store.js').Deck[]} decks */
-export function collectArchetypeHistory(decks) {
+/**
+ * @param {import('./store.js').Deck[]} decks
+ * @param {{ includeRetired?: boolean }} [options]
+ */
+export function collectArchetypeHistory(decks, { includeRetired = false } = {}) {
   /** @type {Map<string, string>} */
   const map = new Map();
   for (const deck of decks) {
+    if (!includeRetired && deck.retired) continue;
     for (const archetype of deck.archetypes || []) {
       const trimmed = String(archetype || "").trim();
       if (!trimmed) continue;
@@ -77,8 +81,12 @@ export function resizeArchetypeInput(input) {
   input.style.height = `${Math.max(input.scrollHeight, 36)}px`;
 }
 
-/** @param {HTMLFormElement | null} form @param {import('./store.js').Deck[]} decks */
-export function bindArchetypeAutocomplete(form, decks) {
+/**
+ * @param {HTMLFormElement | null} form
+ * @param {import('./store.js').Deck[]} decks
+ * @param {{ includeRetired?: boolean }} [options]
+ */
+export function bindArchetypeAutocomplete(form, decks, options = {}) {
   if (!form) return;
 
   const input = form.querySelector(".deck-archetype-input");
@@ -88,7 +96,7 @@ export function bindArchetypeAutocomplete(form, decks) {
   let activeIndex = -1;
   let suppressFocusOutUntil = 0;
   let clickOpensList = true;
-  const allArchetypes = () => collectArchetypeHistory(decks);
+  const allArchetypes = () => collectArchetypeHistory(decks, options);
 
   const hideList = () => {
     list.hidden = true;
