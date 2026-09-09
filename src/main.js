@@ -2768,7 +2768,7 @@ function renderStats() {
             </tr>`
                   )
                   .join("")
-              : `<tr><td colspan="6">${totalsExcludeMe ? "No archetype data when excluding your decks." : "No archetype data yet — add archetypes to your decks."}</td></tr>`
+              : `<tr><td colspan="6">No archetype data yet — add archetypes to your decks.</td></tr>`
           }
         </tbody>
       </table>`;
