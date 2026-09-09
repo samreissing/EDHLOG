@@ -2693,7 +2693,7 @@ function renderGames() {
   });
 
   const decks = [...data.decks]
-    .sort((a, b) => deckLabel(a).localeCompare(deckLabel(b)))
+    .sort((a, b) => deckTitle(a).localeCompare(deckTitle(b)))
     .map((d) => deckId(d));
   const years = [...new Set(data.games.map((g) => gameYear(g.date)))].sort();
   const sort = tableSort["game-log"];
@@ -2704,7 +2704,7 @@ function renderGames() {
     <section class="section">
       <div class="section-header">
         <div class="filters inline game-log-filters">
-          <label class="game-log-filter-deck">Deck<select id="filter-deck" class="game-log-filter-deck-select"><option value="">All</option>${decks.map((d) => `<option value="${escapeHtml(d)}" ${logFilters.deck === d ? "selected" : ""}>${escapeHtml(deckLabelForKey(d, data.decks))}</option>`).join("")}</select></label>
+          <label class="game-log-filter-deck">Deck<select id="filter-deck" class="game-log-filter-deck-select"><option value="">All</option>${decks.map((d) => `<option value="${escapeHtml(d)}" ${logFilters.deck === d ? "selected" : ""}>${escapeHtml(deckTitleForKey(d, data.decks))}</option>`).join("")}</select></label>
           <label>Bracket<select id="filter-bracket"><option value="">All</option>${[1, 2, 3, 4, 5]
             .map(
               (b) =>
