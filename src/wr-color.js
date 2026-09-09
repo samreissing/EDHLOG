@@ -137,6 +137,27 @@ export function pctCell(wr, digits = 2) {
   return `<span class="wr-cell" style="background:${bg};color:${fg}">${pct(wr, digits)}</span>`;
 }
 
+/** Color WR vs a dynamic baseline (Totals → Colors). Baseline maps to the neutral 25% palette anchor. */
+export function pctCellVsBaseline(wr, baseline, digits = 2) {
+  if (wr == null || Number.isNaN(wr)) {
+    return '<span class="wr-cell wr-na">—</span>';
+  }
+  const base = baseline == null || Number.isNaN(baseline) ? BASE_WR : clamp(baseline, 0.01, 0.99);
+  const pseudoWr = clamp(BASE_WR + (wr - base), 0, 1);
+  const bg = wrBackgroundColor(pseudoWr);
+  const fg = wrTextColor(pseudoWr);
+  return `<span class="wr-cell" style="background:${bg};color:${fg}">${pct(wr, digits)}</span>`;
+}
+
+/** Game-weighted average WR across color rows (excludes colorless). */
+export function totalsColorWrBaseline(rows) {
+  const peers = (rows || []).filter((row) => row.key !== "C" && (row.games || 0) > 0);
+  if (!peers.length) return BASE_WR;
+  const games = peers.reduce((sum, row) => sum + row.games, 0);
+  const wins = peers.reduce((sum, row) => sum + row.wins, 0);
+  return games ? wins / games : BASE_WR;
+}
+
 export function valueCell(value, average, formatted = String(value)) {
   if (value == null || Number.isNaN(value)) {
     return '<span class="wr-cell wr-na">—</span>';

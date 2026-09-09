@@ -27,7 +27,7 @@ import {
 } from "./stats.js";
 import { formatDate, gameSortKey, gameYear, normalizeDate, normalizeTime, nowTime, todayISO, compareGamesChronologically } from "./dates.js";
 import { colorIdentitySortIndex } from "./color-identity.js";
-import { pctCell, valueCell, colorStatAverage } from "./wr-color.js";
+import { pctCell, valueCell, colorStatAverage, pctCellVsBaseline, totalsColorWrBaseline, BASE_WR } from "./wr-color.js";
 import { sortHeader, applySort, toggleSort, WINS_SORT_TIE_BREAKERS } from "./table.js";
 import {
   getBracketColor,
@@ -2449,6 +2449,8 @@ function renderStats() {
       .filter((row) => !query || row.name.toLowerCase().includes(query));
 
     const nameHeader = isDeckTab ? "Deck" : isPlayerTab ? "Player" : "Colors";
+    const totalsColorWrPool =
+      isColorTab ? totalsColorWrBaseline(s.totals.colors || []) : BASE_WR;
 
     const splitPartnersControl =
       isDeckTab || isColorTab
@@ -2528,7 +2530,14 @@ function renderStats() {
               }
               <td>${row.games}</td>
               <td>${row.wins}</td>
-              <td>${pctCell(row.winRate)}</td>
+              <td>${
+                isColorTab
+                  ? pctCellVsBaseline(
+                      row.winRate,
+                      row.key === "C" ? BASE_WR : totalsColorWrPool
+                    )
+                  : pctCell(row.winRate)
+              }</td>
               <td>${pctCell(row.normalizedWr)}</td>
             </tr>`
             )
