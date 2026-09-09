@@ -636,7 +636,7 @@
         </tbody>
       </table>`}else if(l){const p={excludeMySeat:de},g=Ms(d,"total",p),m={start:g.min,end:g.max},v=Ga(d,"total",p),k=je(Tt.map(R=>({id:R,label:`Seat ${R}`,color:$n[R],series:qt(za(d,R,m.start,m.end,"total",p))})),m);e=`
       ${ve(hn,U,"totals-tab")}
-      <div class="filters inline totals-filters totals-seats-toolbar">
+      <div class="filters inline totals-filters">
         ${u}
         ${f}
       </div>
@@ -653,6 +653,7 @@
       <div class="filters inline totals-filters">
         ${u}
       </div>
+      <table class="table compact sortable-table turn-stats-sort">
         <thead><tr>
           ${w("turn-stats","turn","Turn",S["turn-stats"])}
           ${w("turn-stats","games","Games",S["turn-stats"])}
