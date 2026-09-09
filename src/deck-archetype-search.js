@@ -21,7 +21,9 @@ export function parseArchetypeSegments(value) {
 
 /** @param {string[] | undefined} archetypes */
 export function formatArchetypesForInput(archetypes) {
-  return (archetypes || []).filter(Boolean).join(", ");
+  const list = (archetypes || []).filter(Boolean);
+  if (!list.length) return "";
+  return `${list.join(", ")}, `;
 }
 
 /** @param {string} value */
@@ -48,18 +50,14 @@ export function collectArchetypeHistory(decks) {
 }
 
 /** @param {string} query @param {string[]} allArchetypes @param {string[]} committed */
-export function searchArchetypeHistory(query, allArchetypes, committed, limit = 8) {
+export function searchArchetypeHistory(query, allArchetypes, committed) {
   const committedKeys = new Set(committed.map((value) => value.toLowerCase()));
   const pool = allArchetypes.filter((name) => !committedKeys.has(name.toLowerCase()));
   const q = query.trim().toLowerCase();
 
-  if (!q) {
-    return pool.slice(0, limit);
-  }
+  if (!q) return pool;
 
-  return pool
-    .filter((name) => name.toLowerCase().startsWith(q))
-    .slice(0, limit);
+  return pool.filter((name) => name.toLowerCase().startsWith(q));
 }
 
 /** @param {HTMLInputElement | HTMLTextAreaElement} input @param {string} selected */
@@ -89,7 +87,7 @@ export function bindArchetypeAutocomplete(form, decks) {
 
   let activeIndex = -1;
   let suppressFocusOutUntil = 0;
-  let suppressReopen = false;
+  let clickOpensList = true;
   const allArchetypes = () => collectArchetypeHistory(decks);
 
   const hideList = () => {
@@ -115,7 +113,6 @@ export function bindArchetypeAutocomplete(form, decks) {
   };
 
   const openList = () => {
-    suppressReopen = false;
     renderList();
   };
 
@@ -146,30 +143,24 @@ export function bindArchetypeAutocomplete(form, decks) {
     if (wrap?.contains(e.target)) return;
     if (list.hidden) return;
     hideList();
-    suppressReopen = true;
+    clickOpensList = false;
   };
   dismissRoot.addEventListener("mousedown", onDismissPointerDown, true);
 
+  input.addEventListener("mousedown", () => {
+    clickOpensList = true;
+  });
+
   input.addEventListener("click", () => {
-    if (suppressReopen) {
-      suppressReopen = false;
+    if (!clickOpensList) {
+      clickOpensList = true;
       return;
     }
     openList();
   });
 
-  input.addEventListener("mouseenter", () => {
-    suppressReopen = false;
-    openList();
-  });
-
   input.addEventListener("input", () => {
     resizeArchetypeInput(input);
-    openList();
-  });
-
-  input.addEventListener("focus", () => {
-    if (suppressReopen) return;
     openList();
   });
 
@@ -196,7 +187,7 @@ export function bindArchetypeAutocomplete(form, decks) {
       selectValue(items[activeIndex].dataset.value || "");
     } else if (e.key === "Escape") {
       hideList();
-      suppressReopen = true;
+      clickOpensList = false;
     }
   });
 
