@@ -1369,16 +1369,12 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   align-items: center;
 }
 
-.game-log-filters .game-log-filter-deck select {
-  width: 5rem;
-  min-width: 5rem;
-  max-width: 5rem;
+.game-log-filters select {
+  width: 7.5rem;
+  min-width: 7.5rem;
+  max-width: 7.5rem;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.game-log-filters #filter-bracket {
-  min-width: 4.5rem;
 }
 
 .mana-check {
