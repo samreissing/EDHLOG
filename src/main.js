@@ -135,7 +135,8 @@ import {
 } from "./selection-colors.js";
 import {
   computeSeatStats,
-  formatSeatLongestStreak,
+  formatSeatBestWinStreak,
+  formatSeatSitStreak,
   gamesForSeatSeries,
   getSeatDateBounds,
   SEAT_COLORS,
@@ -2481,18 +2482,21 @@ function renderStats() {
         ${seatStats
           .map(
             (seat) => `
-          <button type="button" class="seat-toggle ${selectedSeats.includes(seat.seat) ? "active" : ""}"
-            data-seat-toggle="${seat.seat}" style="--seat-color:${SEAT_COLORS[seat.seat]}">
-            <div class="seat-toggle-header">
-              <strong>${seat.label}</strong>
-              ${
-                seatViewMode === "mine"
-                  ? `<em class="seat-longest-streak">${formatSeatLongestStreak(seat.longestWinStreak)}</em>`
-                  : ""
-              }
-            </div>
-            <span>${seat.games}G · ${seat.wins}W · ${seat.games ? pctCell(seat.winRate) : "—"}</span>
-          </button>`
+          <div class="seat-toggle-col">
+            <button type="button" class="seat-toggle ${selectedSeats.includes(seat.seat) ? "active" : ""}"
+              data-seat-toggle="${seat.seat}" style="--seat-color:${SEAT_COLORS[seat.seat]}">
+              <div class="seat-toggle-header"><strong>${seat.label}</strong></div>
+              <span>${seat.games}G · ${seat.wins}W · ${seat.games ? pctCell(seat.winRate) : "—"}</span>
+            </button>
+            ${
+              seatViewMode === "mine"
+                ? `<div class="seat-streak-stats">
+              <div class="seat-streak-line">${formatSeatBestWinStreak(seat.longestWinStreak)}</div>
+              <div class="seat-streak-line">${formatSeatSitStreak(seat.longestSitStreak)}</div>
+            </div>`
+                : ""
+            }
+          </div>`
           )
           .join("")}
       </div>
