@@ -1705,17 +1705,22 @@ function decksWithSameCommander(decks, commander, excludeIndex = -1) {
 
 /** @param {import('./store.js').Deck[]} decks @param {string} commander @param {string} name @param {number} [excludeIndex] */
 function deckNameClashMessage(decks, commander, name, excludeIndex = -1) {
-  const clashes = decksWithSameCommander(decks, commander, excludeIndex);
-  if (!clashes.length) return null;
-
   const trimmed = String(name || "").trim();
-  if (!trimmed) {
+  const sameCommanderDecks = decksWithSameCommander(decks, commander, excludeIndex);
+
+  if (sameCommanderDecks.length && !trimmed) {
     return "Give this deck a name — another deck already uses this commander";
   }
 
+  if (!trimmed) return null;
+
   const nameKey = trimmed.toLowerCase();
-  if (clashes.some((deck) => String(deck.name || "").trim().toLowerCase() === nameKey)) {
-    return "Another deck with this commander already uses that name";
+  const duplicate = decks.find(
+    (deck, index) =>
+      index !== excludeIndex && String(deck.name || "").trim().toLowerCase() === nameKey
+  );
+  if (duplicate) {
+    return "Another deck already uses that name";
   }
 
   return null;
