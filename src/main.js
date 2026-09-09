@@ -107,6 +107,7 @@ import {
   cycleArchetypeView,
 } from "./archetype-stats.js";
 import { computeTurnGridStats } from "./turn-stats.js";
+import { renderTurnWinRateChart, bindTurnWinRateChart } from "./turn-chart.js";
 import {
   computeWinRateSeries,
   computeTrendsSummary,
@@ -1806,6 +1807,9 @@ function render() {
       });
     }
   }
+  if (currentView === "stats" && statsTab === "turns") {
+    bindTurnWinRateChart();
+  }
   if (currentView === "stats" && statsTab === "matchups" && matchupTab === "decks") {
     bindMatchupDeckTips();
   }
@@ -2341,18 +2345,20 @@ function renderStats() {
       </table>`;
   } else if (statsTab === "turns") {
     const { statsGames } = getStatsScope();
+    const turnRows = computeTurnGridStats(statsGames);
     const turns = applySort(
-      computeTurnGridStats(statsGames),
+      turnRows,
       tableSort["turn-stats"],
       {
         turn: (row) => row.turn,
         games: (row) => row.games,
         wins: (row) => row.wins,
-        winRate: (row) => row.winRate,
-        normalizedWr: (row) => row.normalizedWr,
+        winRate: (row) => row.winRate ?? -1,
+        normalizedWr: (row) => row.normalizedWr ?? -1,
       },
       WINS_SORT_TIE_BREAKERS
     );
+    const turnChart = renderTurnWinRateChart(turnRows);
 
     body = `
       <div class="filters inline turns-toolbar">
@@ -2369,11 +2375,11 @@ function renderStats() {
         </tr></thead>
       </table>
       ${
-        turns.length
+        turnRows.length
           ? `<div class="turn-stats-grid">${turns
               .map(
                 (row) => `
-          <div class="turn-stat-box">
+          <div class="turn-stat-box${row.games ? "" : " turn-stat-box-empty"}">
             <div class="turn-stat-label">Turn ${row.turn}</div>
             <div class="turn-stat-metrics">
               <div><span class="turn-stat-metric-label">Games</span><strong>${row.games}</strong></div>
@@ -2383,7 +2389,8 @@ function renderStats() {
             </div>
           </div>`
               )
-              .join("")}</div>`
+              .join("")}</div>
+          ${turnChart}`
           : `<p class="muted">No turn data yet — add an end turn when logging games.</p>`
       }`;
   } else if (statsTab === "seats") {
