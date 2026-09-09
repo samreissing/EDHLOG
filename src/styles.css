@@ -222,6 +222,10 @@ main {
   text-align: center;
 }
 
+.turn-stat-gw {
+  grid-template-columns: repeat(2, 1fr);
+}
+
 .turn-stat-wr {
   display: grid;
   grid-template-columns: 1fr 1fr;
