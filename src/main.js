@@ -2191,7 +2191,11 @@ function renderStats() {
             data-seat-toggle="${seat.seat}" style="--seat-color:${SEAT_COLORS[seat.seat]}">
             <div class="seat-toggle-header">
               <strong>${seat.label}</strong>
-              <em class="seat-longest-streak">${formatSeatLongestStreak(seat.longestWinStreak)}</em>
+              ${
+                seatViewMode === "mine"
+                  ? `<em class="seat-longest-streak">${formatSeatLongestStreak(seat.longestWinStreak)}</em>`
+                  : ""
+              }
             </div>
             <span>${seat.games}G · ${seat.wins}W · ${seat.games ? pctCell(seat.winRate) : "—"}</span>
           </button>`
