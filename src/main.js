@@ -2735,7 +2735,7 @@ function renderStats() {
 
       body = `
       ${subTabs(TOTALS_TABS, totalsTab, "totals-tab")}
-      <div class="filters inline totals-filters totals-seats-toolbar">
+      <div class="filters inline totals-filters">
         ${bracketFilterControl}
         ${excludeMeControl}
       </div>
@@ -2777,6 +2777,7 @@ function renderStats() {
       <div class="filters inline totals-filters">
         ${bracketFilterControl}
       </div>
+      <table class="table compact sortable-table turn-stats-sort">
         <thead><tr>
           ${sortHeader("turn-stats", "turn", "Turn", tableSort["turn-stats"])}
           ${sortHeader("turn-stats", "games", "Games", tableSort["turn-stats"])}
