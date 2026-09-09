@@ -2332,6 +2332,83 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.entity-report-hero-tabs {
+  min-width: 0;
+}
+
+.entity-report-hero-tablist {
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+}
+
+.entity-report-hero-panel {
+  min-width: 0;
+}
+
+.entity-seat-rankings {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.entity-seat-ranking-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.entity-seat-rank {
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.entity-seat-name {
+  font-weight: 600;
+}
+
+.entity-seat-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  justify-content: flex-end;
+  font-size: 0.85rem;
+}
+
+.entity-report-chart-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem 1.25rem;
+  align-items: end;
+  margin-bottom: 0.75rem;
+}
+
+.entity-report-chart-controls-dates,
+.entity-report-chart-controls-range {
+  min-width: 0;
+}
+
+.entity-report-chart-controls-dates .stats-range-dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+}
+
+.entity-report-chart-controls-range .trends-chart-header {
+  margin-bottom: 0;
+}
+
+.entity-report-chart-controls-range .trends-game-range {
+  width: 100%;
+}
+
 .entity-report-stats {
   margin-bottom: 1rem;
 }
@@ -2571,6 +2648,10 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 
 @media (max-width: 720px) {
   .entity-report-deck-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .entity-report-chart-controls {
     grid-template-columns: 1fr;
   }
 
