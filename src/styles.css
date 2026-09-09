@@ -2485,6 +2485,16 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   text-overflow: ellipsis;
 }
 
+.entity-game-seat-player .link-btn {
+  font: inherit;
+  font-weight: inherit;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: baseline;
+}
+
 .entity-game-seat-commander {
   color: var(--muted);
   line-height: 1.2;
