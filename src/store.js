@@ -6,7 +6,7 @@ const STORAGE_KEY = "edhlog-data-v1";
 
 /** @typedef {{ name: string, qty: number, board: string }} DeckCard */
 /** @typedef {{ commander: string, name?: string, bracket: number, colors?: string[], changedAt: string }} DeckHistoryEntry */
-/** @typedef {{ id?: string, name: string, commander: string, bracket: number, colors: string[], retired: boolean, createdAt?: string, history?: DeckHistoryEntry[], listUrl?: string, listSource?: 'moxfield' | 'deckstats', listSyncedAt?: string, cards?: DeckCard[] }} Deck */
+/** @typedef {{ id?: string, name: string, commander: string, bracket: number, colors: string[], retired: boolean, archetypes?: string[], createdAt?: string, history?: DeckHistoryEntry[], listUrl?: string, listSource?: 'moxfield' | 'deckstats', listSyncedAt?: string, cards?: DeckCard[] }} Deck */
 /** @typedef {{ id: string, date: string, time?: string, deck: string, myCommander?: string, result: 'Win' | 'Loss', source?: 'local', bracket?: number, mySeat?: number, myPlayer?: string, winnerSeat?: number, turn?: number, opponents?: { seat: number, name: string, player?: string }[] }} Game */
 /** @typedef {{ seedHash?: string, seedGames?: number }} DataMeta */
 /** @typedef {{ meta?: DataMeta, decks: Deck[], games: Game[] }} AppData */
@@ -204,6 +204,7 @@ export function syncFromSeed(local, seed) {
       listSource: localDeck.listSource ?? seedDeck.listSource,
       listSyncedAt: localDeck.listSyncedAt ?? seedDeck.listSyncedAt,
       cards: localDeck.cards ?? seedDeck.cards,
+      archetypes: localDeck.archetypes ?? seedDeck.archetypes,
     };
   });
   for (const deck of localOnlyDecks) {
