@@ -86,6 +86,12 @@ function seatOutcome(seat, seats) {
   return "shared";
 }
 
+/** @param {number | string | null | undefined} seat */
+function isRecordedSeat(seat) {
+  const seatNum = Number(seat);
+  return Number.isInteger(seatNum) && seatNum >= 1 && seatNum <= 4;
+}
+
 /** @param {import('./store.js').Game[]} games @param {(seat: import('./matchups.js').GameSeat, seats: import('./matchups.js').GameSeat[], game: import('./store.js').Game) => boolean} seatFilter @param {import('./store.js').Deck[]} decks */
 function computeSeatStats(games, seatFilter, decks) {
   let gamesCount = 0;
@@ -190,7 +196,8 @@ function computeEntitySeatRankings(games, seatFilter, decks) {
   for (let seatNum = 1; seatNum <= 4; seatNum += 1) {
     const stats = computeSeatStats(
       games,
-      (seat, seats, game) => seatFilter(seat, seats, game) && seat.seat === seatNum,
+      (seat, seats, game) =>
+        seatFilter(seat, seats, game) && isRecordedSeat(seat.seat) && seat.seat === seatNum,
       decks
     );
     if (stats.games > 0) {
@@ -199,7 +206,6 @@ function computeEntitySeatRankings(games, seatFilter, decks) {
   }
 
   return rankings.sort((a, b) => {
-    if (b.normalizedWr !== a.normalizedWr) return b.normalizedWr - a.normalizedWr;
     if (b.winRate !== a.winRate) return b.winRate - a.winRate;
     if (b.games !== a.games) return b.games - a.games;
     return a.seat - b.seat;
@@ -496,8 +502,8 @@ function computeSeatRankingsFromChartAppearances(appearances) {
   const bySeat = new Map();
 
   for (const game of appearances) {
+    if (!isRecordedSeat(game.seat)) continue;
     const seatNum = Number(game.seat);
-    if (seatNum < 1 || seatNum > 4) continue;
     const row = bySeat.get(seatNum) ?? { seat: seatNum, games: 0, wins: 0 };
     row.games += 1;
     if (game.result === "Win") row.wins += 1;
@@ -508,10 +514,8 @@ function computeSeatRankingsFromChartAppearances(appearances) {
     .map((row) => ({
       ...row,
       winRate: winRate(row.wins, row.games),
-      normalizedWr: normalizedWinRate(row.wins, row.games),
     }))
     .sort((a, b) => {
-      if (b.normalizedWr !== a.normalizedWr) return b.normalizedWr - a.normalizedWr;
       if (b.winRate !== a.winRate) return b.winRate - a.winRate;
       if (b.games !== a.games) return b.games - a.games;
       return a.seat - b.seat;
@@ -1059,7 +1063,6 @@ function renderEntitySeatRankings(rankings) {
             <span>${row.games}G</span>
             <span>${row.wins}W</span>
             <span>${pctCell(row.winRate)}</span>
-            <span>${pctCell(row.normalizedWr)} norm</span>
           </span>
         </li>`
         )
