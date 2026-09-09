@@ -19,9 +19,9 @@ export function parseArchetypeSegments(value) {
   return { committed, query };
 }
 
-/** @param {string[] | undefined} archetypes */
-export function formatArchetypesForInput(archetypes) {
-  const list = (archetypes || []).filter(Boolean);
+/** @param {string[] | undefined} values */
+export function formatArchetypesForInput(values) {
+  const list = (values || []).filter(Boolean);
   if (!list.length) return "";
   return `${list.join(", ")}, `;
 }
@@ -34,17 +34,29 @@ export function parseArchetypesFromInput(value) {
     .filter(Boolean);
 }
 
+export const formatTribesForInput = formatArchetypesForInput;
+export const parseTribesFromInput = parseArchetypesFromInput;
+
+/** @param {string[] | undefined} archetypes */
+export function deckHasTribalArchetype(archetypes) {
+  return (archetypes || []).some((value) => {
+    const key = String(value || "").trim().toLowerCase();
+    return key === "tribal" || key === "kindred";
+  });
+}
+
 /**
  * @param {import('./store.js').Deck[]} decks
+ * @param {(deck: import('./store.js').Deck) => string[] | undefined} getDeckValues
  * @param {{ includeRetired?: boolean }} [options]
  */
-export function collectArchetypeHistory(decks, { includeRetired = false } = {}) {
+function collectTagHistory(decks, getDeckValues, { includeRetired = false } = {}) {
   /** @type {Map<string, string>} */
   const map = new Map();
   for (const deck of decks) {
     if (!includeRetired && deck.retired) continue;
-    for (const archetype of deck.archetypes || []) {
-      const trimmed = String(archetype || "").trim();
+    for (const value of getDeckValues(deck) || []) {
+      const trimmed = String(value || "").trim();
       if (!trimmed) continue;
       const key = trimmed.toLowerCase();
       if (!map.has(key)) map.set(key, trimmed);
@@ -53,15 +65,35 @@ export function collectArchetypeHistory(decks, { includeRetired = false } = {}) 
   return [...map.values()].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
 }
 
-/** @param {string} query @param {string[]} allArchetypes @param {string[]} committed */
-export function searchArchetypeHistory(query, allArchetypes, committed) {
+/**
+ * @param {import('./store.js').Deck[]} decks
+ * @param {{ includeRetired?: boolean }} [options]
+ */
+export function collectArchetypeHistory(decks, { includeRetired = false } = {}) {
+  return collectTagHistory(decks, (deck) => deck.archetypes, { includeRetired });
+}
+
+/**
+ * @param {import('./store.js').Deck[]} decks
+ * @param {{ includeRetired?: boolean }} [options]
+ */
+export function collectTribeHistory(decks, { includeRetired = false } = {}) {
+  return collectTagHistory(decks, (deck) => deck.tribes, { includeRetired });
+}
+
+/** @param {string} query @param {string[]} allValues @param {string[]} committed */
+function searchTagHistory(query, allValues, committed) {
   const committedKeys = new Set(committed.map((value) => value.toLowerCase()));
-  const pool = allArchetypes.filter((name) => !committedKeys.has(name.toLowerCase()));
+  const pool = allValues.filter((name) => !committedKeys.has(name.toLowerCase()));
   const q = query.trim().toLowerCase();
 
   if (!q) return pool;
 
   return pool.filter((name) => name.toLowerCase().startsWith(q));
+}
+
+export function searchArchetypeHistory(query, allArchetypes, committed) {
+  return searchTagHistory(query, allArchetypes, committed);
 }
 
 /** @param {HTMLInputElement | HTMLTextAreaElement} input @param {string} selected */
@@ -83,20 +115,25 @@ export function resizeArchetypeInput(input) {
 
 /**
  * @param {HTMLFormElement | null} form
- * @param {import('./store.js').Deck[]} decks
- * @param {{ includeRetired?: boolean }} [options]
+ * @param {{
+ *   inputSelector: string,
+ *   listSelector: string,
+ *   wrapSelector?: string,
+ *   getAllValues: () => string[],
+ *   onInput?: (input: HTMLTextAreaElement) => void,
+ *   onSelect?: (input: HTMLTextAreaElement) => void,
+ * }} config
  */
-export function bindArchetypeAutocomplete(form, decks, options = {}) {
+function bindCommaSeparatedTagAutocomplete(form, config) {
   if (!form) return;
 
-  const input = form.querySelector(".deck-archetype-input");
-  const list = form.querySelector(".deck-archetype-suggestions");
+  const input = form.querySelector(config.inputSelector);
+  const list = form.querySelector(config.listSelector);
   if (!(input instanceof HTMLTextAreaElement) || !list) return;
 
   let activeIndex = -1;
   let suppressFocusOutUntil = 0;
   let clickOpensList = true;
-  const allArchetypes = () => collectArchetypeHistory(decks, options);
 
   const hideList = () => {
     list.hidden = true;
@@ -106,7 +143,7 @@ export function bindArchetypeAutocomplete(form, decks, options = {}) {
 
   const renderList = () => {
     const { committed, query } = parseArchetypeSegments(input.value);
-    const results = searchArchetypeHistory(query, allArchetypes(), committed);
+    const results = searchTagHistory(query, config.getAllValues(), committed);
     activeIndex = -1;
 
     if (!results.length) {
@@ -127,6 +164,7 @@ export function bindArchetypeAutocomplete(form, decks, options = {}) {
   const selectValue = (value) => {
     appendArchetypeSelection(input, value);
     suppressFocusOutUntil = Date.now() + 200;
+    config.onSelect?.(input);
     openList();
   };
 
@@ -140,7 +178,9 @@ export function bindArchetypeAutocomplete(form, decks, options = {}) {
 
   resizeArchetypeInput(input);
 
-  const wrap = input.closest(".deck-archetype-wrap");
+  const wrap = config.wrapSelector
+    ? form.querySelector(config.wrapSelector)
+    : input.closest(".opponent-input-wrap");
   const dismissRoot = form.closest(".modal-content") || form;
 
   const onDismissPointerDown = (e) => {
@@ -168,7 +208,7 @@ export function bindArchetypeAutocomplete(form, decks, options = {}) {
   });
 
   input.addEventListener("input", () => {
-    resizeArchetypeInput(input);
+    config.onInput?.(input);
     openList();
   });
 
@@ -205,4 +245,61 @@ export function bindArchetypeAutocomplete(form, decks, options = {}) {
     e.preventDefault();
     selectValue(option.dataset.value || "");
   });
+}
+
+/** @param {HTMLFormElement | null} form */
+export function syncDeckTribeFieldVisibility(form) {
+  if (!form) return;
+  const block = form.querySelector(".deck-tribe-field");
+  const input = form.querySelector(".deck-archetype-input");
+  if (!(block instanceof HTMLElement) || !(input instanceof HTMLTextAreaElement)) return;
+
+  const show = deckHasTribalArchetype(parseArchetypesFromInput(input.value));
+  block.hidden = !show;
+
+  if (show) {
+    const tribeInput = form.querySelector(".deck-tribe-input");
+    if (tribeInput instanceof HTMLTextAreaElement) resizeArchetypeInput(tribeInput);
+  }
+}
+
+/**
+ * @param {HTMLFormElement | null} form
+ * @param {import('./store.js').Deck[]} decks
+ * @param {{ includeRetired?: boolean }} [options]
+ */
+export function bindArchetypeAutocomplete(form, decks, options = {}) {
+  bindCommaSeparatedTagAutocomplete(form, {
+    inputSelector: ".deck-archetype-input",
+    listSelector: ".deck-archetype-suggestions",
+    wrapSelector: ".deck-archetype-wrap",
+    getAllValues: () => collectArchetypeHistory(decks, options),
+    onInput: (input) => {
+      resizeArchetypeInput(input);
+      syncDeckTribeFieldVisibility(form);
+    },
+    onSelect: () => syncDeckTribeFieldVisibility(form),
+  });
+  syncDeckTribeFieldVisibility(form);
+}
+
+/**
+ * @param {HTMLFormElement | null} form
+ * @param {import('./store.js').Deck[]} decks
+ * @param {{ includeRetired?: boolean }} [options]
+ */
+export function bindTribeAutocomplete(form, decks, options = {}) {
+  bindCommaSeparatedTagAutocomplete(form, {
+    inputSelector: ".deck-tribe-input",
+    listSelector: ".deck-tribe-suggestions",
+    wrapSelector: ".deck-tribe-wrap",
+    getAllValues: () => collectTribeHistory(decks, options),
+    onInput: (input) => resizeArchetypeInput(input),
+  });
+}
+
+/** @param {HTMLFormElement | null} form @param {import('./store.js').Deck[]} decks */
+export function bindDeckTagAutocompletes(form, decks) {
+  bindArchetypeAutocomplete(form, decks);
+  bindTribeAutocomplete(form, decks);
 }

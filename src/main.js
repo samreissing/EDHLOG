@@ -69,9 +69,12 @@ import {
 import { loadImagesIntoEntityReport } from "./scryfall.js";
 import { bindPodAutocomplete, MY_PLAYER_NAME } from "./opponent-search.js";
 import {
-  bindArchetypeAutocomplete,
+  bindDeckTagAutocompletes,
+  deckHasTribalArchetype,
   formatArchetypesForInput,
+  formatTribesForInput,
   parseArchetypesFromInput,
+  parseTribesFromInput,
 } from "./deck-archetype-search.js";
 import {
   warmCommanderMatchupCache,
@@ -1826,6 +1829,9 @@ function saveDeckFromForm(formOverride = null) {
     bracket: Number(fd.get("bracket")) || 4,
     colors,
     archetypes: parseArchetypesFromInput(fd.get("archetypes")),
+    tribes: deckHasTribalArchetype(parseArchetypesFromInput(fd.get("archetypes")))
+      ? parseTribesFromInput(fd.get("tribes"))
+      : [],
     retired: fd.get("retired") === "on",
     createdAt: normalizeDate(String(fd.get("createdAt") || "")) || todayISO(),
   };
@@ -1963,7 +1969,7 @@ function render() {
   }
 
   if (currentView === "decks" && deckModalOpen) {
-    bindArchetypeAutocomplete(document.getElementById("deck-form"), data.decks);
+    bindDeckTagAutocompletes(document.getElementById("deck-form"), data.decks);
     const nameInput = document.querySelector('#deck-form input[name="name"]');
     nameInput?.focus();
     if (editingDeckName) nameInput?.select();
@@ -2984,6 +2990,7 @@ function renderDecks() {
   const createdAtValue = editingDeck?.createdAt
     ? normalizeDate(editingDeck.createdAt) || todayISO()
     : todayISO();
+  const showTribeField = editingDeck ? deckHasTribalArchetype(editingDeck.archetypes) : false;
 
   return `
     <section class="section">
@@ -3045,6 +3052,12 @@ function renderDecks() {
             <div class="deck-archetype-wrap opponent-input-wrap">
               <textarea name="archetypes" class="deck-archetype-input opponent-input" rows="1" placeholder="Turbo, Storm, …" autocomplete="off">${editingDeck ? escapeHtml(formatArchetypesForInput(editingDeck.archetypes)) : ""}</textarea>
               <ul class="opponent-suggestions deck-archetype-suggestions" hidden role="listbox"></ul>
+            </div>
+          </label>
+          <label class="deck-tribe-field"${showTribeField ? "" : " hidden"}>Tribe
+            <div class="deck-tribe-wrap opponent-input-wrap">
+              <textarea name="tribes" class="deck-tribe-input opponent-input" rows="1" placeholder="Elf, Dragon, …" autocomplete="off">${editingDeck ? escapeHtml(formatTribesForInput(editingDeck.tribes)) : ""}</textarea>
+              <ul class="opponent-suggestions deck-tribe-suggestions" hidden role="listbox"></ul>
             </div>
           </label>
           <fieldset class="color-fieldset"><legend>Colors</legend>
