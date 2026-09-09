@@ -69,10 +69,10 @@ function renderTurnXLabels(rows, plotW) {
 
 /**
  * @param {ReturnType<typeof import('./turn-stats.js').computeTurnGridStats>} rows
- * @param {{ gradientId?: string }} [options]
+ * @param {{ gradientId?: string, mode?: 'player' | 'distribution' }} [options]
  */
 export function renderTurnWinRateChart(rows, options = {}) {
-  const { gradientId = "turn-wr-fill-gradient" } = options;
+  const { gradientId = "turn-wr-fill-gradient", mode = "player" } = options;
   const plotW = CHART_WIDTH - CHART_PAD.left - CHART_PAD.right;
   const plotH = CHART_HEIGHT - CHART_PAD.top - CHART_PAD.bottom;
   const baselineY = CHART_PAD.top + plotH;
@@ -86,17 +86,17 @@ export function renderTurnWinRateChart(rows, options = {}) {
 
   const points = rows
     .map((row) => {
-      const ended = row.wins + row.losses;
-      const winRate = ended ? row.winRate : null;
+      const ended = mode === "distribution" ? row.games : row.wins + row.losses;
+      const rate = ended ? row.winRate : null;
       return {
         turn: row.turn,
         games: row.games,
         wins: row.wins,
         losses: row.losses,
         ended,
-        winRate,
+        winRate: rate,
         x: turnToX(row.turn, minTurn, maxTurn, plotW),
-        y: winRate == null ? null : CHART_PAD.top + plotH - winRate * plotH,
+        y: rate == null ? null : CHART_PAD.top + plotH - rate * plotH,
       };
     })
     .filter((point) => point.y != null);
@@ -109,21 +109,24 @@ export function renderTurnWinRateChart(rows, options = {}) {
 
   const dots = rows
     .map((row) => {
-      const ended = row.wins + row.losses;
+      const ended = mode === "distribution" ? row.games : row.wins + row.losses;
       if (!ended || row.winRate == null) return "";
       const x = turnToX(row.turn, minTurn, maxTurn, plotW);
       const y = CHART_PAD.top + plotH - row.winRate * plotH;
       return `
-      <g class="turn-wr-point" data-turn="${row.turn}" data-wr="${row.winRate}" data-games="${row.games}" data-wins="${row.wins}" data-losses="${row.losses}" data-ended="${ended}">
+      <g class="turn-wr-point" data-turn="${row.turn}" data-wr="${row.winRate}" data-games="${row.games}" data-wins="${row.wins}" data-losses="${row.losses}" data-ended="${ended}" data-mode="${mode}">
         <circle class="turn-wr-point-hit" cx="${x}" cy="${y}" r="10" />
         <circle class="turn-wr-point-dot" cx="${x}" cy="${y}" r="3.5" />
       </g>`;
     })
     .join("");
 
+  const chartLabel =
+    mode === "distribution" ? "Share of games ending by turn" : "Win rate by end turn";
+
   return `
     <div class="turn-wr-chart-wrap">
-      <svg class="trends-chart turn-wr-chart" viewBox="0 0 ${CHART_WIDTH} ${CHART_HEIGHT}" role="img" aria-label="Win rate by end turn">
+      <svg class="trends-chart turn-wr-chart" viewBox="0 0 ${CHART_WIDTH} ${CHART_HEIGHT}" role="img" aria-label="${chartLabel}">
         <defs>
           <linearGradient id="${gradientId}" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stop-color="rgba(91, 159, 212, 0.34)" />
@@ -162,7 +165,12 @@ export function bindTurnWinRateChart(root = document) {
       const games = group.getAttribute("data-games");
       const wins = group.getAttribute("data-wins");
       const losses = group.getAttribute("data-losses");
-      tip.innerHTML = `<strong>Turn ${escAttr(turn)}</strong><br>${escAttr(wins)}W / ${escAttr(losses)}L · ${pct(wr)}<br>${escAttr(games)} reached`;
+      const pointMode = group.getAttribute("data-mode") || "player";
+      if (pointMode === "distribution") {
+        tip.innerHTML = `<strong>Turn ${escAttr(turn)}</strong><br>${escAttr(games)} ended · ${pct(wr)} of games`;
+      } else {
+        tip.innerHTML = `<strong>Turn ${escAttr(turn)}</strong><br>${escAttr(wins)}W / ${escAttr(losses)}L · ${pct(wr)}<br>${escAttr(games)} reached`;
+      }
       tip.hidden = false;
     });
 
