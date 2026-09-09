@@ -88,6 +88,7 @@ export function bindArchetypeAutocomplete(form, decks) {
   if (!(input instanceof HTMLTextAreaElement) || !list) return;
 
   let activeIndex = -1;
+  let suppressFocusOutUntil = 0;
   const allArchetypes = () => collectArchetypeHistory(decks);
 
   const hideList = () => {
@@ -114,7 +115,8 @@ export function bindArchetypeAutocomplete(form, decks) {
 
   const selectValue = (value) => {
     appendArchetypeSelection(input, value);
-    hideList();
+    suppressFocusOutUntil = Date.now() + 200;
+    renderList();
   };
 
   const setActiveOption = (index) => {
@@ -136,6 +138,7 @@ export function bindArchetypeAutocomplete(form, decks) {
 
   input.addEventListener("focusout", () => {
     setTimeout(() => {
+      if (Date.now() < suppressFocusOutUntil) return;
       const wrap = input.closest(".deck-archetype-wrap");
       if (wrap && !wrap.contains(document.activeElement)) hideList();
     }, 150);
