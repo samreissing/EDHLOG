@@ -1258,7 +1258,7 @@ function gamesForTrendsFilter(games) {
 }
 
 function trendsChartTitle() {
-  if (trendsFilter.kind === "all") return "All games";
+  if (trendsFilter.kind === "all") return "All Games";
   if (trendsFilter.kind === "window") {
     return `Games ${trendsFilter.rangeStart}–${trendsFilter.rangeEnd}`;
   }
@@ -2098,6 +2098,7 @@ function renderStats() {
     const chartHeader = renderTrendsChartHeader({
       title: trendsChartTitle(),
       winRate: headerWinRate,
+      gameCount: rangeGames.length,
       min: gameRange.min,
       max: gameRange.max,
       boundsMin,
