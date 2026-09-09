@@ -1130,7 +1130,7 @@ function renderEntityReportHeader(title, canGoBack) {
         <div class="entity-report-header">
           ${
             canGoBack
-              ? `<button type="button" class="btn btn-ghost btn-sm entity-report-back" id="entity-report-back" aria-label="Back">←</button>`
+              ? `<button type="button" class="entity-report-back" id="entity-report-back" aria-label="Back">←</button>`
               : ""
           }
           <h3 class="entity-report-title">${escapeHtml(title)}</h3>
