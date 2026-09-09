@@ -2179,32 +2179,7 @@ function renderStats() {
             )
             .join("")}
         </div>
-        <div class="two-col">
-          <div>
-            <h3 class="section-sub">Per 100 Games</h3>
-            <table class="table compact sortable-table trends-table">
-              <thead><tr>
-                ${sortHeader("trends-windows", "rangeStart", "Games", tableSort["trends-windows"])}
-                ${sortHeader("trends-windows", "winRate", "WR", tableSort["trends-windows"])}
-              </tr></thead>
-              <tbody>
-                ${windows
-                  .map((w) => {
-                    const id = `${w.rangeStart}-${w.rangeEnd}`;
-                    const seriesColor = colorForChartSelection(trendsWindowSelection, id, windows.length);
-                    return `
-                  <tr class="chart-series-selectable trends-selectable${seriesColor ? " active" : ""}"
-                    data-trends-window-toggle data-label="${escapeHtml(w.label)}"
-                    data-range-start="${w.rangeStart}" data-range-end="${w.rangeEnd}"${chartSeriesRowStyle(seriesColor)}>
-                    <td>${w.label}</td>
-                    <td>${pctCell(w.winRate)}</td>
-                  </tr>`;
-                  })
-                  .join("")}
-              </tbody>
-            </table>
-          </div>
-          <div>
+        <div>
             <h3 class="section-sub">Cumulative</h3>
             <table class="table compact sortable-table trends-table">
               <thead><tr>
@@ -2224,9 +2199,30 @@ function renderStats() {
                   .join("")}
               </tbody>
             </table>
-          </div>
         </div>
-        ${renderChartSection(chart, "clear-trends-chart")}`;
+        ${renderChartSection(chart, "clear-trends-chart")}
+        <h3 class="section-sub">Per 100 Games</h3>
+        <table class="table compact sortable-table trends-table">
+          <thead><tr>
+            ${sortHeader("trends-windows", "rangeStart", "Games", tableSort["trends-windows"])}
+            ${sortHeader("trends-windows", "winRate", "WR", tableSort["trends-windows"])}
+          </tr></thead>
+          <tbody>
+            ${windows
+              .map((w) => {
+                const id = `${w.rangeStart}-${w.rangeEnd}`;
+                const seriesColor = colorForChartSelection(trendsWindowSelection, id, windows.length);
+                return `
+              <tr class="chart-series-selectable trends-selectable${seriesColor ? " active" : ""}"
+                data-trends-window-toggle data-label="${escapeHtml(w.label)}"
+                data-range-start="${w.rangeStart}" data-range-end="${w.rangeEnd}"${chartSeriesRowStyle(seriesColor)}>
+                <td>${w.label}</td>
+                <td>${pctCell(w.winRate)}</td>
+              </tr>`;
+              })
+              .join("")}
+          </tbody>
+        </table>`;
     }
   } else if (statsTab === "seats") {
     const { statsGames } = getStatsScope();
