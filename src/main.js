@@ -1766,7 +1766,10 @@ function render() {
     syncPodFormSeats();
     syncResultFromSeats();
     syncBracketFromDeck();
-    bindPodAutocomplete(document.getElementById("add-game-form"), data.games, data.decks);
+    const decksForPodSearch = editingGameId
+      ? data.decks
+      : data.decks.filter((d) => !d.retired);
+    bindPodAutocomplete(document.getElementById("add-game-form"), data.games, decksForPodSearch);
   }
   syncEntityReportModal();
 
@@ -2882,13 +2885,10 @@ function recentDecksPlayed(deckStats, limit = 5) {
 
 function renderLogForm() {
   const { deckStats } = getStats();
-  const decks = sortDeckList(
-    deckStats.filter((d) => !d.retired),
-    "recent",
-    "desc"
-  );
-  const quickDecks = recentDecksPlayed(deckStats, 5);
   const editing = editingGameId ? data.games.find((g) => g.id === editingGameId) : null;
+  const deckPool = editing ? deckStats : deckStats.filter((d) => !d.retired);
+  const decks = sortDeckList(deckPool, "recent", "desc");
+  const quickDecks = recentDecksPlayed(deckStats, 5);
   const today = todayISO();
   const dateVal = editing?.date || today;
   const timeVal = editing?.time ?? (editing ? "" : nowTime());
