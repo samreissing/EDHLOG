@@ -407,26 +407,7 @@
               <span>${S.games}g · ${S.wins}w · ${H(S.winRate)}</span>
             </button>`).join("")}
         </div>
-        <div class="two-col">
-          <div>
-            <h3 class="section-sub">Per 100 Games</h3>
-            <table class="table compact sortable-table trends-table">
-              <thead><tr>
-                ${x("trends-windows","rangeStart","Games",C["trends-windows"])}
-                ${x("trends-windows","winRate","WR",C["trends-windows"])}
-              </tr></thead>
-              <tbody>
-                ${b.map(S=>{const h=`${S.rangeStart}-${S.rangeEnd}`,R=cn(ee,h,b.length);return`
-                  <tr class="chart-series-selectable trends-selectable${R?" active":""}"
-                    data-trends-window-toggle data-label="${D(S.label)}"
-                    data-range-start="${S.rangeStart}" data-range-end="${S.rangeEnd}"${Jn(R)}>
-                    <td>${S.label}</td>
-                    <td>${H(S.winRate)}</td>
-                  </tr>`}).join("")}
-              </tbody>
-            </table>
-          </div>
-          <div>
+        <div>
             <h3 class="section-sub">Cumulative</h3>
             <table class="table compact sortable-table trends-table">
               <thead><tr>
@@ -442,9 +423,24 @@
                   </tr>`).join("")}
               </tbody>
             </table>
-          </div>
         </div>
-        ${Wt(E,"clear-trends-chart")}`}}else if(B==="seats"){const{statsGames:s}=ut(),r=Cr(s,Me),o=Yi(s),c=Ii(s,Me),i=on(Re.map(l=>({id:l,label:`Seat ${l}`,color:ks[l],series:Xe(Ei(s,l,o.start,o.end,Me))})),o);t=`
+        ${Wt(E,"clear-trends-chart")}
+        <h3 class="section-sub">Per 100 Games</h3>
+        <table class="table compact sortable-table trends-table">
+          <thead><tr>
+            ${x("trends-windows","rangeStart","Games",C["trends-windows"])}
+            ${x("trends-windows","winRate","WR",C["trends-windows"])}
+          </tr></thead>
+          <tbody>
+            ${b.map(S=>{const h=`${S.rangeStart}-${S.rangeEnd}`,R=cn(ee,h,b.length);return`
+              <tr class="chart-series-selectable trends-selectable${R?" active":""}"
+                data-trends-window-toggle data-label="${D(S.label)}"
+                data-range-start="${S.rangeStart}" data-range-end="${S.rangeEnd}"${Jn(R)}>
+                <td>${S.label}</td>
+                <td>${H(S.winRate)}</td>
+              </tr>`}).join("")}
+          </tbody>
+        </table>`}}else if(B==="seats"){const{statsGames:s}=ut(),r=Cr(s,Me),o=Yi(s),c=Ii(s,Me),i=on(Re.map(l=>({id:l,label:`Seat ${l}`,color:ks[l],series:Xe(Ei(s,l,o.start,o.end,Me))})),o);t=`
       ${ln("seats",r,o,{bracketFilter:!0,deckFilter:!0})}
       <div class="seat-toggle-row">
         <button type="button" class="seat-toggle seat-view-toggle" data-seat-view-cycle title="Cycle seat perspective">
