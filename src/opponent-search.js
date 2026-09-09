@@ -1,4 +1,5 @@
 import { compareGamesChronologically, gameSortKey } from "./dates.js";
+import { deckCommander } from "./deck-identity.js";
 
 /** @typedef {{ name: string, count: number, lastDate: string }} NameEntry */
 
@@ -39,6 +40,50 @@ export function collectCommanderHistory(games) {
   for (const game of games) {
     for (const opp of game.opponents || []) {
       trackName(map, opp.name, game.date);
+    }
+  }
+
+  return [...map.values()];
+}
+
+/** @param {import('./store.js').Deck[]} decks */
+export function collectOwnedDeckCommanders(decks) {
+  /** @type {Map<string, NameEntry>} */
+  const map = new Map();
+
+  for (const deck of decks) {
+    const fallbackDate = deck.createdAt || "1970-01-01";
+    const names = new Set([deckCommander(deck)]);
+    for (const entry of deck.history || []) {
+      const commander = String(entry.commander || "").trim();
+      if (commander) names.add(commander);
+    }
+    for (const name of names) {
+      trackName(map, name, fallbackDate);
+    }
+  }
+
+  return [...map.values()];
+}
+
+/** @param {NameEntry[][]} lists */
+function mergeCommanderEntries(lists) {
+  /** @type {Map<string, NameEntry>} */
+  const map = new Map();
+
+  for (const entries of lists) {
+    for (const entry of entries) {
+      const key = entry.name.toLowerCase();
+      const existing = map.get(key);
+      if (!existing) {
+        map.set(key, { ...entry });
+        continue;
+      }
+      existing.count += entry.count;
+      if (entry.lastDate >= existing.lastDate) {
+        existing.lastDate = entry.lastDate;
+        existing.name = entry.name;
+      }
     }
   }
 
@@ -236,11 +281,14 @@ export function searchCommanderHistory(query, allCommanders, playerCommanders, l
   return ranked.slice(0, limit);
 }
 
-/** @param {HTMLFormElement | null} form @param {import('./store.js').Game[]} games */
-export function bindPodAutocomplete(form, games) {
+/** @param {HTMLFormElement | null} form @param {import('./store.js').Game[]} games @param {import('./store.js').Deck[]} [decks] */
+export function bindPodAutocomplete(form, games, decks = []) {
   if (!form) return;
 
-  const commanders = collectCommanderHistory(games);
+  const commanders = mergeCommanderEntries([
+    collectCommanderHistory(games),
+    collectOwnedDeckCommanders(decks),
+  ]);
   const players = collectPlayerHistory(games);
   const playerCommanderLinks = collectPlayerCommanderLinks(games);
   /** @type {WeakMap<HTMLInputElement, number>} */
@@ -415,6 +463,6 @@ export function bindPodAutocomplete(form, games) {
 }
 
 /** @deprecated Use bindPodAutocomplete */
-export function bindOpponentAutocomplete(form, games) {
-  bindPodAutocomplete(form, games);
+export function bindOpponentAutocomplete(form, games, decks = []) {
+  bindPodAutocomplete(form, games, decks);
 }
