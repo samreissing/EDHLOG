@@ -8,6 +8,8 @@ import {
   nextGameId,
   nextDeckId,
   getLastSeedSync,
+  recordRemovedSeedDeck,
+  linkDeckSeedKey,
 } from "./store.js";
 import {
   computeDeckStats,
@@ -989,6 +991,8 @@ function bindEvents() {
       const key = String(originalId || editingDeckName || "").trim();
       if (!key) return;
       if (!confirm("Delete this deck?")) return;
+      const deck = findDeck(data.decks, key);
+      if (deck) recordRemovedSeedDeck(data, deck);
       data.decks = data.decks.filter((d) => deckId(d) !== key);
       data.games = data.games.filter((g) => g.deck !== key);
       if (entityReport?.deckSlotId === key || entityReport?.key === key) {
@@ -1708,6 +1712,7 @@ function saveDeckFromForm(formOverride = null) {
     const commanderChanged = deckCommanderChanged(existing, deckPayload);
     if (commanderChanged) {
       history.push(deckHistorySnapshot(existing));
+      linkDeckSeedKey(data, deckIdToKeep, deckCommander(existing));
     }
 
     data.decks[editIndex] = {
