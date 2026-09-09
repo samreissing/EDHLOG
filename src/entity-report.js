@@ -17,7 +17,7 @@ import { getChartDateBounds, getEffectiveChartRange } from "./chart-series.js";
 import {
   clampTrendsGameRange,
   computeWinRateSeries,
-  renderTrendsChartHeader,
+  renderTrendsGameRangeControls,
   renderWinRateLineChart,
 } from "./trends-chart.js";
 import { pctCell } from "./wr-color.js";
@@ -150,7 +150,7 @@ function computeSeatTurnAverages(games, seatFilter, decks) {
 
 /** @param {import('./store.js').Game[]} games @param {(seat: import('./matchups.js').GameSeat, seats: import('./matchups.js').GameSeat[], game: import('./store.js').Game) => boolean} seatFilter @param {import('./store.js').Deck[]} decks */
 function appearanceGamesForChart(games, seatFilter, decks) {
-  /** @type {{ date: string, result: 'Win' | 'Loss' }[]} */
+  /** @type {{ date: string, result: 'Win' | 'Loss', turn?: number, seat?: number }[]} */
   const appearances = [];
 
   for (const game of games) {
@@ -160,6 +160,8 @@ function appearanceGamesForChart(games, seatFilter, decks) {
       appearances.push({
         date: game.date,
         result: seat.didWin ? "Win" : "Loss",
+        turn: game.turn,
+        seat: seat.seat,
       });
     }
   }
@@ -239,6 +241,8 @@ export function getEntityChartContext(chartGames, chartRangeState, gameRangeStat
   );
   const rangeWins = rangeGames.filter((game) => game.result === "Win").length;
   const headerWinRate = rangeGames.length ? winRate(rangeWins, rangeGames.length) : null;
+  const filteredStats = computeStatsFromChartAppearances(rangeGames);
+  const filteredSeatRankings = computeSeatRankingsFromChartAppearances(rangeGames);
 
   return {
     sorted,
@@ -250,6 +254,8 @@ export function getEntityChartContext(chartGames, chartRangeState, gameRangeStat
     rangeGames,
     chartRange,
     headerWinRate,
+    filteredStats,
+    filteredSeatRankings,
   };
 }
 
@@ -446,7 +452,70 @@ function computeMyDeckSlotStats(games, deckSlotId) {
 function chartGamesForDeckSlot(games, deckSlotId) {
   return games
     .filter((game) => game.deck === deckSlotId)
-    .map((game) => ({ date: game.date, result: game.result }));
+    .map((game) => ({
+      date: game.date,
+      result: game.result,
+      turn: game.turn,
+      seat: game.mySeat,
+    }))
+    .sort((a, b) => compareGamesChronologically({ date: a.date, time: "" }, { date: b.date, time: "" }));
+}
+
+/** @param {{ date: string, result: 'Win' | 'Loss', turn?: number, seat?: number }[]} appearances */
+function computeStatsFromChartAppearances(appearances) {
+  const gamesCount = appearances.length;
+  const wins = appearances.filter((game) => game.result === "Win").length;
+  const winTurns = [];
+  const lossTurns = [];
+
+  for (const game of appearances) {
+    const turn = Number(game.turn);
+    if (!(turn > 0)) continue;
+    if (game.result === "Win") winTurns.push(turn);
+    else lossTurns.push(turn);
+  }
+
+  const avg = (nums) => (nums.length ? nums.reduce((sum, n) => sum + n, 0) / nums.length : null);
+
+  return {
+    games: gamesCount,
+    wins,
+    losses: gamesCount - wins,
+    sharedLosses: 0,
+    lastPlayed: gamesCount ? appearances[gamesCount - 1].date : null,
+    winRate: winRate(wins, gamesCount),
+    normalizedWr: normalizedWinRate(wins, gamesCount),
+    avgTurnWin: avg(winTurns),
+    avgTurnLoss: avg(lossTurns),
+  };
+}
+
+/** @param {{ date: string, result: 'Win' | 'Loss', turn?: number, seat?: number }[]} appearances */
+function computeSeatRankingsFromChartAppearances(appearances) {
+  /** @type {Map<number, { seat: number, games: number, wins: number }>} */
+  const bySeat = new Map();
+
+  for (const game of appearances) {
+    const seatNum = Number(game.seat);
+    if (seatNum < 1 || seatNum > 4) continue;
+    const row = bySeat.get(seatNum) ?? { seat: seatNum, games: 0, wins: 0 };
+    row.games += 1;
+    if (game.result === "Win") row.wins += 1;
+    bySeat.set(seatNum, row);
+  }
+
+  return [...bySeat.values()]
+    .map((row) => ({
+      ...row,
+      winRate: winRate(row.wins, row.games),
+      normalizedWr: normalizedWinRate(row.wins, row.games),
+    }))
+    .sort((a, b) => {
+      if (b.normalizedWr !== a.normalizedWr) return b.normalizedWr - a.normalizedWr;
+      if (b.winRate !== a.winRate) return b.winRate - a.winRate;
+      if (b.games !== a.games) return b.games - a.games;
+      return a.seat - b.seat;
+    });
 }
 
 /**
@@ -961,15 +1030,15 @@ const ENTITY_HERO_TABS = [
   { id: "seats", label: "Seats" },
 ];
 
-/** @param {ReturnType<typeof buildEntityReport>} report */
-function renderEntityOverviewStats(report) {
+/** @param {ReturnType<typeof computeStatsFromChartAppearances>} stats */
+function renderEntityOverviewStats(stats) {
   return `
-    ${statBlock("Games", report.stats.games)}
-    ${statBlock("Wins", report.stats.wins)}
-    ${statBlock("Win rate", report.stats.games ? report.stats.winRate : 0, !!report.stats.games)}
-    ${statBlock("Norm WR", report.stats.games ? report.stats.normalizedWr : 0, !!report.stats.games)}
-    ${turnStatBlocks(report.stats)}
-    ${statBlock("Last played", report.stats.lastPlayed ? formatDate(report.stats.lastPlayed) : "—")}`;
+    ${statBlock("Games", stats.games)}
+    ${statBlock("Wins", stats.wins)}
+    ${statBlock("Win rate", stats.games ? stats.winRate : 0, !!stats.games)}
+    ${statBlock("Norm WR", stats.games ? stats.normalizedWr : 0, !!stats.games)}
+    ${turnStatBlocks(stats)}
+    ${statBlock("Last played", stats.lastPlayed ? formatDate(stats.lastPlayed) : "—")}`;
 }
 
 /** @param {ReturnType<typeof buildEntityReport>['seatRankings']} rankings */
@@ -998,10 +1067,10 @@ function renderEntitySeatRankings(rankings) {
     </ol>`;
 }
 
-/** @param {ReturnType<typeof buildEntityReport>} report @param {'overview' | 'seats'} [heroTab] */
-function renderEntityHeroTabsSection(report, heroTab = "overview") {
-  const overviewHtml = `<div class="stat-grid entity-report-stats">${renderEntityOverviewStats(report)}</div>`;
-  const seatsHtml = renderEntitySeatRankings(report.seatRankings);
+/** @param {ReturnType<typeof buildEntityReport>} report @param {'overview' | 'seats'} [heroTab] @param {ReturnType<typeof getEntityChartContext>} chartContext */
+function renderEntityHeroTabsSection(report, heroTab = "overview", chartContext) {
+  const overviewHtml = `<div class="stat-grid entity-report-stats">${renderEntityOverviewStats(chartContext.filteredStats)}</div>`;
+  const seatsHtml = renderEntitySeatRankings(chartContext.filteredSeatRankings);
   const tabButtons = ENTITY_HERO_TABS.map(
     (tab) =>
       `<button type="button" role="tab" aria-selected="${tab.id === heroTab}" class="sub-tab entity-report-hero-tab ${tab.id === heroTab ? "active" : ""}" data-entity-hero-tab="${tab.id}">${tab.label}</button>`
@@ -1027,15 +1096,13 @@ function renderEntityChartDateRange(chartRange) {
 
 /** @param {ReturnType<typeof buildEntityReport>} report @param {ReturnType<typeof getEntityChartContext>} chartContext */
 function renderEntityChartSection(report, chartContext) {
-  const { chartRange, gameRange, boundsMin, boundsMax, rangeGames, headerWinRate } = chartContext;
+  const { chartRange, gameRange, boundsMin, boundsMax, rangeGames } = chartContext;
   const chartGames = rangeGames.length ? rangeGames : report.chartGames;
   const chart =
     report.chartGames.length > 0
       ? renderWinRateLineChart(computeWinRateSeries(chartGames), "", chartRange)
       : `<p class="muted-text entity-report-empty">No games logged yet.</p>`;
-  const sliderHtml = renderTrendsChartHeader({
-    title: "Win rate",
-    winRate: headerWinRate,
+  const sliderHtml = renderTrendsGameRangeControls({
     min: gameRange.min,
     max: gameRange.max,
     boundsMin,
@@ -1065,7 +1132,6 @@ function renderEntityChartSection(report, chartContext) {
 export function renderEntityReportModal(report, decks, activeTab = "games", matchupSort, gamesSort, options = {}) {
   const { heroTab = "overview", chartContext } = options;
   const rootKey = report.title;
-  const heroTabsSection = renderEntityHeroTabsSection(report, heroTab);
   const resolvedChartContext =
     chartContext ??
     getEntityChartContext(report.chartGames, { start: null, end: null, customized: false }, {
@@ -1073,6 +1139,7 @@ export function renderEntityReportModal(report, decks, activeTab = "games", matc
       max: null,
       customized: false,
     });
+  const heroTabsSection = renderEntityHeroTabsSection(report, heroTab, resolvedChartContext);
   const chartSection = renderEntityChartSection(report, resolvedChartContext);
   const tabsSection = renderEntityTabsSection(report, decks, activeTab, matchupSort, gamesSort);
 
