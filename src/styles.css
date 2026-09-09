@@ -1466,13 +1466,9 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   white-space: nowrap;
 }
 
-.totals-filters {
-  margin-bottom: 0.75rem;
+.totals-filters.filters.inline {
+  margin-bottom: 2rem;
   width: 100%;
-}
-
-.totals-seats-toolbar {
-  margin-bottom: 1.5rem;
 }
 
 .totals-filters .totals-search {
