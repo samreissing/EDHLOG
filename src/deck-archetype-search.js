@@ -114,7 +114,7 @@ export function bindArchetypeAutocomplete(form, decks) {
 
   const selectValue = (value) => {
     appendArchetypeSelection(input, value);
-    hideList();
+    renderList();
   };
 
   const setActiveOption = (index) => {
