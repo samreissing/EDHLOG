@@ -653,7 +653,7 @@ function renderEntityGamePodCard(game, decks, report) {
     .map((seatNum) => {
       const seat = seatsByNumber.get(seatNum);
       const outcomeClass = seat ? (seat.didWin ? "entity-game-seat-win" : "entity-game-seat-loss") : "";
-      const playerLabel = seat?.player ? escapeHtml(seat.player) : "—";
+      const playerLabel = seat?.player ? renderPlayerReportLink(seat.player) : "—";
       const commanderLabel = seat?.commander
         ? escapeHtml(seat.commander)
         : "—";
