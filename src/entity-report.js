@@ -1124,16 +1124,29 @@ function renderEntityChartSection(report, chartContext) {
     </div>`;
 }
 
+/** @param {string} title @param {boolean} canGoBack */
+function renderEntityReportHeader(title, canGoBack) {
+  return `
+        <div class="entity-report-header">
+          ${
+            canGoBack
+              ? `<button type="button" class="btn btn-ghost btn-sm entity-report-back" id="entity-report-back" aria-label="Back">←</button>`
+              : ""
+          }
+          <h3 class="entity-report-title">${escapeHtml(title)}</h3>
+        </div>`;
+}
+
 /**
  * @param {ReturnType<typeof buildEntityReport>} report
  * @param {import('./store.js').Deck[]} decks
  * @param {'games' | 'decks' | 'players'} [activeTab]
  * @param {{ players: import('./table.js').SortState, decks: import('./table.js').SortState }} [matchupSort]
  * @param {import('./table.js').SortState} [gamesSort]
- * @param {{ heroTab?: 'overview' | 'seats', chartContext?: ReturnType<typeof getEntityChartContext> }} [options]
+ * @param {{ heroTab?: 'overview' | 'seats', chartContext?: ReturnType<typeof getEntityChartContext>, canGoBack?: boolean }} [options]
  */
 export function renderEntityReportModal(report, decks, activeTab = "games", matchupSort, gamesSort, options = {}) {
-  const { heroTab = "overview", chartContext } = options;
+  const { heroTab = "overview", chartContext, canGoBack = false } = options;
   const rootKey = report.title;
   const resolvedChartContext =
     chartContext ??
@@ -1145,6 +1158,7 @@ export function renderEntityReportModal(report, decks, activeTab = "games", matc
   const heroTabsSection = renderEntityHeroTabsSection(report, heroTab, resolvedChartContext);
   const chartSection = renderEntityChartSection(report, resolvedChartContext);
   const tabsSection = renderEntityTabsSection(report, decks, activeTab, matchupSort, gamesSort);
+  const header = renderEntityReportHeader(report.title, canGoBack);
 
   if (report.kind === "deck") {
     const commanderImgs = renderCommanderImageTags(report.displayCommander || report.title, {
@@ -1161,9 +1175,7 @@ export function renderEntityReportModal(report, decks, activeTab = "games", matc
 
     return `
       <div class="modal-content modal-content-wide modal-content-report entity-report-deck" data-entity-report-root="${escapeHtml(rootKey)}">
-        <div class="entity-report-header">
-          <h3 class="entity-report-title">${escapeHtml(report.title)}</h3>
-        </div>
+        ${header}
 
         <div class="entity-report-deck-hero">
           <div class="entity-report-deck-art">
@@ -1187,9 +1199,7 @@ export function renderEntityReportModal(report, decks, activeTab = "games", matc
 
   return `
     <div class="modal-content modal-content-wide modal-content-report entity-report-player" data-entity-report-root="${escapeHtml(rootKey)}">
-      <div class="entity-report-header">
-        <h3 class="entity-report-title">${escapeHtml(report.title)}</h3>
-      </div>
+      ${header}
 
       ${heroTabsSection}
       ${deckSection}
