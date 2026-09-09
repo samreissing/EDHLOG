@@ -151,12 +151,12 @@ const VIEWS = [
 
 const STATS_TABS = [
   { id: "overview", label: "Overview" },
-  { id: "trends", label: "Trends" },
-  { id: "archetypes", label: "Archetypes" },
-  { id: "turns", label: "Turns" },
-  { id: "colors", label: "Colors" },
   { id: "brackets", label: "Brackets" },
+  { id: "colors", label: "Colors" },
+  { id: "archetypes", label: "Archetypes" },
   { id: "seats", label: "Seats" },
+  { id: "turns", label: "Turns" },
+  { id: "trends", label: "Trends" },
   { id: "matchups", label: "Matchups" },
   { id: "totals", label: "Totals" },
 ];
@@ -190,6 +190,7 @@ let totalsColorAgg = "exclusive";
 /** @type {{ kind: 'all' } | { kind: 'window', rangeStart: number, rangeEnd: number } | { kind: 'cumulative', rangeEnd: number } | { kind: 'year', year: string }} */
 let trendsFilter = { kind: "all" };
 let selectedSeats = [];
+let totalsSelectedSeats = [];
 let seatViewMode = "mine";
 let seatRange = { start: null, end: null, customized: false };
 let decksTab = "active";
@@ -313,12 +314,14 @@ function resetStatsTabState(tab) {
     totalsSearch = "";
     totalsSplitPartners = false;
     totalsExcludeMe = false;
+    totalsSelectedSeats = [];
     totalsBracketFilter = "";
     totalsColorView = "exact";
     totalsColorAgg = "exclusive";
     tableSort["totals-decks"] = { col: "normalizedWr", dir: "desc" };
     tableSort["totals-players"] = { col: "normalizedWr", dir: "desc" };
     tableSort["totals-colors"] = { col: "normalizedWr", dir: "desc" };
+    tableSort["turn-stats"] = { col: "turn", dir: "asc" };
   }
 }
 
@@ -439,6 +442,32 @@ function getStatsScope() {
     statsGames
   );
   return { statsDecks, statsGames, filteredDeckStats };
+}
+
+function getTotalsScopeGames() {
+  return filterGamesByBracket(data.games, data.decks, totalsBracketFilter);
+}
+
+/** @param {ReturnType<typeof computeTurnGridStats>} turns */
+function renderTurnStatsGrid(turns) {
+  return `<div class="turn-stats-grid">${turns
+    .map((row) => {
+      const ended = row.wins + row.losses;
+      return `
+          <div class="turn-stat-box${row.games ? "" : " turn-stat-box-empty"}">
+            <div class="turn-stat-label">Turn ${row.turn}</div>
+            <div class="turn-stat-gwl">
+              <div class="turn-stat-gwl-item"><span class="turn-stat-metric-label">G</span><strong>${row.games}</strong></div>
+              <div class="turn-stat-gwl-item"><span class="turn-stat-metric-label">W</span><strong>${row.wins}</strong></div>
+              <div class="turn-stat-gwl-item"><span class="turn-stat-metric-label">L</span><strong>${row.losses}</strong></div>
+            </div>
+            <div class="turn-stat-wr">
+              <div><span class="turn-stat-metric-label">WR</span><strong>${ended ? pctCell(row.winRate) : "—"}</strong></div>
+              <div><span class="turn-stat-metric-label">Norm WR</span><strong>${ended ? pctCell(row.normalizedWr) : "—"}</strong></div>
+            </div>
+          </div>`;
+    })
+    .join("")}</div>`;
 }
 
 function renderStatsToolbar(idPrefix, bounds, range, { bracketFilter = false, deckFilter = false, extra = "" } = {}) {
@@ -875,6 +904,12 @@ function bindEvents() {
       return;
     }
 
+    if (e.target.id === "clear-totals-seats-chart") {
+      totalsSelectedSeats = [];
+      render();
+      return;
+    }
+
     const colorChartRow = e.target.closest("[data-color-chart-row]");
     if (colorChartRow && statsTab === "colors") {
       const key = colorChartRow.dataset.colorChartRow;
@@ -928,6 +963,18 @@ function bindEvents() {
         selectedSeats = selectedSeats.filter((s) => s !== seat);
       } else {
         selectedSeats = [...selectedSeats, seat].sort((a, b) => a - b);
+      }
+      render();
+      return;
+    }
+
+    const totalsSeatToggleBtn = e.target.closest("[data-totals-seat-toggle]");
+    if (totalsSeatToggleBtn) {
+      const seat = Number(totalsSeatToggleBtn.dataset.totalsSeatToggle);
+      if (totalsSelectedSeats.includes(seat)) {
+        totalsSelectedSeats = totalsSelectedSeats.filter((s) => s !== seat);
+      } else {
+        totalsSelectedSeats = [...totalsSelectedSeats, seat].sort((a, b) => a - b);
       }
       render();
       return;
@@ -1796,7 +1843,7 @@ function render() {
 
   if (currentView === "games") applyLogFilters();
   bindPieCharts();
-  if (currentView === "stats" && (statsTab === "trends" || statsTab === "seats" || statsTab === "colors" || statsTab === "brackets")) {
+  if (currentView === "stats" && (statsTab === "trends" || statsTab === "seats" || statsTab === "colors" || statsTab === "brackets" || (statsTab === "totals" && totalsTab === "seats"))) {
     bindWinRateLineCharts();
     if (statsTab === "trends") {
       const { statsGames } = getStatsScope();
@@ -1807,7 +1854,7 @@ function render() {
       });
     }
   }
-  if (currentView === "stats" && statsTab === "turns") {
+  if (currentView === "stats" && (statsTab === "turns" || (statsTab === "totals" && totalsTab === "turns"))) {
     bindTurnWinRateChart();
   }
   if (currentView === "stats" && statsTab === "matchups" && matchupTab === "decks") {
@@ -2353,6 +2400,7 @@ function renderStats() {
         turn: (row) => row.turn,
         games: (row) => row.games,
         wins: (row) => row.wins,
+        losses: (row) => row.losses,
         winRate: (row) => row.winRate ?? -1,
         normalizedWr: (row) => row.normalizedWr ?? -1,
       },
@@ -2370,26 +2418,14 @@ function renderStats() {
           ${sortHeader("turn-stats", "turn", "Turn", tableSort["turn-stats"])}
           ${sortHeader("turn-stats", "games", "Games", tableSort["turn-stats"])}
           ${sortHeader("turn-stats", "wins", "Wins", tableSort["turn-stats"])}
+          ${sortHeader("turn-stats", "losses", "Losses", tableSort["turn-stats"])}
           ${sortHeader("turn-stats", "winRate", "WR", tableSort["turn-stats"])}
           ${sortHeader("turn-stats", "normalizedWr", "Norm WR", tableSort["turn-stats"])}
         </tr></thead>
       </table>
       ${
         turnRows.length
-          ? `<div class="turn-stats-grid">${turns
-              .map(
-                (row) => `
-          <div class="turn-stat-box${row.games ? "" : " turn-stat-box-empty"}">
-            <div class="turn-stat-label">Turn ${row.turn}</div>
-            <div class="turn-stat-metrics">
-              <div><span class="turn-stat-metric-label">Games</span><strong>${row.games}</strong></div>
-              <div><span class="turn-stat-metric-label">Wins</span><strong>${row.wins}</strong></div>
-              <div><span class="turn-stat-metric-label">WR</span><strong>${row.games ? pctCell(row.winRate) : "—"}</strong></div>
-              <div><span class="turn-stat-metric-label">Norm WR</span><strong>${row.games ? pctCell(row.normalizedWr) : "—"}</strong></div>
-            </div>
-          </div>`
-              )
-              .join("")}</div>
+          ? `${renderTurnStatsGrid(turns)}
           ${turnChart}`
           : `<p class="muted">No turn data yet — add an end turn when logging games.</p>`
       }`;
@@ -2591,6 +2627,109 @@ function renderStats() {
     const isDeckTab = totalsTab === "decks";
     const isPlayerTab = totalsTab === "players";
     const isColorTab = totalsTab === "colors";
+    const isArchetypeTab = totalsTab === "archetypes";
+    const isSeatsTab = totalsTab === "seats";
+    const isTurnsTab = totalsTab === "turns";
+    const totalsGames = getTotalsScopeGames();
+    const bracketFilterControl = renderBracketFilterToggle(
+      "totals-bracket-filter-toggle",
+      totalsBracketFilter
+    );
+    const excludeMeControl = `<label class="checkbox totals-exclude-me">
+      <input type="checkbox" id="totals-exclude-me" ${totalsExcludeMe ? "checked" : ""} />
+      Exclude my data
+    </label>`;
+
+    if (isArchetypeTab) {
+      body = `
+      ${subTabs(TOTALS_TABS, totalsTab, "totals-tab")}
+      <div class="filters inline totals-filters">
+        ${bracketFilterControl}
+        ${excludeMeControl}
+      </div>
+      <p class="muted totals-placeholder">Opponent deck archetypes are not tracked yet. This tab will become useful once that feature is added.</p>`;
+    } else if (isSeatsTab) {
+      const seatOptions = { excludeMySeat: totalsExcludeMe };
+      const bounds = getSeatDateBounds(totalsGames, "total", seatOptions);
+      const range = { start: bounds.min, end: bounds.max };
+      const seatStats = computeSeatStats(totalsGames, "total", seatOptions);
+      const seatChart = renderMultiWinRateLineChart(
+        totalsSelectedSeats.map((seat) => ({
+          id: seat,
+          label: `Seat ${seat}`,
+          color: SEAT_COLORS[seat],
+          series: computeWinRateSeries(
+            gamesForSeatSeries(totalsGames, seat, range.start, range.end, "total", seatOptions)
+          ),
+        })),
+        range
+      );
+
+      body = `
+      ${subTabs(TOTALS_TABS, totalsTab, "totals-tab")}
+      <div class="filters inline totals-filters">
+        ${bracketFilterControl}
+        ${excludeMeControl}
+      </div>
+      <div class="seat-toggle-row">
+        ${seatStats
+          .map(
+            (seat) => `
+          <button type="button" class="seat-toggle ${totalsSelectedSeats.includes(seat.seat) ? "active" : ""}"
+            data-totals-seat-toggle="${seat.seat}" style="--seat-color:${SEAT_COLORS[seat.seat]}">
+            <div class="seat-toggle-header"><strong>${seat.label}</strong></div>
+            <span>${seat.games}G · ${seat.wins}W · ${seat.games ? pctCell(seat.winRate) : "—"}</span>
+          </button>`
+          )
+          .join("")}
+      </div>
+      ${renderChartSection(seatChart, "clear-totals-seats-chart")}`;
+    } else if (isTurnsTab) {
+      const turnRows = computeTurnGridStats(totalsGames, {
+        allPlayers: true,
+        decks: data.decks,
+        excludeMyPlayer: totalsExcludeMe,
+      });
+      const turns = applySort(
+        turnRows,
+        tableSort["turn-stats"],
+        {
+          turn: (row) => row.turn,
+          games: (row) => row.games,
+          wins: (row) => row.wins,
+          losses: (row) => row.losses,
+          winRate: (row) => row.winRate ?? -1,
+          normalizedWr: (row) => row.normalizedWr ?? -1,
+        },
+        WINS_SORT_TIE_BREAKERS
+      );
+      const turnChart = renderTurnWinRateChart(turnRows, {
+        gradientId: "totals-turn-wr-fill-gradient",
+      });
+
+      body = `
+      ${subTabs(TOTALS_TABS, totalsTab, "totals-tab")}
+      <div class="filters inline totals-filters">
+        ${bracketFilterControl}
+        ${excludeMeControl}
+      </div>
+      <table class="table compact sortable-table turn-stats-sort">
+        <thead><tr>
+          ${sortHeader("turn-stats", "turn", "Turn", tableSort["turn-stats"])}
+          ${sortHeader("turn-stats", "games", "Games", tableSort["turn-stats"])}
+          ${sortHeader("turn-stats", "wins", "Wins", tableSort["turn-stats"])}
+          ${sortHeader("turn-stats", "losses", "Losses", tableSort["turn-stats"])}
+          ${sortHeader("turn-stats", "winRate", "WR", tableSort["turn-stats"])}
+          ${sortHeader("turn-stats", "normalizedWr", "Norm WR", tableSort["turn-stats"])}
+        </tr></thead>
+      </table>
+      ${
+        turnRows.length
+          ? `${renderTurnStatsGrid(turns)}
+          ${turnChart}`
+          : `<p class="muted">No turn data yet — add an end turn when logging games.</p>`
+      }`;
+    } else {
     const query = totalsSearch.trim().toLowerCase();
     const tableId = `totals-${totalsTab}`;
     const rows = applySort(
@@ -2623,16 +2762,7 @@ function renderStats() {
         </label>`
         : "";
 
-    const excludeMeControl = `<label class="checkbox totals-exclude-me">
-      <input type="checkbox" id="totals-exclude-me" ${totalsExcludeMe ? "checked" : ""} />
-      Exclude my data
-    </label>`;
-
     const totalsSearchInput = `<input type="search" id="totals-search" class="input totals-search" placeholder="Search ${nameHeader.toLowerCase()}" value="${escapeHtml(totalsSearch)}" />`;
-    const bracketFilterControl = renderBracketFilterToggle(
-      "totals-bracket-filter-toggle",
-      totalsBracketFilter
-    );
 
     const totalsToolbar = isColorTab
       ? `<div class="filters inline totals-filters totals-color-toolbar">
@@ -2700,6 +2830,7 @@ function renderStats() {
             .join("")}
         </tbody>
       </table>`;
+    }
   }
 
   return `<section class="section">${subTabs(STATS_TABS, statsTab, "stats-tab")}${body}</section>`;
