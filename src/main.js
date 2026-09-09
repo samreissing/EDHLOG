@@ -121,6 +121,7 @@ import {
 } from "./selection-colors.js";
 import {
   computeSeatStats,
+  formatSeatLongestStreak,
   gamesForSeatSeries,
   getSeatDateBounds,
   SEAT_COLORS,
@@ -2190,6 +2191,7 @@ function renderStats() {
             data-seat-toggle="${seat.seat}" style="--seat-color:${SEAT_COLORS[seat.seat]}">
             <strong>${seat.label}</strong>
             <span>${seat.games}G · ${seat.wins}W · ${seat.games ? pctCell(seat.winRate) : "—"}</span>
+            <em class="seat-longest-streak">${formatSeatLongestStreak(seat.longestWinStreak)}</em>
           </button>`
           )
           .join("")}

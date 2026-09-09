@@ -1176,6 +1176,13 @@ button.year-chip.active,
   font-family: var(--mono);
 }
 
+.seat-toggle .seat-longest-streak {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-style: italic;
+  font-family: inherit;
+}
+
 .seat-toggle:hover {
   border-color: var(--seat-color, var(--accent));
 }
