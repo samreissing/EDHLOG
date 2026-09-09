@@ -1604,6 +1604,34 @@ function deckCommanderChanged(existing, next) {
   return prevCommander !== nextCommander;
 }
 
+/** @param {import('./store.js').Deck[]} decks @param {string} commander @param {number} [excludeIndex] */
+function decksWithSameCommander(decks, commander, excludeIndex = -1) {
+  const target = getCommanderInfo(commander).canonicalName;
+  return decks.filter(
+    (deck, index) =>
+      index !== excludeIndex &&
+      getCommanderInfo(deckCommander(deck)).canonicalName === target
+  );
+}
+
+/** @param {import('./store.js').Deck[]} decks @param {string} commander @param {string} name @param {number} [excludeIndex] */
+function deckNameClashMessage(decks, commander, name, excludeIndex = -1) {
+  const clashes = decksWithSameCommander(decks, commander, excludeIndex);
+  if (!clashes.length) return null;
+
+  const trimmed = String(name || "").trim();
+  if (!trimmed) {
+    return "Give this deck a name — another deck already uses this commander";
+  }
+
+  const nameKey = trimmed.toLowerCase();
+  if (clashes.some((deck) => String(deck.name || "").trim().toLowerCase() === nameKey)) {
+    return "Another deck with this commander already uses that name";
+  }
+
+  return null;
+}
+
 function backfillGameCommandersForDeck(deck) {
   const id = deckId(deck);
   if (!id) return false;
@@ -1671,13 +1699,9 @@ function saveDeckFromForm(formOverride = null) {
       return;
     }
     const deckIdToKeep = deckId(existing) || originalId || nextDeckId(data);
-    const commanderClash = data.decks.some(
-      (d, idx) =>
-        idx !== editIndex &&
-        getCommanderInfo(deckCommander(d)).canonicalName === getCommanderInfo(commander).canonicalName
-    );
-    if (commanderClash) {
-      toast("Another deck already uses that commander", true);
+    const nameClash = deckNameClashMessage(data.decks, commander, deckPayload.name, editIndex);
+    if (nameClash) {
+      toast(nameClash, true);
       return;
     }
 
@@ -1710,12 +1734,9 @@ function saveDeckFromForm(formOverride = null) {
     return;
   }
 
-  if (
-    data.decks.some(
-      (d) => getCommanderInfo(deckCommander(d)).canonicalName === getCommanderInfo(commander).canonicalName
-    )
-  ) {
-    toast("Deck exists", true);
+  const nameClash = deckNameClashMessage(data.decks, commander, deckPayload.name);
+  if (nameClash) {
+    toast(nameClash, true);
     return;
   }
 
@@ -2672,7 +2693,7 @@ function renderGames() {
   });
 
   const decks = [...data.decks]
-    .sort((a, b) => deckLabel(a).localeCompare(deckLabel(b)))
+    .sort((a, b) => deckTitle(a).localeCompare(deckTitle(b)))
     .map((d) => deckId(d));
   const years = [...new Set(data.games.map((g) => gameYear(g.date)))].sort();
   const sort = tableSort["game-log"];
@@ -2683,7 +2704,7 @@ function renderGames() {
     <section class="section">
       <div class="section-header">
         <div class="filters inline game-log-filters">
-          <label class="game-log-filter-deck">Deck<select id="filter-deck" class="game-log-filter-deck-select"><option value="">All</option>${decks.map((d) => `<option value="${escapeHtml(d)}" ${logFilters.deck === d ? "selected" : ""}>${escapeHtml(deckLabelForKey(d, data.decks))}</option>`).join("")}</select></label>
+          <label class="game-log-filter-deck">Deck<select id="filter-deck" class="game-log-filter-deck-select"><option value="">All</option>${decks.map((d) => `<option value="${escapeHtml(d)}" ${logFilters.deck === d ? "selected" : ""}>${escapeHtml(deckTitleForKey(d, data.decks))}</option>`).join("")}</select></label>
           <label>Bracket<select id="filter-bracket"><option value="">All</option>${[1, 2, 3, 4, 5]
             .map(
               (b) =>
@@ -2918,7 +2939,7 @@ function renderLogForm() {
       <label>My deck<select name="deck" required><option value="">Select…</option>${decks
         .map(
           (d) =>
-            `<option value="${escapeHtml(deckId(d))}" data-bracket="${d.bracket}" ${editing?.deck === deckId(d) ? "selected" : ""}>${escapeHtml(deckLabel(d))}</option>`
+            `<option value="${escapeHtml(deckId(d))}" data-bracket="${d.bracket}" ${editing?.deck === deckId(d) ? "selected" : ""}>${escapeHtml(deckTitle(d))}</option>`
         )
         .join("")}</select></label>
       <label>My seat<select name="mySeat"><option value="">—</option>${seatOptions(editing?.mySeat)}</select></label>
@@ -2963,7 +2984,7 @@ function renderLogForm() {
           .map(
             (d) => `
           <div class="quick-deck">
-            <span class="quick-name">${colorBadge(getDeckColors(d))} ${escapeHtml(deckLabel(d))}</span>
+            <span class="quick-name">${colorBadge(getDeckColors(d))} ${escapeHtml(deckTitle(d))}</span>
             <button type="button" class="btn btn-sm win quick-win" data-deck="${escapeHtml(deckId(d))}">W</button>
             <button type="button" class="btn btn-sm loss quick-loss" data-deck="${escapeHtml(deckId(d))}">L</button>
           </div>`
