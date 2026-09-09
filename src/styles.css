@@ -2179,16 +2179,22 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   color: var(--muted);
 }
 
-.deck-archetype-wrap {
+.deck-archetype-wrap,
+.deck-tribe-wrap {
   position: relative;
 }
 
-.deck-archetype-input {
+.deck-archetype-input,
+.deck-tribe-input {
   min-height: 2.25rem;
   resize: none;
   overflow: hidden;
   line-height: 1.4;
   field-sizing: content;
+}
+
+.deck-tribe-field[hidden] {
+  display: none;
 }
 
 .color-fieldset {
