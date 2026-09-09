@@ -106,7 +106,7 @@ import {
   archetypeViewLabel,
   cycleArchetypeView,
 } from "./archetype-stats.js";
-import { computeTurnGridStats } from "./turn-stats.js";
+import { computeTurnGridStats, computeTurnDistributionStats } from "./turn-stats.js";
 import { renderTurnWinRateChart, bindTurnWinRateChart } from "./turn-chart.js";
 import {
   computeWinRateSeries,
@@ -467,6 +467,26 @@ function renderTurnStatsGrid(turns) {
             </div>
           </div>`;
     })
+    .join("")}</div>`;
+}
+
+/** @param {ReturnType<typeof computeTurnDistributionStats>} turns */
+function renderTurnDistributionGrid(turns) {
+  return `<div class="turn-stats-grid">${turns
+    .map(
+      (row) => `
+          <div class="turn-stat-box${row.games ? "" : " turn-stat-box-empty"}">
+            <div class="turn-stat-label">Turn ${row.turn}</div>
+            <div class="turn-stat-games-only">
+              <span class="turn-stat-metric-label">G</span>
+              <strong>${row.games}</strong>
+            </div>
+            <div class="turn-stat-wr">
+              <div><span class="turn-stat-metric-label">WR</span><strong>${row.games ? pctCell(row.winRate) : "—"}</strong></div>
+              <div><span class="turn-stat-metric-label">Norm WR</span><strong>${row.games ? pctCell(row.normalizedWr) : "—"}</strong></div>
+            </div>
+          </div>`
+    )
     .join("")}</div>`;
 }
 
@@ -2671,7 +2691,7 @@ function renderStats() {
         ${bracketFilterControl}
         ${excludeMeControl}
       </div>
-      <div class="seat-toggle-row">
+      <div class="seat-toggle-row seat-toggle-row--four">
         ${seatStats
           .map(
             (seat) => `
@@ -2685,8 +2705,7 @@ function renderStats() {
       </div>
       ${renderChartSection(seatChart, "clear-totals-seats-chart")}`;
     } else if (isTurnsTab) {
-      const turnRows = computeTurnGridStats(totalsGames, {
-        allPlayers: true,
+      const turnRows = computeTurnDistributionStats(totalsGames, {
         decks: data.decks,
         excludeMyPlayer: totalsExcludeMe,
       });
@@ -2696,8 +2715,6 @@ function renderStats() {
         {
           turn: (row) => row.turn,
           games: (row) => row.games,
-          wins: (row) => row.wins,
-          losses: (row) => row.losses,
           winRate: (row) => row.winRate ?? -1,
           normalizedWr: (row) => row.normalizedWr ?? -1,
         },
@@ -2705,6 +2722,7 @@ function renderStats() {
       );
       const turnChart = renderTurnWinRateChart(turnRows, {
         gradientId: "totals-turn-wr-fill-gradient",
+        mode: "distribution",
       });
 
       body = `
@@ -2717,15 +2735,13 @@ function renderStats() {
         <thead><tr>
           ${sortHeader("turn-stats", "turn", "Turn", tableSort["turn-stats"])}
           ${sortHeader("turn-stats", "games", "Games", tableSort["turn-stats"])}
-          ${sortHeader("turn-stats", "wins", "Wins", tableSort["turn-stats"])}
-          ${sortHeader("turn-stats", "losses", "Losses", tableSort["turn-stats"])}
           ${sortHeader("turn-stats", "winRate", "WR", tableSort["turn-stats"])}
           ${sortHeader("turn-stats", "normalizedWr", "Norm WR", tableSort["turn-stats"])}
         </tr></thead>
       </table>
       ${
         turnRows.length
-          ? `${renderTurnStatsGrid(turns)}
+          ? `${renderTurnDistributionGrid(turns)}
           ${turnChart}`
           : `<p class="muted">No turn data yet — add an end turn when logging games.</p>`
       }`;

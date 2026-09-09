@@ -23,6 +23,54 @@ function seatOutcome(seat, seats) {
 }
 
 /**
+ * Pod-wide turn distribution: how many games end on each turn.
+ * @param {import('./store.js').Game[]} games
+ * @param {{ decks?: import('./store.js').Deck[], excludeMyPlayer?: boolean }} [options]
+ */
+export function computeTurnDistributionStats(games, options = {}) {
+  const { decks = [], excludeMyPlayer = false } = options;
+  /** @type {Array<{ game: import('./store.js').Game, endTurn: number }>} */
+  let logged = [];
+
+  for (const game of games) {
+    const endTurn = Number(game.turn);
+    if (!Number.isFinite(endTurn) || endTurn <= 0) continue;
+    logged.push({ game, endTurn });
+  }
+
+  if (excludeMyPlayer) {
+    logged = logged.filter(({ game }) => !parseGameSeats(game, decks).some(isMyPlayer));
+  }
+
+  if (!logged.length) return [];
+
+  const totalGames = logged.length;
+  const maxTurn = Math.max(...logged.map((entry) => entry.endTurn));
+  /** @type {Map<number, number>} */
+  const endedByTurn = new Map();
+
+  for (const { endTurn } of logged) {
+    endedByTurn.set(endTurn, (endedByTurn.get(endTurn) || 0) + 1);
+  }
+
+  /** @type {TurnGridRow[]} */
+  const rows = [];
+  for (let turn = 1; turn <= maxTurn; turn += 1) {
+    const ended = endedByTurn.get(turn) || 0;
+    rows.push({
+      turn,
+      games: ended,
+      wins: 0,
+      losses: 0,
+      winRate: totalGames ? winRate(ended, totalGames) : null,
+      normalizedWr: totalGames ? normalizedWinRate(ended, totalGames) : null,
+    });
+  }
+
+  return rows;
+}
+
+/**
  * @param {import('./store.js').Game[]} games
  * @param {{ allPlayers?: boolean, decks?: import('./store.js').Deck[], excludeMyPlayer?: boolean }} [options]
  */
