@@ -68,6 +68,11 @@ import {
 import { loadImagesIntoEntityReport } from "./scryfall.js";
 import { bindPodAutocomplete, MY_PLAYER_NAME } from "./opponent-search.js";
 import {
+  bindArchetypeAutocomplete,
+  formatArchetypesForInput,
+  parseArchetypesFromInput,
+} from "./deck-archetype-search.js";
+import {
   warmCommanderMatchupCache,
   collectPartnerCommanderNames,
   getCommanderInfo,
@@ -1644,6 +1649,7 @@ function saveDeckFromForm(formOverride = null) {
     commander,
     bracket: Number(fd.get("bracket")) || 4,
     colors,
+    archetypes: parseArchetypesFromInput(fd.get("archetypes")),
     retired: fd.get("retired") === "on",
     createdAt: normalizeDate(String(fd.get("createdAt") || "")) || todayISO(),
   };
@@ -1781,6 +1787,7 @@ function render() {
   }
 
   if (currentView === "decks" && deckModalOpen) {
+    bindArchetypeAutocomplete(document.getElementById("deck-form"), data.decks);
     const nameInput = document.querySelector('#deck-form input[name="name"]');
     nameInput?.focus();
     if (editingDeckName) nameInput?.select();
@@ -2179,7 +2186,33 @@ function renderStats() {
             )
             .join("")}
         </div>
-        <div>
+        ${renderChartSection(chart, "clear-trends-chart")}
+        <div class="two-col">
+          <div>
+            <h3 class="section-sub">Per 100 Games</h3>
+            <table class="table compact sortable-table trends-table">
+              <thead><tr>
+                ${sortHeader("trends-windows", "rangeStart", "Games", tableSort["trends-windows"])}
+                ${sortHeader("trends-windows", "winRate", "WR", tableSort["trends-windows"])}
+              </tr></thead>
+              <tbody>
+                ${windows
+                  .map((w) => {
+                    const id = `${w.rangeStart}-${w.rangeEnd}`;
+                    const seriesColor = colorForChartSelection(trendsWindowSelection, id, windows.length);
+                    return `
+                  <tr class="chart-series-selectable trends-selectable${seriesColor ? " active" : ""}"
+                    data-trends-window-toggle data-label="${escapeHtml(w.label)}"
+                    data-range-start="${w.rangeStart}" data-range-end="${w.rangeEnd}"${chartSeriesRowStyle(seriesColor)}>
+                    <td>${w.label}</td>
+                    <td>${pctCell(w.winRate)}</td>
+                  </tr>`;
+                  })
+                  .join("")}
+              </tbody>
+            </table>
+          </div>
+          <div>
             <h3 class="section-sub">Cumulative</h3>
             <table class="table compact sortable-table trends-table">
               <thead><tr>
@@ -2199,30 +2232,8 @@ function renderStats() {
                   .join("")}
               </tbody>
             </table>
-        </div>
-        ${renderChartSection(chart, "clear-trends-chart")}
-        <h3 class="section-sub">Per 100 Games</h3>
-        <table class="table compact sortable-table trends-table">
-          <thead><tr>
-            ${sortHeader("trends-windows", "rangeStart", "Games", tableSort["trends-windows"])}
-            ${sortHeader("trends-windows", "winRate", "WR", tableSort["trends-windows"])}
-          </tr></thead>
-          <tbody>
-            ${windows
-              .map((w) => {
-                const id = `${w.rangeStart}-${w.rangeEnd}`;
-                const seriesColor = colorForChartSelection(trendsWindowSelection, id, windows.length);
-                return `
-              <tr class="chart-series-selectable trends-selectable${seriesColor ? " active" : ""}"
-                data-trends-window-toggle data-label="${escapeHtml(w.label)}"
-                data-range-start="${w.rangeStart}" data-range-end="${w.rangeEnd}"${chartSeriesRowStyle(seriesColor)}>
-                <td>${w.label}</td>
-                <td>${pctCell(w.winRate)}</td>
-              </tr>`;
-              })
-              .join("")}
-          </tbody>
-        </table>`;
+          </div>
+        </div>`;
     }
   } else if (statsTab === "seats") {
     const { statsGames } = getStatsScope();
@@ -2627,6 +2638,12 @@ function renderDecks() {
           <label>Commander<input name="commander" value="${editingDeck ? escapeHtml(deckLabel(editingDeck)) : ""}" /></label>
           <label>Created<input type="date" name="createdAt" value="${createdAtValue}" /></label>
           <label>Bracket<select name="bracket">${[1, 2, 3, 4, 5].map((b) => `<option value="${b}" ${(editingDeck ? editingDeck.bracket : 4) === b ? "selected" : ""}>${b}</option>`).join("")}</select></label>
+          <label>Archetypes
+            <div class="deck-archetype-wrap opponent-input-wrap">
+              <textarea name="archetypes" class="deck-archetype-input opponent-input" rows="1" placeholder="Turbo, Storm, …" autocomplete="off">${editingDeck ? escapeHtml(formatArchetypesForInput(editingDeck.archetypes)) : ""}</textarea>
+              <ul class="opponent-suggestions deck-archetype-suggestions" hidden role="listbox"></ul>
+            </div>
+          </label>
           <fieldset class="color-fieldset"><legend>Colors</legend>
             ${["W", "U", "B", "R", "G"].map((c) => `<label class="checkbox mana-check"><input type="checkbox" name="color" value="${c}" ${editingDeck?.colors?.includes(c) ? "checked" : ""} />${colorBadge([c])}</label>`).join("")}
           </fieldset>

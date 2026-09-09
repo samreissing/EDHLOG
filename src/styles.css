@@ -1499,8 +1499,10 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .game-form-readonly .field-value,
 .deck-form input,
 .deck-form select,
+.deck-form textarea,
 #deck-form input,
-#deck-form select {
+#deck-form select,
+#deck-form textarea {
   display: block;
   width: 100%;
   margin-top: 0.35rem;
@@ -2004,6 +2006,18 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   margin-bottom: 0.75rem;
   font-size: 0.9rem;
   color: var(--muted);
+}
+
+.deck-archetype-wrap {
+  position: relative;
+}
+
+.deck-archetype-input {
+  min-height: 2.25rem;
+  resize: none;
+  overflow: hidden;
+  line-height: 1.4;
+  field-sizing: content;
 }
 
 .color-fieldset {
