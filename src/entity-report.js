@@ -10,10 +10,16 @@ import { getCommanderInfo, getCommanderMatchupIdentities, commanderMatchesTarget
 import { resolveCommanderColors } from "./commander-colors.js";
 import { deckKey, deckCommander, deckId, deckTitle, findDeck, deckLabelForKey, deckTitleForKey, deckMapByKey } from "./deck-identity.js";
 import { winRate, normalizedWinRate, computeTurnAverages, gameBracket } from "./stats.js";
-import { compareGamesChronologically, formatDate, gameSortKey } from "./dates.js";
+import { compareGamesChronologically, formatDate, gameSortKey, normalizeDate } from "./dates.js";
 import { commanderImageSlots } from "./commander-names.js";
 import { renderCommanderImageTags } from "./scryfall.js";
-import { computeWinRateSeries, renderWinRateLineChart } from "./trends-chart.js";
+import { getChartDateBounds, getEffectiveChartRange } from "./chart-series.js";
+import {
+  clampTrendsGameRange,
+  computeWinRateSeries,
+  renderTrendsChartHeader,
+  renderWinRateLineChart,
+} from "./trends-chart.js";
 import { pctCell } from "./wr-color.js";
 import { MY_PLAYER_NAME } from "./opponent-search.js";
 import { sortHeader, applySort, WINS_SORT_TIE_BREAKERS } from "./table.js";
@@ -162,6 +168,89 @@ function appearanceGamesForChart(games, seatFilter, decks) {
     { date: a.date, time: "" },
     { date: b.date, time: "" }
   ));
+}
+
+/** @param {{ date: string, result: 'Win' | 'Loss' }[]} chartGames @param {string} start @param {string} end */
+function chartGamesInDateRange(chartGames, start, end) {
+  const startDate = normalizeDate(start) || start;
+  const endDate = normalizeDate(end) || end;
+  return chartGames.filter((game) => {
+    const date = normalizeDate(game.date) || game.date;
+    return date >= startDate && date <= endDate;
+  });
+}
+
+/** @param {import('./store.js').Game[]} games @param {(seat: import('./matchups.js').GameSeat, seats: import('./matchups.js').GameSeat[], game: import('./store.js').Game) => boolean} seatFilter @param {import('./store.js').Deck[]} decks */
+function computeEntitySeatRankings(games, seatFilter, decks) {
+  /** @type {Array<{ seat: number, games: number, wins: number, winRate: number, normalizedWr: number }>} */
+  const rankings = [];
+
+  for (let seatNum = 1; seatNum <= 4; seatNum += 1) {
+    const stats = computeSeatStats(
+      games,
+      (seat, seats, game) => seatFilter(seat, seats, game) && seat.seat === seatNum,
+      decks
+    );
+    if (stats.games > 0) {
+      rankings.push({ seat: seatNum, ...stats });
+    }
+  }
+
+  return rankings.sort((a, b) => {
+    if (b.normalizedWr !== a.normalizedWr) return b.normalizedWr - a.normalizedWr;
+    if (b.winRate !== a.winRate) return b.winRate - a.winRate;
+    if (b.games !== a.games) return b.games - a.games;
+    return a.seat - b.seat;
+  });
+}
+
+/**
+ * @param {{ date: string, result: 'Win' | 'Loss' }[]} chartGames
+ * @param {{ start: string|null, end: string|null, customized: boolean }} chartRangeState
+ * @param {{ min: number, max: number|null, customized: boolean }} gameRangeState
+ */
+export function getEntityChartContext(chartGames, chartRangeState, gameRangeState) {
+  const sorted = [...chartGames];
+  const total = sorted.length;
+  const datedGames = sorted.map((game) => ({ date: game.date }));
+  const filterBounds = getChartDateBounds(datedGames);
+
+  let poolGames = sorted;
+  if (chartRangeState.customized) {
+    const dateRange = getEffectiveChartRange(datedGames, chartRangeState);
+    poolGames = chartGamesInDateRange(sorted, dateRange.start, dateRange.end);
+  }
+
+  const poolSet = new Set(poolGames);
+  const indices = [];
+  sorted.forEach((game, index) => {
+    if (poolSet.has(game)) indices.push(index + 1);
+  });
+  const boundsMin = indices.length ? Math.min(...indices) : 1;
+  const boundsMax = indices.length ? Math.max(...indices) : Math.max(1, total);
+  const min = gameRangeState.customized ? gameRangeState.min ?? boundsMin : boundsMin;
+  const max = gameRangeState.customized ? gameRangeState.max ?? boundsMax : boundsMax;
+  const gameRange = clampTrendsGameRange(min, max, boundsMin, boundsMax);
+  const rangeGames = sorted.slice(gameRange.min - 1, gameRange.max);
+  const chartSource = rangeGames.length ? rangeGames : poolGames.length ? poolGames : sorted;
+  const chartRange = getEffectiveChartRange(
+    chartSource.map((game) => ({ date: game.date })),
+    chartRangeState
+  );
+  const rangeWins = rangeGames.filter((game) => game.result === "Win").length;
+  const headerWinRate = rangeGames.length ? winRate(rangeWins, rangeGames.length) : null;
+
+  return {
+    sorted,
+    poolGames,
+    filterBounds,
+    boundsMin,
+    boundsMax,
+    gameRange,
+    rangeGames,
+    chartRange,
+    headerWinRate,
+  };
 }
 
 function finalizeEntityMatchupRow(row) {
@@ -516,6 +605,7 @@ export function buildEntityReport(games, decks, request) {
       playerMatchups: buildEntityMatchupRows(games, "players", seatFilter, {}, decks),
       deckMatchups: buildEntityMatchupRows(games, "decks", seatFilter, { splitPartners }, decks),
       playerScope: null,
+      seatRankings: computeEntitySeatRankings(games, seatFilter, decks),
     };
   }
 
@@ -552,6 +642,7 @@ export function buildEntityReport(games, decks, request) {
       playerScope,
       deckSlotId,
       displayCommander: commanderName,
+      seatRankings: computeEntitySeatRankings(games, seatFilter, decks),
     };
   }
 
@@ -598,6 +689,7 @@ export function buildEntityReport(games, decks, request) {
     playerScope,
     deckSlotId: null,
     displayCommander: commanderName,
+    seatRankings: computeEntitySeatRankings(games, seatFilter, decks),
   };
 }
 
@@ -864,28 +956,124 @@ function renderPlayerDeckGrid(deckList, decks, playerScope) {
     </div>`;
 }
 
-/**
- * @param {ReturnType<typeof buildEntityReport>} report
- * @param {import('./store.js').Deck[]} decks
- * @param {'games' | 'decks' | 'players'} [activeTab]
- * @param {{ players: import('./table.js').SortState, decks: import('./table.js').SortState }} [matchupSort]
- * @param {import('./table.js').SortState} [gamesSort]
- */
-export function renderEntityReportModal(report, decks, activeTab = "games", matchupSort, gamesSort) {
-  const rootKey = report.title;
-  const statsHtml = `
+const ENTITY_HERO_TABS = [
+  { id: "overview", label: "Overview" },
+  { id: "seats", label: "Seats" },
+];
+
+/** @param {ReturnType<typeof buildEntityReport>} report */
+function renderEntityOverviewStats(report) {
+  return `
     ${statBlock("Games", report.stats.games)}
     ${statBlock("Wins", report.stats.wins)}
     ${statBlock("Win rate", report.stats.games ? report.stats.winRate : 0, !!report.stats.games)}
     ${statBlock("Norm WR", report.stats.games ? report.stats.normalizedWr : 0, !!report.stats.games)}
     ${turnStatBlocks(report.stats)}
     ${statBlock("Last played", report.stats.lastPlayed ? formatDate(report.stats.lastPlayed) : "—")}`;
+}
 
+/** @param {ReturnType<typeof buildEntityReport>['seatRankings']} rankings */
+function renderEntitySeatRankings(rankings) {
+  if (!rankings?.length) {
+    return `<p class="muted-text entity-report-empty">No seat data yet.</p>`;
+  }
+
+  return `
+    <ol class="entity-seat-rankings">
+      ${rankings
+        .map(
+          (row, index) => `
+        <li class="entity-seat-ranking-row">
+          <span class="entity-seat-rank">#${index + 1}</span>
+          <span class="entity-seat-name">Seat ${row.seat}</span>
+          <span class="entity-seat-stats">
+            <span>${row.games}G</span>
+            <span>${row.wins}W</span>
+            <span>${pctCell(row.winRate)}</span>
+            <span>${pctCell(row.normalizedWr)} norm</span>
+          </span>
+        </li>`
+        )
+        .join("")}
+    </ol>`;
+}
+
+/** @param {ReturnType<typeof buildEntityReport>} report @param {'overview' | 'seats'} [heroTab] */
+function renderEntityHeroTabsSection(report, heroTab = "overview") {
+  const overviewHtml = `<div class="stat-grid entity-report-stats">${renderEntityOverviewStats(report)}</div>`;
+  const seatsHtml = renderEntitySeatRankings(report.seatRankings);
+  const tabButtons = ENTITY_HERO_TABS.map(
+    (tab) =>
+      `<button type="button" role="tab" aria-selected="${tab.id === heroTab}" class="sub-tab entity-report-hero-tab ${tab.id === heroTab ? "active" : ""}" data-entity-hero-tab="${tab.id}">${tab.label}</button>`
+  ).join("");
+
+  return `
+    <div class="entity-report-hero-tabs">
+      <div class="sub-tabs entity-report-hero-tablist" role="tablist">${tabButtons}</div>
+      <div class="entity-report-hero-panel" data-entity-hero-panel="overview" role="tabpanel" ${heroTab === "overview" ? "" : "hidden"}>${overviewHtml}</div>
+      <div class="entity-report-hero-panel" data-entity-hero-panel="seats" role="tabpanel" ${heroTab === "seats" ? "" : "hidden"}>${seatsHtml}</div>
+    </div>`;
+}
+
+/** @param {{ start: string, end: string, bounds: { min: string, max: string } }} chartRange */
+function renderEntityChartDateRange(chartRange) {
+  const { bounds, start, end } = chartRange;
+  return `
+    <div class="entity-report-chart-dates stats-range-dates">
+      <label>From <input type="date" id="entity-report-range-start" min="${bounds.min}" max="${bounds.max}" value="${start}" /></label>
+      <label>To <input type="date" id="entity-report-range-end" min="${bounds.min}" max="${bounds.max}" value="${end}" /></label>
+    </div>`;
+}
+
+/** @param {ReturnType<typeof buildEntityReport>} report @param {ReturnType<typeof getEntityChartContext>} chartContext */
+function renderEntityChartSection(report, chartContext) {
+  const { chartRange, gameRange, boundsMin, boundsMax, rangeGames, headerWinRate } = chartContext;
+  const chartGames = rangeGames.length ? rangeGames : report.chartGames;
   const chart =
     report.chartGames.length > 0
-      ? renderWinRateLineChart(computeWinRateSeries(report.chartGames), "")
+      ? renderWinRateLineChart(computeWinRateSeries(chartGames), "", chartRange)
       : `<p class="muted-text entity-report-empty">No games logged yet.</p>`;
+  const sliderHtml = renderTrendsChartHeader({
+    title: "Win rate",
+    winRate: headerWinRate,
+    min: gameRange.min,
+    max: gameRange.max,
+    boundsMin,
+    boundsMax,
+    idPrefix: "entity-report",
+  });
 
+  return `
+    <div class="entity-report-section entity-report-chart-section">
+      <h4>Performance over time</h4>
+      <div class="entity-report-chart-controls">
+        <div class="entity-report-chart-controls-dates">${renderEntityChartDateRange(chartRange)}</div>
+        <div class="entity-report-chart-controls-range">${sliderHtml}</div>
+      </div>
+      <div class="entity-report-chart">${chart}</div>
+    </div>`;
+}
+
+/**
+ * @param {ReturnType<typeof buildEntityReport>} report
+ * @param {import('./store.js').Deck[]} decks
+ * @param {'games' | 'decks' | 'players'} [activeTab]
+ * @param {{ players: import('./table.js').SortState, decks: import('./table.js').SortState }} [matchupSort]
+ * @param {import('./table.js').SortState} [gamesSort]
+ * @param {{ heroTab?: 'overview' | 'seats', chartContext?: ReturnType<typeof getEntityChartContext> }} [options]
+ */
+export function renderEntityReportModal(report, decks, activeTab = "games", matchupSort, gamesSort, options = {}) {
+  const { heroTab = "overview", chartContext } = options;
+  const rootKey = report.title;
+  const heroTabsSection = renderEntityHeroTabsSection(report, heroTab);
+  const resolvedChartContext =
+    chartContext ??
+    getEntityChartContext(report.chartGames, { start: null, end: null, customized: false }, {
+      min: 1,
+      max: null,
+      customized: false,
+    });
+  const chartSection = renderEntityChartSection(report, resolvedChartContext);
   const tabsSection = renderEntityTabsSection(report, decks, activeTab, matchupSort, gamesSort);
 
   if (report.kind === "deck") {
@@ -904,32 +1092,18 @@ export function renderEntityReportModal(report, decks, activeTab = "games", matc
     return `
       <div class="modal-content modal-content-wide modal-content-report entity-report-deck" data-entity-report-root="${escapeHtml(rootKey)}">
         <div class="entity-report-header">
-          <div>
-            <h3 class="entity-report-title">${escapeHtml(report.title)}</h3>
-            ${
-              report.playerScope
-                ? `<p class="muted-text entity-report-subtitle">Scoped to this player&apos;s games</p>`
-                : ""
-            }
-          </div>
+          <h3 class="entity-report-title">${escapeHtml(report.title)}</h3>
         </div>
 
         <div class="entity-report-deck-hero">
           <div class="entity-report-deck-art">
             <div class="deck-commander-images entity-report-images">${commanderImgs}</div>
           </div>
-          <div class="entity-report-deck-stats">
-            <div class="stat-grid entity-report-stats">${statsHtml}</div>
-          </div>
+          <div class="entity-report-deck-stats">${heroTabsSection}</div>
         </div>
 
         ${pilotSection}
-
-        <div class="entity-report-section entity-report-chart-section">
-          <h4>Performance over time</h4>
-          <div class="entity-report-chart">${chart}</div>
-        </div>
-
+        ${chartSection}
         ${tabsSection}
       </div>`;
   }
@@ -947,15 +1121,9 @@ export function renderEntityReportModal(report, decks, activeTab = "games", matc
         <h3 class="entity-report-title">${escapeHtml(report.title)}</h3>
       </div>
 
-      <div class="stat-grid entity-report-stats">${statsHtml}</div>
-
+      ${heroTabsSection}
       ${deckSection}
-
-      <div class="entity-report-section entity-report-chart-section">
-        <h4>Performance over time</h4>
-        <div class="entity-report-chart">${chart}</div>
-      </div>
-
+      ${chartSection}
       ${tabsSection}
     </div>`;
 }

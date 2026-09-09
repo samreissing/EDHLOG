@@ -59,6 +59,7 @@ import {
 } from "./deck-identity.js";
 import {
   buildEntityReport,
+  getEntityChartContext,
   renderEntityReportModal,
   renderPlayerReportLink,
   renderDeckReportLink,
@@ -194,6 +195,10 @@ let entityReportMatchupSort = {
   decks: { col: "normalizedMatchupImpact", dir: "desc" },
 };
 let entityReportGamesSort = { col: "date", dir: "desc" };
+/** @type {'overview' | 'seats'} */
+let entityReportHeroTab = "overview";
+let entityReportChartRange = { start: null, end: null, customized: false };
+let entityReportGameRange = { min: 1, max: null, customized: false };
 /** @type {import('./recovery.js').RecoveryFinding[]} */
 let recoveryFindings = [];
 let deckSort = "normWr";
@@ -318,6 +323,9 @@ function resetGamesViewState() {
 function dismissEntityReport() {
   entityReport = null;
   entityReportTab = "games";
+  entityReportHeroTab = "overview";
+  entityReportChartRange = { start: null, end: null, customized: false };
+  entityReportGameRange = { min: 1, max: null, customized: false };
   entityReportMatchupSort = {
     players: { col: "normalizedMatchupImpact", dir: "desc" },
     decks: { col: "normalizedMatchupImpact", dir: "desc" },
@@ -345,12 +353,37 @@ function openEntityReport(kind, key, playerScope = null, deckSlotId = null) {
   if (deckModalOpen) closeDeckModal();
   entityReport = { kind, key, playerScope, deckSlotId };
   entityReportTab = "games";
+  entityReportHeroTab = "overview";
+  entityReportChartRange = { start: null, end: null, customized: false };
+  entityReportGameRange = { min: 1, max: null, customized: false };
   entityReportMatchupSort = {
     players: { col: "normalizedMatchupImpact", dir: "desc" },
     decks: { col: "normalizedMatchupImpact", dir: "desc" },
   };
   entityReportGamesSort = { col: "date", dir: "desc" };
   syncEntityReportModal();
+}
+
+function switchEntityReportHeroTab(tabId) {
+  if (!entityReport || !["overview", "seats"].includes(tabId)) return;
+  entityReportHeroTab = tabId;
+
+  const modal = document.getElementById("entity-report-modal");
+  if (!modal) return;
+
+  modal.querySelectorAll("[data-entity-hero-tab]").forEach((btn) => {
+    const active = btn.dataset.entityHeroTab === tabId;
+    btn.classList.toggle("active", active);
+    btn.setAttribute("aria-selected", active ? "true" : "false");
+  });
+
+  modal.querySelectorAll("[data-entity-hero-panel]").forEach((panel) => {
+    panel.hidden = panel.dataset.entityHeroPanel !== tabId;
+  });
+}
+
+function resetEntityReportGameRange() {
+  entityReportGameRange = { min: 1, max: null, customized: false };
 }
 
 function switchEntityReportTab(tabId) {
@@ -515,6 +548,12 @@ function bindEvents() {
       switchEntityReportTab(entityReportTabBtn.dataset.entityReportTab);
       return;
     }
+
+    const entityHeroTabBtn = e.target.closest("[data-entity-hero-tab]");
+    if (entityHeroTabBtn && entityReport) {
+      switchEntityReportHeroTab(entityHeroTabBtn.dataset.entityHeroTab);
+      return;
+    }
   });
 
   document.getElementById("nav").addEventListener("click", (e) => {
@@ -577,6 +616,12 @@ function bindEvents() {
       trendsChartRange.end = document.getElementById("trends-range-end")?.value || null;
       resetTrendsGameRange();
       render();
+    } else if (e.target.id === "entity-report-range-start" || e.target.id === "entity-report-range-end") {
+      entityReportChartRange.customized = true;
+      entityReportChartRange.start = document.getElementById("entity-report-range-start")?.value || null;
+      entityReportChartRange.end = document.getElementById("entity-report-range-end")?.value || null;
+      resetEntityReportGameRange();
+      syncEntityReportModal();
     }
   });
 
@@ -1471,6 +1516,11 @@ function syncEntityReportModal() {
     deckSlotId: entityReport.deckSlotId,
     splitPartners: totalsSplitPartners,
   });
+  const chartContext = getEntityChartContext(
+    report.chartGames,
+    entityReportChartRange,
+    entityReportGameRange
+  );
 
   if (!modal) {
     modal = document.createElement("div");
@@ -1486,9 +1536,19 @@ function syncEntityReportModal() {
     data.decks,
     entityReportTab,
     entityReportMatchupSort,
-    entityReportGamesSort
+    entityReportGamesSort,
+    { heroTab: entityReportHeroTab, chartContext }
   );
   bindWinRateLineCharts();
+  bindTrendsGameRangeControls(
+    chartContext.boundsMin,
+    chartContext.boundsMax,
+    ({ min, max }) => {
+      entityReportGameRange = { min, max, customized: true };
+      syncEntityReportModal();
+    },
+    "entity-report"
+  );
   fitEntityDeckCardStats(modal);
   void loadImagesIntoEntityReport(report.title);
 }
