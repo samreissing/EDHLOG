@@ -102,6 +102,12 @@ import {
 } from "./matchups.js";
 import { computeAllTotals, TOTALS_TABS } from "./totals.js";
 import {
+  computeArchetypeStats,
+  archetypeViewLabel,
+  cycleArchetypeView,
+} from "./archetype-stats.js";
+import { computeTurnGridStats } from "./turn-stats.js";
+import {
   computeWinRateSeries,
   computeTrendsSummary,
   renderTrendsSummaryStats,
@@ -144,9 +150,11 @@ const VIEWS = [
 
 const STATS_TABS = [
   { id: "overview", label: "Overview" },
+  { id: "trends", label: "Trends" },
+  { id: "archetypes", label: "Archetypes" },
+  { id: "turns", label: "Turns" },
   { id: "colors", label: "Colors" },
   { id: "brackets", label: "Brackets" },
-  { id: "trends", label: "Trends" },
   { id: "seats", label: "Seats" },
   { id: "matchups", label: "Matchups" },
   { id: "totals", label: "Totals" },
@@ -214,6 +222,7 @@ let logFilters = { deck: "", bracket: "", result: "", year: "" };
 let colorView = "wubrgc";
 let colorAgg = "inclusive";
 let colorSortOrder = "wubrgc";
+let archetypeView = "unique";
 /** @type {"all" | "active" | "retired"} */
 let statsDeckFilter = "all";
 /** @type {Map<string, string>} */
@@ -234,6 +243,8 @@ let lastColorsPieSignature = "";
 let lastBracketsPieSignature = "";
 let tableSort = {
   "color-stats": { col: "colorOrder", dir: "asc" },
+  "archetype-stats": { col: "label", dir: "asc" },
+  "turn-stats": { col: "turn", dir: "asc" },
   "bracket-stats": { col: "bracket", dir: "asc" },
   "trends-windows": { col: "rangeStart", dir: "asc" },
   "trends-cumulative": { col: "games", dir: "asc" },
@@ -278,6 +289,11 @@ function resetStatsTabState(tab) {
     trendsGameRange = { min: 1, max: null, customized: false };
     tableSort["trends-windows"] = { col: "rangeStart", dir: "asc" };
     tableSort["trends-cumulative"] = { col: "games", dir: "asc" };
+  } else if (tab === "archetypes") {
+    archetypeView = "unique";
+    tableSort["archetype-stats"] = { col: "label", dir: "asc" };
+  } else if (tab === "turns") {
+    tableSort["turn-stats"] = { col: "turn", dir: "asc" };
   } else if (tab === "seats") {
     selectedSeats = [];
     seatViewMode = "mine";
@@ -732,6 +748,12 @@ function bindEvents() {
       colorAgg = colorAgg === "inclusive" ? "exclusive" : "inclusive";
       colorsChartSelection = new Set();
       pieAnimKey++;
+      render();
+      return;
+    }
+
+    if (e.target.id === "archetype-view-toggle") {
+      archetypeView = cycleArchetypeView(archetypeView);
       render();
       return;
     }
@@ -2263,6 +2285,107 @@ function renderStats() {
           </div>
         </div>`;
     }
+  } else if (statsTab === "archetypes") {
+    const { statsGames } = getStatsScope();
+    const archetypes = applySort(
+      computeArchetypeStats(statsGames, data.decks, { view: archetypeView }),
+      tableSort["archetype-stats"],
+      {
+        label: (row) => row.label,
+        decks: (row) => row.decks,
+        games: (row) => row.games,
+        wins: (row) => row.wins,
+        winRate: (row) => row.winRate,
+        normalizedWr: (row) => row.normalizedWr,
+      },
+      WINS_SORT_TIE_BREAKERS
+    );
+    const avgGames = colorStatAverage(archetypes, "games");
+    const avgWins = colorStatAverage(archetypes, "wins");
+    const avgDecks = colorStatAverage(archetypes, "decks");
+
+    body = `
+      <div class="filters inline archetype-toolbar">
+        ${renderStatsDeckFilterToggle()}
+        ${renderBracketFilterToggle("stats-bracket-filter-toggle", statsBracketFilter)}
+        <button type="button" class="btn btn-ghost btn-sm" id="archetype-view-toggle">${archetypeViewLabel(archetypeView)}</button>
+      </div>
+      <table class="table compact sortable-table">
+        <thead><tr>
+          ${sortHeader("archetype-stats", "label", "Archetype", tableSort["archetype-stats"])}
+          ${sortHeader("archetype-stats", "decks", "Decks", tableSort["archetype-stats"])}
+          ${sortHeader("archetype-stats", "games", "G", tableSort["archetype-stats"])}
+          ${sortHeader("archetype-stats", "wins", "W", tableSort["archetype-stats"])}
+          ${sortHeader("archetype-stats", "winRate", "WR", tableSort["archetype-stats"])}
+          ${sortHeader("archetype-stats", "normalizedWr", "Norm WR", tableSort["archetype-stats"])}
+        </tr></thead>
+        <tbody>
+          ${
+            archetypes.length
+              ? archetypes
+                  .map(
+                    (row) => `
+            <tr>
+              <td>${escapeHtml(row.label)}</td>
+              <td>${valueCell(row.decks, avgDecks)}</td>
+              <td>${valueCell(row.games, avgGames)}</td>
+              <td>${valueCell(row.wins, avgWins)}</td>
+              <td>${row.games ? pctCell(row.winRate) : "—"}</td>
+              <td>${row.games ? pctCell(row.normalizedWr) : "—"}</td>
+            </tr>`
+                  )
+                  .join("")
+              : '<tr><td colspan="6">No archetype data yet — add archetypes to your decks.</td></tr>'
+          }
+        </tbody>
+      </table>`;
+  } else if (statsTab === "turns") {
+    const { statsGames } = getStatsScope();
+    const turns = applySort(
+      computeTurnGridStats(statsGames),
+      tableSort["turn-stats"],
+      {
+        turn: (row) => row.turn,
+        games: (row) => row.games,
+        wins: (row) => row.wins,
+        winRate: (row) => row.winRate,
+        normalizedWr: (row) => row.normalizedWr,
+      },
+      WINS_SORT_TIE_BREAKERS
+    );
+
+    body = `
+      <div class="filters inline turns-toolbar">
+        ${renderStatsDeckFilterToggle()}
+        ${renderBracketFilterToggle("stats-bracket-filter-toggle", statsBracketFilter)}
+      </div>
+      <table class="table compact sortable-table turn-stats-sort">
+        <thead><tr>
+          ${sortHeader("turn-stats", "turn", "Turn", tableSort["turn-stats"])}
+          ${sortHeader("turn-stats", "games", "Games", tableSort["turn-stats"])}
+          ${sortHeader("turn-stats", "wins", "Wins", tableSort["turn-stats"])}
+          ${sortHeader("turn-stats", "winRate", "WR", tableSort["turn-stats"])}
+          ${sortHeader("turn-stats", "normalizedWr", "Norm WR", tableSort["turn-stats"])}
+        </tr></thead>
+      </table>
+      ${
+        turns.length
+          ? `<div class="turn-stats-grid">${turns
+              .map(
+                (row) => `
+          <div class="turn-stat-box">
+            <div class="turn-stat-label">Turn ${row.turn}</div>
+            <div class="turn-stat-metrics">
+              <div><span class="turn-stat-metric-label">Games</span><strong>${row.games}</strong></div>
+              <div><span class="turn-stat-metric-label">Wins</span><strong>${row.wins}</strong></div>
+              <div><span class="turn-stat-metric-label">WR</span><strong>${row.games ? pctCell(row.winRate) : "—"}</strong></div>
+              <div><span class="turn-stat-metric-label">Norm WR</span><strong>${row.games ? pctCell(row.normalizedWr) : "—"}</strong></div>
+            </div>
+          </div>`
+              )
+              .join("")}</div>`
+          : `<p class="muted">No turn data yet — add an end turn when logging games.</p>`
+      }`;
   } else if (statsTab === "seats") {
     const { statsGames } = getStatsScope();
     const bounds = getSeatDateBounds(statsGames, seatViewMode);
