@@ -1531,6 +1531,8 @@ function syncEntityReportModal() {
   }
 
   modal.classList.remove("hidden");
+  const scrollEl = modal.querySelector(".modal-content-report");
+  const scrollTop = scrollEl?.scrollTop ?? 0;
   modal.innerHTML = renderEntityReportModal(
     report,
     data.decks,
@@ -1539,6 +1541,10 @@ function syncEntityReportModal() {
     entityReportGamesSort,
     { heroTab: entityReportHeroTab, chartContext }
   );
+  const newScrollEl = modal.querySelector(".modal-content-report");
+  if (newScrollEl && scrollTop > 0) {
+    newScrollEl.scrollTop = scrollTop;
+  }
   bindWinRateLineCharts();
   bindTrendsGameRangeControls(
     chartContext.boundsMin,
