@@ -271,12 +271,13 @@ export function renderTrendsGameRangeControls(options) {
 }
 
 /**
- * @param {{ title: string, winRate: number | null, min: number, max: number, boundsMin: number, boundsMax: number, idPrefix?: string, showTitle?: boolean }} options
+ * @param {{ title: string, winRate: number | null, gameCount?: number, min: number, max: number, boundsMin: number, boundsMax: number, idPrefix?: string, showTitle?: boolean }} options
  */
 export function renderTrendsChartHeader(options) {
   const {
     title,
     winRate,
+    gameCount = null,
     min,
     max,
     boundsMin,
@@ -284,10 +285,16 @@ export function renderTrendsChartHeader(options) {
     idPrefix = "trends",
     showTitle = true,
   } = options;
+  const gameLabel =
+    gameCount == null ? null : `${gameCount} Game${gameCount === 1 ? "" : "s"}`;
+  const winRateLabel = winRate != null ? pct(winRate) : "—";
+  const titleText =
+    gameCount == null
+      ? `${title} ${winRateLabel}`.trim()
+      : `${title}: ${gameLabel} - ${winRateLabel}`;
   const titleBlock = showTitle
     ? `<div class="trends-chart-header-title">
-        <span class="trends-chart-title">${escAttr(title)}</span>
-        <span class="trends-chart-wr">${winRate != null ? escAttr(pct(winRate)) : "—"}</span>
+        <span class="trends-chart-title">${escAttr(titleText)}</span>
       </div>`
     : "";
   const rangeBlock = renderTrendsGameRangeControls({ min, max, boundsMin, boundsMax, idPrefix });
