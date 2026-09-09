@@ -237,10 +237,6 @@ main {
   font-size: 1.05rem;
 }
 
-.totals-placeholder {
-  margin-top: 0.75rem;
-}
-
 .turn-stat-metric-label {
   display: block;
   font-size: 0.7rem;
@@ -1473,6 +1469,10 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .totals-filters {
   margin-bottom: 0.75rem;
   width: 100%;
+}
+
+.totals-seats-toolbar {
+  margin-bottom: 1.5rem;
 }
 
 .totals-filters .totals-search {

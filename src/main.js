@@ -2661,13 +2661,61 @@ function renderStats() {
     </label>`;
 
     if (isArchetypeTab) {
+      const archetypes = totalsExcludeMe
+        ? []
+        : applySort(
+            computeArchetypeStats(totalsGames, data.decks, { view: archetypeView }),
+            tableSort["archetype-stats"],
+            {
+              label: (row) => row.label,
+              decks: (row) => row.decks,
+              games: (row) => row.games,
+              wins: (row) => row.wins,
+              winRate: (row) => row.winRate,
+              normalizedWr: (row) => row.normalizedWr,
+            },
+            WINS_SORT_TIE_BREAKERS
+          );
+      const avgGames = colorStatAverage(archetypes, "games");
+      const avgWins = colorStatAverage(archetypes, "wins");
+      const avgDecks = colorStatAverage(archetypes, "decks");
+
       body = `
       ${subTabs(TOTALS_TABS, totalsTab, "totals-tab")}
-      <div class="filters inline totals-filters">
+      <div class="filters inline totals-filters archetype-toolbar">
         ${bracketFilterControl}
         ${excludeMeControl}
+        <button type="button" class="btn btn-ghost btn-sm" id="archetype-view-toggle">${archetypeViewLabel(archetypeView)}</button>
       </div>
-      <p class="muted totals-placeholder">Opponent deck archetypes are not tracked yet. This tab will become useful once that feature is added.</p>`;
+      <table class="table compact sortable-table">
+        <thead><tr>
+          ${sortHeader("archetype-stats", "label", "Archetype", tableSort["archetype-stats"])}
+          ${sortHeader("archetype-stats", "decks", "Decks", tableSort["archetype-stats"])}
+          ${sortHeader("archetype-stats", "games", "G", tableSort["archetype-stats"])}
+          ${sortHeader("archetype-stats", "wins", "W", tableSort["archetype-stats"])}
+          ${sortHeader("archetype-stats", "winRate", "WR", tableSort["archetype-stats"])}
+          ${sortHeader("archetype-stats", "normalizedWr", "Norm WR", tableSort["archetype-stats"])}
+        </tr></thead>
+        <tbody>
+          ${
+            archetypes.length
+              ? archetypes
+                  .map(
+                    (row) => `
+            <tr>
+              <td>${escapeHtml(row.label)}</td>
+              <td>${valueCell(row.decks, avgDecks)}</td>
+              <td>${valueCell(row.games, avgGames)}</td>
+              <td>${valueCell(row.wins, avgWins)}</td>
+              <td>${row.games ? pctCell(row.winRate) : "—"}</td>
+              <td>${row.games ? pctCell(row.normalizedWr) : "—"}</td>
+            </tr>`
+                  )
+                  .join("")
+              : `<tr><td colspan="6">${totalsExcludeMe ? "No archetype data when excluding your decks." : "No archetype data yet — add archetypes to your decks."}</td></tr>`
+          }
+        </tbody>
+      </table>`;
     } else if (isSeatsTab) {
       const seatOptions = { excludeMySeat: totalsExcludeMe };
       const bounds = getSeatDateBounds(totalsGames, "total", seatOptions);
@@ -2687,7 +2735,7 @@ function renderStats() {
 
       body = `
       ${subTabs(TOTALS_TABS, totalsTab, "totals-tab")}
-      <div class="filters inline totals-filters">
+      <div class="filters inline totals-filters totals-seats-toolbar">
         ${bracketFilterControl}
         ${excludeMeControl}
       </div>
@@ -2707,7 +2755,6 @@ function renderStats() {
     } else if (isTurnsTab) {
       const turnRows = computeTurnDistributionStats(totalsGames, {
         decks: data.decks,
-        excludeMyPlayer: totalsExcludeMe,
       });
       const turns = applySort(
         turnRows,
@@ -2729,9 +2776,7 @@ function renderStats() {
       ${subTabs(TOTALS_TABS, totalsTab, "totals-tab")}
       <div class="filters inline totals-filters">
         ${bracketFilterControl}
-        ${excludeMeControl}
       </div>
-      <table class="table compact sortable-table turn-stats-sort">
         <thead><tr>
           ${sortHeader("turn-stats", "turn", "Turn", tableSort["turn-stats"])}
           ${sortHeader("turn-stats", "games", "Games", tableSort["turn-stats"])}
