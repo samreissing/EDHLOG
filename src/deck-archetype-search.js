@@ -89,6 +89,7 @@ export function bindArchetypeAutocomplete(form, decks) {
 
   let activeIndex = -1;
   let suppressFocusOutUntil = 0;
+  let suppressReopen = false;
   const allArchetypes = () => collectArchetypeHistory(decks);
 
   const hideList = () => {
@@ -113,10 +114,15 @@ export function bindArchetypeAutocomplete(form, decks) {
     list.hidden = false;
   };
 
+  const openList = () => {
+    suppressReopen = false;
+    renderList();
+  };
+
   const selectValue = (value) => {
     appendArchetypeSelection(input, value);
     suppressFocusOutUntil = Date.now() + 200;
-    renderList();
+    openList();
   };
 
   const setActiveOption = (index) => {
@@ -130,32 +136,46 @@ export function bindArchetypeAutocomplete(form, decks) {
   resizeArchetypeInput(input);
 
   const wrap = input.closest(".deck-archetype-wrap");
+  const dismissRoot = form.closest(".modal-content") || form;
 
-  const onDocumentMouseDown = (e) => {
+  const onDismissPointerDown = (e) => {
     if (!document.body.contains(input)) {
-      document.removeEventListener("mousedown", onDocumentMouseDown, true);
+      dismissRoot.removeEventListener("mousedown", onDismissPointerDown, true);
       return;
     }
     if (wrap?.contains(e.target)) return;
+    if (list.hidden) return;
     hideList();
+    suppressReopen = true;
   };
-  document.addEventListener("mousedown", onDocumentMouseDown, true);
+  dismissRoot.addEventListener("mousedown", onDismissPointerDown, true);
 
   input.addEventListener("click", () => {
-    renderList();
+    if (suppressReopen) {
+      suppressReopen = false;
+      return;
+    }
+    openList();
+  });
+
+  input.addEventListener("mouseenter", () => {
+    suppressReopen = false;
+    openList();
   });
 
   input.addEventListener("input", () => {
     resizeArchetypeInput(input);
-    renderList();
+    openList();
   });
 
-  input.addEventListener("focus", renderList);
+  input.addEventListener("focus", () => {
+    if (suppressReopen) return;
+    openList();
+  });
 
   input.addEventListener("focusout", () => {
     setTimeout(() => {
       if (Date.now() < suppressFocusOutUntil) return;
-      const wrap = input.closest(".deck-archetype-wrap");
       if (wrap && !wrap.contains(document.activeElement)) hideList();
     }, 150);
   });
@@ -176,6 +196,7 @@ export function bindArchetypeAutocomplete(form, decks) {
       selectValue(items[activeIndex].dataset.value || "");
     } else if (e.key === "Escape") {
       hideList();
+      suppressReopen = true;
     }
   });
 
