@@ -206,6 +206,7 @@ let editingDeckIndex = -1;
 let entityReport = null;
 /** @type {ReturnType<typeof snapshotEntityReportState>[]} */
 let entityReportStack = [];
+let entityReportScrollToTop = false;
 /** @type {'games' | 'decks' | 'players'} */
 let entityReportTab = "games";
 /** @type {{ players: import('./table.js').SortState, decks: import('./table.js').SortState }} */
@@ -402,6 +403,7 @@ function goBackEntityReport() {
     return;
   }
   restoreEntityReportState(entityReportStack.pop());
+  entityReportScrollToTop = true;
   syncEntityReportModal();
 }
 
@@ -427,6 +429,7 @@ function openEntityReport(kind, key, playerScope = null, deckSlotId = null) {
   }
   entityReport = { kind, key, playerScope, deckSlotId };
   resetEntityReportViewState();
+  entityReportScrollToTop = true;
   syncEntityReportModal();
 }
 
@@ -746,7 +749,11 @@ function bindEvents() {
     if (sortTh) {
       const tableId = sortTh.getAttribute("data-sort-table");
       const col = sortTh.getAttribute("data-sort-col");
-      tableSort[tableId] = toggleSort(tableSort[tableId], col);
+      if (tableId === "turn-stats" && col === "turn" && tableSort[tableId]?.col !== col) {
+        tableSort[tableId] = { col: "turn", dir: "asc" };
+      } else {
+        tableSort[tableId] = toggleSort(tableSort[tableId], col);
+      }
       if (tableId === "decks-main") {
         deckSort = col;
         deckSortDir = tableSort[tableId].dir;
@@ -1671,7 +1678,8 @@ function syncEntityReportModal() {
 
   modal.classList.remove("hidden");
   const scrollEl = modal.querySelector(".modal-content-report");
-  const scrollTop = scrollEl?.scrollTop ?? 0;
+  const scrollToTop = entityReportScrollToTop;
+  const scrollTop = scrollToTop ? 0 : scrollEl?.scrollTop ?? 0;
   modal.innerHTML = renderEntityReportModal(
     report,
     data.decks,
@@ -1681,8 +1689,9 @@ function syncEntityReportModal() {
     { heroTab: entityReportHeroTab, chartContext, canGoBack: entityReportStack.length > 0 }
   );
   const newScrollEl = modal.querySelector(".modal-content-report");
-  if (newScrollEl && scrollTop > 0) {
-    newScrollEl.scrollTop = scrollTop;
+  if (newScrollEl) {
+    newScrollEl.scrollTop = scrollToTop ? 0 : scrollTop;
+    if (scrollToTop) entityReportScrollToTop = false;
   }
   bindWinRateLineCharts();
   bindTrendsGameRangeControls(
@@ -2464,7 +2473,6 @@ function renderStats() {
       tableSort["turn-stats"],
       {
         turn: (row) => row.turn,
-        games: (row) => row.games,
         wins: (row) => row.wins,
         losses: (row) => row.losses,
         winRate: (row) => row.winRate ?? -1,
@@ -2482,7 +2490,6 @@ function renderStats() {
       <table class="table compact sortable-table turn-stats-sort">
         <thead><tr>
           ${sortHeader("turn-stats", "turn", "Turn", tableSort["turn-stats"])}
-          ${sortHeader("turn-stats", "games", "Games", tableSort["turn-stats"])}
           ${sortHeader("turn-stats", "wins", "Wins", tableSort["turn-stats"])}
           ${sortHeader("turn-stats", "losses", "Losses", tableSort["turn-stats"])}
           ${sortHeader("turn-stats", "winRate", "WR", tableSort["turn-stats"])}
@@ -2761,7 +2768,7 @@ function renderStats() {
             </tr>`
                   )
                   .join("")
-              : `<tr><td colspan="6">${totalsExcludeMe ? "No archetype data when excluding your decks." : "No archetype data yet — add archetypes to your decks."}</td></tr>`
+              : `<tr><td colspan="6">No archetype data yet — add archetypes to your decks.</td></tr>`
           }
         </tbody>
       </table>`;
@@ -2810,7 +2817,6 @@ function renderStats() {
         tableSort["turn-stats"],
         {
           turn: (row) => row.turn,
-          games: (row) => row.games,
           winRate: (row) => row.winRate ?? -1,
         },
         WINS_SORT_TIE_BREAKERS
@@ -2828,7 +2834,6 @@ function renderStats() {
       <table class="table compact sortable-table turn-stats-sort">
         <thead><tr>
           ${sortHeader("turn-stats", "turn", "Turn", tableSort["turn-stats"])}
-          ${sortHeader("turn-stats", "games", "Games", tableSort["turn-stats"])}
           ${sortHeader("turn-stats", "winRate", "WR", tableSort["turn-stats"])}
         </tr></thead>
       </table>
