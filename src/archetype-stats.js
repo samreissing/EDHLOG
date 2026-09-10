@@ -150,29 +150,9 @@ export function cycleArchetypeView(view) {
   return "unique";
 }
 
-/** @param {import('./table.js').SortState & { labelMode?: ArchetypeLabelMode }} [state] */
-export function archetypeLabelHeaderLabel(state) {
-  const mode = state?.labelMode || "archetype";
-  return mode === "tribe" ? "Tribe" : "Archetype";
-}
-
-/** @param {import('./table.js').SortState & { labelMode?: ArchetypeLabelMode }} [state] */
-export function toggleArchetypeLabelSort(state) {
-  if (state?.col !== "label") {
-    return { col: "label", dir: "asc", labelMode: "archetype" };
-  }
-
-  const mode = state.labelMode || "archetype";
-  if (mode === "archetype" && state.dir === "asc") {
-    return { col: "label", dir: "desc", labelMode: "archetype" };
-  }
-  if (mode === "archetype" && state.dir === "desc") {
-    return { col: "label", dir: "asc", labelMode: "tribe" };
-  }
-  if (mode === "tribe" && state.dir === "asc") {
-    return { col: "label", dir: "desc", labelMode: "tribe" };
-  }
-  return { col: "label", dir: "asc", labelMode: "archetype" };
+/** @param {boolean} [showTribes] */
+export function archetypeColumnHeaderLabel(showTribes = false) {
+  return showTribes ? "Tribe" : "Archetype";
 }
 
 /** @param {Array<{ key: string, label: string, decks: number, games: number, wins: number, winRate: number, normalizedWr: number }>} rowsA @param {typeof rowsA} rowsB */

@@ -127,9 +127,8 @@ import {
   computePodTagStats,
   mergeArchetypeStatsRows,
   archetypeViewLabel,
-  archetypeLabelHeaderLabel,
+  archetypeColumnHeaderLabel,
   cycleArchetypeView,
-  toggleArchetypeLabelSort,
 } from "./archetype-stats.js";
 import { computeTurnGridStats, computeTurnDistributionStats } from "./turn-stats.js";
 import { renderTurnWinRateChart, bindTurnWinRateChart } from "./turn-chart.js";
@@ -255,6 +254,7 @@ let colorView = "wubrgc";
 let colorAgg = "inclusive";
 let colorSortOrder = "wubrgc";
 let archetypeView = "unique";
+let archetypeShowTribes = false;
 /** @type {"all" | "active" | "retired"} */
 let statsDeckFilter = "all";
 /** @type {"normalizedWr" | "winRate" | "games"} */
@@ -277,7 +277,7 @@ let lastColorsPieSignature = "";
 let lastBracketsPieSignature = "";
 let tableSort = {
   "color-stats": { col: "colorOrder", dir: "asc" },
-  "archetype-stats": { col: "normalizedWr", dir: "desc", labelMode: "archetype" },
+  "archetype-stats": { col: "normalizedWr", dir: "desc" },
   "turn-stats": { col: "turn", dir: "asc" },
   "bracket-stats": { col: "bracket", dir: "asc" },
   "trends-windows": { col: "rangeStart", dir: "asc" },
@@ -326,7 +326,7 @@ function resetStatsTabState(tab) {
     tableSort["trends-cumulative"] = { col: "games", dir: "asc" };
   } else if (tab === "archetypes") {
     archetypeView = "unique";
-    tableSort["archetype-stats"] = { col: "normalizedWr", dir: "desc", labelMode: "archetype" };
+    tableSort["archetype-stats"] = { col: "normalizedWr", dir: "desc" };
   } else if (tab === "turns") {
     tableSort["turn-stats"] = { col: "turn", dir: "asc" };
   } else if (tab === "seats") {
@@ -830,14 +830,8 @@ function bindEvents() {
         col === "date"
       ) {
         tableSort[tableId] = toggleDeckDateSort(tableSort[tableId]);
-      } else if (tableId === "archetype-stats" && col === "label") {
-        tableSort[tableId] = toggleArchetypeLabelSort(tableSort[tableId]);
       } else {
-        const prev = tableSort[tableId];
-        tableSort[tableId] = {
-          ...toggleSort(tableSort[tableId], col),
-          labelMode: prev?.labelMode || "archetype",
-        };
+        tableSort[tableId] = toggleSort(tableSort[tableId], col);
       }
       render();
       return;
@@ -957,6 +951,12 @@ function bindEvents() {
 
     if (e.target.id === "archetype-view-toggle") {
       archetypeView = cycleArchetypeView(archetypeView);
+      render();
+      return;
+    }
+
+    if (e.target.id === "archetype-show-tribes") {
+      archetypeShowTribes = e.target.checked;
       render();
       return;
     }
@@ -1611,8 +1611,15 @@ function filterGamesForStats(games, decks, filter) {
   });
 }
 
-function getArchetypeTagKind(sortState) {
-  return sortState?.labelMode === "tribe" ? "tribe" : "archetype";
+function getArchetypeTagKind() {
+  return archetypeShowTribes ? "tribe" : "archetype";
+}
+
+function renderArchetypeTribeToggle() {
+  return `<label class="checkbox archetype-tribe-toggle">
+    <input type="checkbox" id="archetype-show-tribes" ${archetypeShowTribes ? "checked" : ""} />
+    Tribes
+  </label>`;
 }
 
 function computeArchetypeTableRows(games, { scope = "mine", view, tagKind }) {
@@ -1641,9 +1648,8 @@ function renderArchetypeStatsTable(rows, emptyMessage, linkOptions = {}) {
   const sortState = tableSort["archetype-stats"] || {
     col: "normalizedWr",
     dir: "desc",
-    labelMode: "archetype",
   };
-  const labelHeader = archetypeLabelHeaderLabel(sortState);
+  const labelHeader = archetypeColumnHeaderLabel(tagKind === "tribe");
   const labelSort = sortState.col === "label" ? sortState : null;
   const avgGames = colorStatAverage(rows, "games");
   const avgWins = colorStatAverage(rows, "wins");
@@ -2645,7 +2651,7 @@ function renderStats() {
     }
   } else if (statsTab === "archetypes") {
     const { statsGames } = getStatsScope();
-    const tagKind = getArchetypeTagKind(tableSort["archetype-stats"]);
+    const tagKind = getArchetypeTagKind();
     const archetypes = applySort(
       computeArchetypeTableRows(statsGames, { scope: "mine", view: archetypeView, tagKind }),
       tableSort["archetype-stats"],
@@ -2668,6 +2674,7 @@ function renderStats() {
       <div class="filters inline archetype-toolbar">
         ${renderStatsDeckFilterToggle()}
         ${renderBracketFilterToggle("stats-bracket-filter-toggle", statsBracketFilter)}
+        ${renderArchetypeTribeToggle()}
         <button type="button" class="btn btn-ghost btn-sm" id="archetype-view-toggle">${archetypeViewLabel(archetypeView)}</button>
       </div>
       ${renderArchetypeStatsTable(archetypes, emptyMessage, { tagKind, scope: "mine" })}`;
@@ -2924,7 +2931,7 @@ function renderStats() {
     </label>`;
 
     if (isArchetypeTab) {
-      const tagKind = getArchetypeTagKind(tableSort["archetype-stats"]);
+      const tagKind = getArchetypeTagKind();
       const archetypes = applySort(
         computeArchetypeTableRows(totalsGames, {
           scope: totalsExcludeMe ? "opponents" : "all",
@@ -2954,6 +2961,7 @@ function renderStats() {
       ${subTabs(TOTALS_TABS, totalsTab, "totals-tab")}
       <div class="filters inline totals-filters archetype-toolbar">
         ${bracketFilterControl}
+        ${renderArchetypeTribeToggle()}
         ${excludeMeControl}
         <button type="button" class="btn btn-ghost btn-sm" id="archetype-view-toggle">${archetypeViewLabel(archetypeView)}</button>
       </div>
