@@ -49,10 +49,17 @@ export function deckHasTribalArchetype(archetypes) {
  * @param {import('./store.js').Deck[]} decks
  * @param {(deck: import('./store.js').Deck) => string[] | undefined} getDeckValues
  * @param {{ includeRetired?: boolean }} [options]
+ * @param {string[]} [extraValues]
  */
-function collectTagHistory(decks, getDeckValues, { includeRetired = false } = {}) {
+function collectTagHistory(decks, getDeckValues, { includeRetired = true } = {}, extraValues = []) {
   /** @type {Map<string, string>} */
   const map = new Map();
+  for (const value of extraValues) {
+    const trimmed = String(value || "").trim();
+    if (!trimmed) continue;
+    const key = trimmed.toLowerCase();
+    if (!map.has(key)) map.set(key, trimmed);
+  }
   for (const deck of decks) {
     if (!includeRetired && deck.retired) continue;
     for (const value of getDeckValues(deck) || []) {
@@ -68,17 +75,19 @@ function collectTagHistory(decks, getDeckValues, { includeRetired = false } = {}
 /**
  * @param {import('./store.js').Deck[]} decks
  * @param {{ includeRetired?: boolean }} [options]
+ * @param {string[]} [extraValues]
  */
-export function collectArchetypeHistory(decks, { includeRetired = false } = {}) {
-  return collectTagHistory(decks, (deck) => deck.archetypes, { includeRetired });
+export function collectArchetypeHistory(decks, options = {}, extraValues = []) {
+  return collectTagHistory(decks, (deck) => deck.archetypes, options, extraValues);
 }
 
 /**
  * @param {import('./store.js').Deck[]} decks
  * @param {{ includeRetired?: boolean }} [options]
+ * @param {string[]} [extraValues]
  */
-export function collectTribeHistory(decks, { includeRetired = false } = {}) {
-  return collectTagHistory(decks, (deck) => deck.tribes, { includeRetired });
+export function collectTribeHistory(decks, options = {}, extraValues = []) {
+  return collectTagHistory(decks, (deck) => deck.tribes, options, extraValues);
 }
 
 /** @param {string} query @param {string[]} allValues @param {string[]} committed */
@@ -273,7 +282,12 @@ export function bindArchetypeAutocomplete(form, decks, options = {}) {
     inputSelector: ".deck-archetype-input",
     listSelector: ".deck-archetype-suggestions",
     wrapSelector: ".deck-archetype-wrap",
-    getAllValues: () => collectArchetypeHistory(decks, options),
+    getAllValues: () => {
+      const input = form.querySelector(".deck-archetype-input");
+      const extra =
+        input instanceof HTMLTextAreaElement ? parseArchetypesFromInput(input.value) : [];
+      return collectArchetypeHistory(decks, options, extra);
+    },
     onInput: (input) => {
       resizeArchetypeInput(input);
       syncDeckTribeFieldVisibility(form);
@@ -293,7 +307,11 @@ export function bindTribeAutocomplete(form, decks, options = {}) {
     inputSelector: ".deck-tribe-input",
     listSelector: ".deck-tribe-suggestions",
     wrapSelector: ".deck-tribe-wrap",
-    getAllValues: () => collectTribeHistory(decks, options),
+    getAllValues: () => {
+      const input = form.querySelector(".deck-tribe-input");
+      const extra = input instanceof HTMLTextAreaElement ? parseTribesFromInput(input.value) : [];
+      return collectTribeHistory(decks, options, extra);
+    },
     onInput: (input) => resizeArchetypeInput(input),
   });
 }
