@@ -152,5 +152,6 @@ export function computeArchetypeStats(games, decks, { view }) {
         winRate: winRate(wins, gamesCount),
         normalizedWr: normalizedWinRate(wins, gamesCount),
       };
-    });
+    })
+    .filter((row) => row.games > 0);
 }
