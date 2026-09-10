@@ -2020,7 +2020,6 @@ function saveOpponentDeckFromForm(formOverride = null) {
   const updated = updateOpponentDeckProfile(opponentDecks, editingOpponentDeckId, {
     name: String(fd.get("name") || "").trim(),
     commander,
-    bracket: Number(fd.get("bracket")) || 4,
     colors,
     archetypes: parseArchetypesFromInput(fd.get("archetypes")),
     tribes: deckHasTribalArchetype(parseArchetypesFromInput(fd.get("archetypes")))
@@ -3167,6 +3166,12 @@ function deckDateSortHeaderState(sortState) {
   return { col: "date", dir: sortState.dir };
 }
 
+/** @param {number | null | undefined} bracket */
+function formatDeckBracket(bracket) {
+  if (bracket == null) return "—";
+  return Number.isInteger(bracket) ? String(bracket) : bracket.toFixed(1);
+}
+
 function renderDeckModal(editingDeck, editingOpponentDeck) {
   const createdAtValue = editingDeck?.createdAt
     ? normalizeDate(editingDeck.createdAt) || todayISO()
@@ -3202,7 +3207,11 @@ function renderDeckModal(editingDeck, editingOpponentDeck) {
           <label>Name<input name="name" placeholder="Optional deck name" value="${escapeHtml(nameValue)}" /></label>
           <label>Commander<input name="commander" value="${escapeHtml(commanderValue)}" /></label>
           <label>Created<input type="date" name="createdAt" value="${createdAtValue}" /></label>
-          <label>Bracket<select name="bracket">${[1, 2, 3, 4, 5].map((b) => `<option value="${b}" ${bracket === b ? "selected" : ""}>${b}</option>`).join("")}</select></label>
+          ${
+            isOpponentEdit
+              ? ""
+              : `<label>Bracket<select name="bracket">${[1, 2, 3, 4, 5].map((b) => `<option value="${b}" ${bracket === b ? "selected" : ""}>${b}</option>`).join("")}</select></label>`
+          }
           <label>Archetypes
             <div class="deck-archetype-wrap opponent-input-wrap">
               <textarea name="archetypes" class="deck-archetype-input opponent-input" rows="1" placeholder="Turbo, Storm, …" autocomplete="off">${escapeHtml(formatArchetypesForInput(archetypes))}</textarea>
@@ -3237,7 +3246,7 @@ function renderDecks() {
   };
 
   let list = isOpponentsPage
-    ? computeOpponentDeckStats(data.games, ensureOpponentDecks(data))
+    ? computeOpponentDeckStats(data.games, ensureOpponentDecks(data), data.decks)
     : getStats().deckStats;
 
   if (decksTab === "active") list = list.filter((d) => !d.retired);
@@ -3273,7 +3282,7 @@ function renderDecks() {
                 opponentDeckId: d.id,
               })}</td>
               <td class="deck-colors">${colorBadge(d.colors?.length ? d.colors : getCommanderColorIdentity(opponentDeckCommander(d)))}</td>
-              <td class="deck-tight">${d.bracket ?? 4}</td>
+              <td class="deck-tight">${formatDeckBracket(d.bracket)}</td>
               <td class="deck-tight">${d.games}</td>
               <td class="deck-tight">${d.wins}</td>
               <td class="deck-stat">${d.games ? pctCell(d.winRate) : "—"}</td>
