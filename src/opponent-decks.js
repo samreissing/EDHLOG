@@ -1,7 +1,8 @@
 import { gameSortKey, normalizeDate } from "./dates.js";
+import { deckMapByKey } from "./deck-identity.js";
 import { getCommanderColorIdentity } from "./commander-colors.js";
 import { parseGameSeats } from "./matchups.js";
-import { winRate, normalizedWinRate } from "./stats.js";
+import { gameBracket, winRate, normalizedWinRate } from "./stats.js";
 
 /** @typedef {{
  *   id: string,
@@ -105,7 +106,6 @@ export function createOpponentDeck(decks, player, commander, createdAt) {
     player: trimmedPlayer,
     commander: trimmedCommander,
     name: "",
-    bracket: 4,
     colors: getCommanderColorIdentity(trimmedCommander),
     archetypes: [],
     tribes: [],
@@ -142,12 +142,16 @@ export function gamesForOpponentDeck(games, deck) {
 /**
  * @param {import('./store.js').Game[]} games
  * @param {OpponentDeck[]} opponentDecks
+ * @param {import('./store.js').Deck[]} [decks]
  */
-export function computeOpponentDeckStats(games, opponentDecks) {
+export function computeOpponentDeckStats(games, opponentDecks, decks = []) {
+  const deckMap = deckMapByKey(decks);
   return opponentDecks.map((deck) => {
     let gamesCount = 0;
     let wins = 0;
     let losses = 0;
+    let bracketTotal = 0;
+    let bracketCount = 0;
     /** @type {string | null} */
     let lastPlayed = null;
     let lastPlayedSortKey = "";
@@ -169,6 +173,11 @@ export function computeOpponentDeckStats(games, opponentDecks) {
       }
 
       if (matched) {
+        const bracket = gameBracket(game, deckMap);
+        if (bracket) {
+          bracketTotal += bracket;
+          bracketCount += 1;
+        }
         const playedKey = gameSortKey(game);
         if (!lastPlayedSortKey || playedKey.localeCompare(lastPlayedSortKey) > 0) {
           lastPlayed = game.date;
@@ -176,6 +185,9 @@ export function computeOpponentDeckStats(games, opponentDecks) {
         }
       }
     }
+
+    const avgBracket =
+      bracketCount > 0 ? Math.round((bracketTotal / bracketCount) * 10) / 10 : null;
 
     return {
       ...deck,
@@ -186,6 +198,7 @@ export function computeOpponentDeckStats(games, opponentDecks) {
       lastPlayedSortKey,
       winRate: winRate(wins, gamesCount),
       normalizedWr: normalizedWinRate(wins, gamesCount),
+      bracket: avgBracket,
     };
   });
 }
@@ -275,7 +288,7 @@ export function updateOpponentDeckProfile(opponentDecks, id, payload) {
   }
 
   if (payload.name != null) deck.name = String(payload.name || "").trim();
-  if (payload.bracket != null) deck.bracket = Number(payload.bracket) || 4;
+  if (payload.bracket != null && payload.bracket !== "") deck.bracket = Number(payload.bracket) || 4;
   if (payload.colors != null) deck.colors = [...payload.colors];
   if (payload.archetypes != null) deck.archetypes = [...payload.archetypes];
   if (payload.tribes != null) deck.tribes = [...payload.tribes];
