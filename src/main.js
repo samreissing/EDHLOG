@@ -3236,7 +3236,7 @@ function renderDecks() {
           <div class="filters inline stats-range-toolbar">
             ${renderDecksFilterToggles()}
           </div>
-          ${isOpponentsPage ? "" : `<button type="button" class="btn btn-primary" id="add-deck-btn">+ Deck</button>`}
+          ${isOpponentsPage ? "" : `<button type="button" class="btn btn-primary btn-sm" id="add-deck-btn">+ Deck</button>`}
         </div>
         <div class="table-wrap">
           <table class="table sortable-table decks-table${isOpponentsPage ? " decks-table-opponents" : ""}">
