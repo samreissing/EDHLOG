@@ -203,6 +203,42 @@ export function toggleArchetypeLabelSort(state) {
   return { col: "label", dir: "asc", labelMode: "archetype" };
 }
 
+/** @param {Array<{ key: string, label: string, decks: number, games: number, wins: number, winRate: number, normalizedWr: number }>} rowsA @param {typeof rowsA} rowsB */
+export function mergeArchetypeStatsRows(rowsA, rowsB) {
+  /** @type {Map<string, { key: string, label: string, decks: number, games: number, wins: number }>} */
+  const merged = new Map();
+
+  for (const row of [...rowsA, ...rowsB]) {
+    const mapKey = row.key.toLowerCase();
+    const existing = merged.get(mapKey);
+    if (!existing) {
+      merged.set(mapKey, {
+        key: row.key,
+        label: row.label,
+        decks: row.decks,
+        games: row.games,
+        wins: row.wins,
+      });
+      continue;
+    }
+    existing.games += row.games;
+    existing.wins += row.wins;
+    existing.decks += row.decks;
+  }
+
+  return [...merged.values()]
+    .map(({ key, label, decks, games, wins }) => ({
+      key,
+      label,
+      decks,
+      games,
+      wins,
+      winRate: winRate(wins, games),
+      normalizedWr: normalizedWinRate(wins, games),
+    }))
+    .filter((row) => row.games > 0);
+}
+
 /**
  * @param {import('./store.js').Game[]} games
  * @param {import('./store.js').Deck[]} decks
