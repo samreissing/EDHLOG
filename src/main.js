@@ -90,6 +90,15 @@ import {
 } from "./commander-colors.js";
 import { bindFormAccidentalNavigationGuard, bindModalBackdropDismiss } from "./modals.js";
 import {
+  computeOpponentDeckStats,
+  ensureOpponentDecks,
+  findOpponentDeck,
+  linkGameOpponentsToDecks,
+  opponentDeckCommander,
+  opponentDeckTitle,
+  updateOpponentDeckProfile,
+} from "./opponent-decks.js";
+import {
   scanForRecoverableData,
   scanBackupFiles,
   renderRecoveryModal,
@@ -171,6 +180,11 @@ const DECK_STATUS_OPTIONS = [
   { id: "all", label: "All" },
 ];
 
+const DECKS_PAGE_TABS = [
+  { id: "mine", label: "My Decks" },
+  { id: "opponents", label: "Opponent Decks" },
+];
+
 let data = null;
 let currentView = "stats";
 let statsTab = "overview";
@@ -198,6 +212,10 @@ let totalsSelectedSeats = [];
 let seatViewMode = "mine";
 let seatRange = { start: null, end: null, customized: false };
 let decksTab = "active";
+let decksPageTab = "mine";
+let opponentDeckSort = "recent";
+let opponentDeckSortDir = "desc";
+let editingOpponentDeckId = null;
 let gameModalOpen = false;
 let deckModalOpen = false;
 let viewingGameId = null;
@@ -258,6 +276,7 @@ let tableSort = {
   "trends-windows": { col: "rangeStart", dir: "asc" },
   "trends-cumulative": { col: "games", dir: "asc" },
   "decks-main": { col: "normWr", dir: "desc" },
+  "opponent-decks-main": { col: "lastPlayed", dir: "desc" },
   "game-log": { col: "date", dir: "desc" },
   matchups: { col: "normalizedMatchupImpact", dir: "desc" },
   "totals-decks": { col: "normalizedWr", dir: "desc" },
@@ -338,11 +357,15 @@ function resetAllStatsTabStates() {
 
 function resetDecksViewState() {
   decksTab = "active";
+  decksPageTab = "mine";
   deckBracketFilter = "";
   deckSort = "normWr";
   deckSortDir = "desc";
+  opponentDeckSort = "recent";
+  opponentDeckSortDir = "desc";
   closeDeckModal();
   tableSort["decks-main"] = { col: "normWr", dir: "desc" };
+  tableSort["opponent-decks-main"] = { col: "lastPlayed", dir: "desc" };
 }
 
 function resetGamesViewState() {
@@ -425,12 +448,12 @@ function renderMatchupOpponentDeckCell(row, decks) {
   return renderDeckReportLink(row.opponent, decks, { label: row.opponent });
 }
 
-function openEntityReport(kind, key, playerScope = null, deckSlotId = null) {
+function openEntityReport(kind, key, playerScope = null, deckSlotId = null, opponentDeckId = null) {
   if (deckModalOpen) closeDeckModal();
   if (entityReport) {
     entityReportStack.push(snapshotEntityReportState());
   }
-  entityReport = { kind, key, playerScope, deckSlotId };
+  entityReport = { kind, key, playerScope, deckSlotId, opponentDeckId };
   resetEntityReportViewState();
   entityReportScrollToTop = true;
   syncEntityReportModal();
@@ -661,7 +684,8 @@ function bindEvents() {
         entityBtn.dataset.entityReport,
         entityBtn.dataset.entityKey,
         entityBtn.dataset.entityPlayerScope || null,
-        entityBtn.dataset.entityDeckSlot || null
+        entityBtn.dataset.entityDeckSlot || null,
+        entityBtn.dataset.entityOpponentDeck || null
       );
       return;
     }
@@ -763,6 +787,9 @@ function bindEvents() {
         deckSortDir = tableSort[tableId].dir;
         if (col === "lastPlayed") deckSort = "recent";
         else if (col === "createdAt") deckSort = "newest";
+      } else if (tableId === "opponent-decks-main") {
+        opponentDeckSort = col === "lastPlayed" ? "recent" : col === "createdAt" ? "newest" : col;
+        opponentDeckSortDir = tableSort[tableId].dir;
       }
       render();
       return;
@@ -1124,6 +1151,7 @@ function bindEvents() {
     if (e.target.id === "add-deck-btn") {
       editingDeckName = null;
       editingDeckIndex = -1;
+      editingOpponentDeckId = null;
       dismissEntityReport();
       deckModalOpen = true;
       render();
@@ -1156,8 +1184,28 @@ function bindEvents() {
       if (deck && ensureDeckHasId(deck)) saveData(data);
       editingDeckIndex = deck ? data.decks.indexOf(deck) : -1;
       editingDeckName = deck ? deckId(deck) : ref;
+      editingOpponentDeckId = null;
       dismissEntityReport();
       deckModalOpen = true;
+      render();
+      return;
+    }
+
+    const editOpponentDeckBtn = e.target.closest(".edit-opponent-deck");
+    if (editOpponentDeckBtn) {
+      editingOpponentDeckId = editOpponentDeckBtn.dataset.opponentDeckId || null;
+      editingDeckName = null;
+      editingDeckIndex = -1;
+      dismissEntityReport();
+      deckModalOpen = true;
+      render();
+      return;
+    }
+
+    const decksPageTabBtn = e.target.closest("[data-decks-page-tab]");
+    if (decksPageTabBtn) {
+      decksPageTab = decksPageTabBtn.dataset.decksPageTab || "mine";
+      closeDeckModal();
       render();
       return;
     }
@@ -1197,9 +1245,11 @@ function bindEvents() {
       deckBracketFilter = value;
       render();
     } else if (id === "deck-sort") {
-      deckSort = value;
+      const isOpponents = decksPageTab === "opponents";
+      if (isOpponents) opponentDeckSort = value;
+      else deckSort = value;
       let col = value;
-      let dir = deckSortDir;
+      let dir = isOpponents ? opponentDeckSortDir : deckSortDir;
       if (value === "recent") {
         col = "lastPlayed";
         dir = "desc";
@@ -1207,8 +1257,9 @@ function bindEvents() {
         col = "createdAt";
         dir = "desc";
       }
-      tableSort["decks-main"] = { col, dir };
-      deckSortDir = dir;
+      tableSort[isOpponents ? "opponent-decks-main" : "decks-main"] = { col, dir };
+      if (isOpponents) opponentDeckSortDir = dir;
+      else deckSortDir = dir;
       render();
     } else if (e.target.name === "deck") {
       syncBracketFromDeck();
@@ -1664,6 +1715,8 @@ function syncEntityReportModal() {
     key: entityReport.key,
     playerScope: entityReport.playerScope,
     deckSlotId: entityReport.deckSlotId,
+    opponentDeckId: entityReport.opponentDeckId,
+    opponentDecks: data.opponentDecks || [],
     splitPartners: totalsSplitPartners,
   });
   const chartContext = getEntityChartContext(
@@ -1799,13 +1852,69 @@ function backfillGameCommandersForDeck(deck) {
   return changed;
 }
 
+function findEditingOpponentDeck() {
+  if (!editingOpponentDeckId) return null;
+  return findOpponentDeck(ensureOpponentDecks(data), editingOpponentDeckId);
+}
+
 function closeDeckModal() {
   deckModalOpen = false;
   editingDeckName = null;
   editingDeckIndex = -1;
+  editingOpponentDeckId = null;
+}
+
+function saveOpponentDeckFromForm(formOverride = null) {
+  const form = formOverride || document.getElementById("deck-form");
+  if (!form || !editingOpponentDeckId) return;
+
+  const fd = new FormData(form);
+  const commander = String(fd.get("commander") || "").trim();
+  if (!commander) {
+    toast("Commander is required", true);
+    return;
+  }
+
+  let colors = fd.getAll("color");
+  if (!colors.length) {
+    colors = getCommanderColorIdentity(commander);
+  }
+
+  const opponentDecks = ensureOpponentDecks(data);
+  const updated = updateOpponentDeckProfile(opponentDecks, editingOpponentDeckId, {
+    name: String(fd.get("name") || "").trim(),
+    commander,
+    bracket: Number(fd.get("bracket")) || 4,
+    colors,
+    archetypes: parseArchetypesFromInput(fd.get("archetypes")),
+    tribes: deckHasTribalArchetype(parseArchetypesFromInput(fd.get("archetypes")))
+      ? parseTribesFromInput(fd.get("tribes"))
+      : [],
+    retired: fd.get("retired") === "on",
+    createdAt: normalizeDate(String(fd.get("createdAt") || "")) || todayISO(),
+  });
+
+  if (!updated) {
+    toast("Opponent deck not found", true);
+    return;
+  }
+
+  if (!saveData(data)) {
+    toast("Failed to save deck — storage may be full", true);
+    return;
+  }
+
+  closeDeckModal();
+  toast("Opponent deck saved");
+  render();
+  void refreshCommanderColorCache();
 }
 
 function saveDeckFromForm(formOverride = null) {
+  if (editingOpponentDeckId) {
+    saveOpponentDeckFromForm(formOverride);
+    return;
+  }
   const form = formOverride || document.getElementById("deck-form");
   if (!form) {
     toast("Could not save deck — form missing", true);
@@ -2965,54 +3074,214 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
+function renderDeckFilters(sortValue) {
+  return `
+          <label>Status <select id="deck-status">${DECK_STATUS_OPTIONS.map((opt) => `<option value="${opt.id}" ${decksTab === opt.id ? "selected" : ""}>${opt.label}</option>`).join("")}</select></label>
+          <label>Bracket <select id="deck-bracket"><option value="">All</option>${[1, 2, 3, 4, 5].map((b) => `<option value="${b}" ${deckBracketFilter === String(b) ? "selected" : ""}>${b}</option>`).join("")}</select></label>
+          <label>Sort <select id="deck-sort">
+            <option value="normWr" ${sortValue === "normWr" ? "selected" : ""}>Norm WR</option>
+            <option value="games" ${sortValue === "games" ? "selected" : ""}>Most games</option>
+            <option value="wr" ${sortValue === "wr" ? "selected" : ""}>Win rate</option>
+            <option value="newest" ${sortValue === "newest" ? "selected" : ""}>Newest</option>
+            <option value="recent" ${sortValue === "recent" ? "selected" : ""}>Most recent</option>
+            <option value="name" ${sortValue === "name" ? "selected" : ""}>Name</option>
+          </select></label>`;
+}
+
+function renderDeckModal(editingDeck, editingOpponentDeck) {
+  const createdAtValue = editingDeck?.createdAt
+    ? normalizeDate(editingDeck.createdAt) || todayISO()
+    : editingOpponentDeck?.createdAt
+      ? normalizeDate(editingOpponentDeck.createdAt) || todayISO()
+      : todayISO();
+  const archetypes = editingDeck?.archetypes || editingOpponentDeck?.archetypes;
+  const tribes = editingDeck?.tribes || editingOpponentDeck?.tribes;
+  const showTribeField = deckHasTribalArchetype(archetypes);
+  const bracket = editingDeck?.bracket ?? editingOpponentDeck?.bracket ?? 4;
+  const colors = editingDeck?.colors || editingOpponentDeck?.colors || [];
+  const retired = editingDeck?.retired || editingOpponentDeck?.retired;
+  const commanderValue = editingDeck
+    ? deckLabel(editingDeck)
+    : editingOpponentDeck
+      ? opponentDeckCommander(editingOpponentDeck)
+      : "";
+  const nameValue = editingDeck?.name || editingOpponentDeck?.name || "";
+  const isOpponentEdit = !!editingOpponentDeck;
+
+  return `
+    <div id="deck-modal" class="modal${deckModalOpen ? "" : " hidden"}">
+      <div class="modal-content modal-content-deck">
+        <h3>${isOpponentEdit ? "Edit Opponent Deck" : editingDeck ? "Edit Deck" : "Add Deck"}</h3>
+        <form id="deck-form" class="deck-form" novalidate>
+          ${editingDeck ? `<input type="hidden" name="originalId" value="${escapeHtml(deckId(editingDeck))}" />` : ""}
+          ${isOpponentEdit ? `<input type="hidden" name="opponentDeckId" value="${escapeHtml(editingOpponentDeck.id)}" />` : ""}
+          ${
+            isOpponentEdit
+              ? `<label>Player<span class="deck-player-readonly">${escapeHtml(editingOpponentDeck.player || "—")}</span></label>`
+              : ""
+          }
+          <label>Name<input name="name" placeholder="Optional deck name" value="${escapeHtml(nameValue)}" /></label>
+          <label>Commander<input name="commander" value="${escapeHtml(commanderValue)}" /></label>
+          <label>Created<input type="date" name="createdAt" value="${createdAtValue}" /></label>
+          <label>Bracket<select name="bracket">${[1, 2, 3, 4, 5].map((b) => `<option value="${b}" ${bracket === b ? "selected" : ""}>${b}</option>`).join("")}</select></label>
+          <label>Archetypes
+            <div class="deck-archetype-wrap opponent-input-wrap">
+              <textarea name="archetypes" class="deck-archetype-input opponent-input" rows="1" placeholder="Turbo, Storm, …" autocomplete="off">${escapeHtml(formatArchetypesForInput(archetypes))}</textarea>
+              <ul class="opponent-suggestions deck-archetype-suggestions" hidden role="listbox"></ul>
+            </div>
+          </label>
+          <label class="deck-tribe-field"${showTribeField ? "" : " hidden"}>Tribe
+            <div class="deck-tribe-wrap opponent-input-wrap">
+              <textarea name="tribes" class="deck-tribe-input opponent-input" rows="1" placeholder="Elf, Dragon, …" autocomplete="off">${escapeHtml(formatTribesForInput(tribes))}</textarea>
+              <ul class="opponent-suggestions deck-tribe-suggestions" hidden role="listbox"></ul>
+            </div>
+          </label>
+          <fieldset class="color-fieldset"><legend>Colors</legend>
+            ${["W", "U", "B", "R", "G"].map((c) => `<label class="checkbox mana-check"><input type="checkbox" name="color" value="${c}" ${colors.includes(c) ? "checked" : ""} />${colorBadge([c])}</label>`).join("")}
+          </fieldset>
+          <label class="checkbox"><input type="checkbox" name="retired" ${retired ? "checked" : ""} /> Retired</label>
+          <div class="form-actions${editingDeck && !isOpponentEdit ? " form-actions--split" : ""}">
+            ${editingDeck && !isOpponentEdit ? `<button type="button" class="btn btn-danger" id="delete-deck-modal">Delete</button>` : ""}
+            <button type="button" class="btn btn-primary" id="save-deck-btn">${editingDeck || isOpponentEdit ? "Save" : "Add Deck"}</button>
+          </div>
+        </form>
+      </div>
+    </div>`;
+}
+
 function renderDecks() {
-  const { deckStats } = getStats();
-  let list = deckStats;
+  const isOpponentsPage = decksPageTab === "opponents";
+  const sortValue = isOpponentsPage ? opponentDeckSort : deckSort;
+  const sortTableId = isOpponentsPage ? "opponent-decks-main" : "decks-main";
+  const sortState = tableSort[sortTableId] || { col: isOpponentsPage ? "lastPlayed" : "normWr", dir: "desc" };
+
+  if (isOpponentsPage) {
+    opponentDeckSort = sortState.col === "lastPlayed" ? "recent" : sortState.col === "createdAt" ? "newest" : sortState.col;
+    opponentDeckSortDir = sortState.dir;
+  } else {
+    deckSort = sortState.col === "lastPlayed" ? "recent" : sortState.col === "createdAt" ? "newest" : sortState.col;
+    deckSortDir = sortState.dir;
+    if (sortState.col === "lastPlayed") deckSort = "recent";
+    else if (sortState.col === "createdAt") deckSort = "newest";
+    else if (sortState.col === "colors") deckSort = "colors";
+  }
+
+  let list = isOpponentsPage
+    ? computeOpponentDeckStats(data.games, ensureOpponentDecks(data))
+    : getStats().deckStats;
+
   if (decksTab === "active") list = list.filter((d) => !d.retired);
   else if (decksTab === "retired") list = list.filter((d) => d.retired);
   if (deckBracketFilter) list = list.filter((d) => String(d.bracket) === deckBracketFilter);
 
-  const sortState = tableSort["decks-main"] || { col: deckSort, dir: deckSortDir };
-  deckSort = sortState.col;
-  deckSortDir = sortState.dir;
-  if (sortState.col === "lastPlayed") deckSort = "recent";
-  else if (sortState.col === "createdAt") deckSort = "newest";
-  else if (sortState.col === "colors") deckSort = "colors";
-
   list = sortDeckList(list, sortState.col, sortState.dir);
 
-  const showLastPlayed = deckSort === "recent" || sortState.col === "lastPlayed";
+  const showLastPlayed = sortValue === "recent" || sortState.col === "lastPlayed";
   const dateSortCol = showLastPlayed ? "lastPlayed" : "createdAt";
   const dateColLabel = showLastPlayed ? "Played" : "Added";
   const dateCell = (d) =>
     showLastPlayed ? (d.lastPlayed ? formatDate(d.lastPlayed) : "—") : formatDate(d.createdAt);
 
   const editingDeck = editingDeckName ? findEditingDeck() : null;
-  const createdAtValue = editingDeck?.createdAt
-    ? normalizeDate(editingDeck.createdAt) || todayISO()
-    : todayISO();
-  const showTribeField = editingDeck ? deckHasTribalArchetype(editingDeck.archetypes) : false;
+  const editingOpponentDeck = findEditingOpponentDeck();
+  const pageTabs = DECKS_PAGE_TABS.map(
+    (tab) =>
+      `<button type="button" role="tab" aria-selected="${decksPageTab === tab.id}" class="folder-tab ${decksPageTab === tab.id ? "active" : ""}" data-decks-page-tab="${tab.id}">${tab.label}</button>`
+  ).join("");
+
+  const tableBody = isOpponentsPage
+    ? list.length
+      ? list
+          .map(
+            (d) => `
+            <tr>
+              <td class="deck-date">${dateCell(d)}</td>
+              <td class="deck-player">${d.player ? renderPlayerReportLink(d.player) : "—"}</td>
+              <td class="deck-name">${renderDeckReportLink(opponentDeckCommander(d), data.decks, {
+                label: opponentDeckTitle(d),
+                playerScope: d.player,
+                opponentDeckId: d.id,
+              })}</td>
+              <td class="deck-colors">${colorBadge(d.colors?.length ? d.colors : getCommanderColorIdentity(opponentDeckCommander(d)))}</td>
+              <td class="deck-tight">${d.bracket ?? 4}</td>
+              <td class="deck-tight">${d.games}</td>
+              <td class="deck-tight">${d.wins}</td>
+              <td class="deck-stat">${d.games ? pctCell(d.winRate) : "—"}</td>
+              <td class="deck-stat">${d.games ? pctCell(d.normalizedWr) : "—"}</td>
+              <td class="row-actions"><button type="button" class="btn-icon edit-opponent-deck" data-opponent-deck-id="${escapeHtml(d.id)}" title="Edit opponent deck">✎</button></td>
+            </tr>`
+          )
+          .join("")
+      : `<tr><td colspan="10"></td></tr>`
+    : list.length
+      ? list
+          .map(
+            (d) => `
+            <tr>
+              <td class="deck-date">${dateCell(d)}</td>
+              <td class="deck-name">${renderDeckReportLink(deckCommander(d), data.decks, { label: deckTitle(d), deckSlotId: deckId(d) })}</td>
+              <td class="deck-colors">${colorBadge(getDeckColors(d))}</td>
+              <td class="deck-tight">${d.bracket}</td>
+              <td class="deck-tight">${d.games}</td>
+              <td class="deck-tight">${d.wins}</td>
+              <td class="deck-stat">${d.games ? pctCell(d.winRate) : "—"}</td>
+              <td class="deck-stat">${d.games ? pctCell(d.normalizedWr) : "—"}</td>
+              <td class="row-actions"><button type="button" class="btn-icon edit-deck" data-name="${escapeHtml(deckId(d) || deckKey(d))}" title="Edit deck">✎</button></td>
+            </tr>`
+          )
+          .join("")
+      : `<tr><td colspan="9"></td></tr>`;
+
+  const opponentHeaders = `
+            ${sortHeader(sortTableId, dateSortCol, dateColLabel, sortState, "deck-date-col")}
+            <th class="deck-player-col">Player</th>
+            ${sortHeader(sortTableId, "name", "Deck", sortState, "deck-name-col")}
+            ${sortHeader(sortTableId, "colors", "Color Identity", sortState, "deck-colors-col")}
+            ${sortHeader(sortTableId, "bracket", "Bracket", sortState, "deck-tight-col")}
+            ${sortHeader(sortTableId, "games", "Games", sortState, "deck-tight-col")}
+            ${sortHeader(sortTableId, "wins", "Wins", sortState, "deck-tight-col")}
+            ${sortHeader(sortTableId, "winRate", "Win Rate", sortState, "deck-stat-col")}
+            ${sortHeader(sortTableId, "normWr", "Norm WR", sortState, "deck-stat-col")}
+            <th class="row-actions-col"></th>`;
+
+  const mineHeaders = `
+            ${sortHeader(sortTableId, dateSortCol, dateColLabel, sortState, "deck-date-col")}
+            ${sortHeader(sortTableId, "name", "Deck", sortState, "deck-name-col")}
+            ${sortHeader(sortTableId, "colors", "Color Identity", sortState, "deck-colors-col")}
+            ${sortHeader(sortTableId, "bracket", "Bracket", sortState, "deck-tight-col")}
+            ${sortHeader(sortTableId, "games", "Games", sortState, "deck-tight-col")}
+            ${sortHeader(sortTableId, "wins", "Wins", sortState, "deck-tight-col")}
+            ${sortHeader(sortTableId, "winRate", "Win Rate", sortState, "deck-stat-col")}
+            ${sortHeader(sortTableId, "normWr", "Norm WR", sortState, "deck-stat-col")}
+            <th class="row-actions-col"></th>`;
 
   return `
-    <section class="section">
-      <div class="section-header">
-        <div class="filters inline">
-          <label>Status <select id="deck-status">${DECK_STATUS_OPTIONS.map((opt) => `<option value="${opt.id}" ${decksTab === opt.id ? "selected" : ""}>${opt.label}</option>`).join("")}</select></label>
-          <label>Bracket <select id="deck-bracket"><option value="">All</option>${[1, 2, 3, 4, 5].map((b) => `<option value="${b}" ${deckBracketFilter === String(b) ? "selected" : ""}>${b}</option>`).join("")}</select></label>
-          <label>Sort <select id="deck-sort">
-            <option value="normWr" ${deckSort === "normWr" ? "selected" : ""}>Norm WR</option>
-            <option value="games" ${deckSort === "games" ? "selected" : ""}>Most games</option>
-            <option value="wr" ${deckSort === "wr" ? "selected" : ""}>Win rate</option>
-            <option value="newest" ${deckSort === "newest" ? "selected" : ""}>Newest</option>
-            <option value="recent" ${deckSort === "recent" ? "selected" : ""}>Most recent</option>
-            <option value="name" ${deckSort === "name" ? "selected" : ""}>Name</option>
-          </select></label>
+    <div class="decks-page">
+      <div class="folder-tabs" role="tablist">${pageTabs}</div>
+      <section class="section decks-page-panel">
+        <div class="section-header">
+          <div class="filters inline">
+            ${renderDeckFilters(sortValue)}
+          </div>
+          ${isOpponentsPage ? "" : `<button type="button" class="btn btn-primary" id="add-deck-btn">+ Deck</button>`}
         </div>
-        <button type="button" class="btn btn-primary" id="add-deck-btn">+ Deck</button>
-      </div>
-      <div class="table-wrap">
-        <table class="table sortable-table decks-table">
-          <colgroup>
+        <div class="table-wrap">
+          <table class="table sortable-table decks-table${isOpponentsPage ? " decks-table-opponents" : ""}">
+            ${
+              isOpponentsPage
+                ? `<colgroup>
+            <col class="decks-col-date" />
+            <col class="decks-col-player" />
+            <col class="decks-col-name" />
+            <col class="decks-col-colors" />
+            <col class="decks-col-bracket" />
+            <col class="decks-col-games" />
+            <col class="decks-col-wins" />
+            <col class="decks-col-stat" />
+            <col class="decks-col-stat" />
+            <col class="decks-col-actions" />
+          </colgroup>`
+                : `<colgroup>
             <col class="decks-col-date" />
             <col class="decks-col-name" />
             <col class="decks-col-colors" />
@@ -3022,56 +3291,15 @@ function renderDecks() {
             <col class="decks-col-stat" />
             <col class="decks-col-stat" />
             <col class="decks-col-actions" />
-          </colgroup>
-          <thead><tr>
-            ${sortHeader("decks-main", dateSortCol, dateColLabel, sortState, "deck-date-col")}
-            ${sortHeader("decks-main", "name", "Deck", sortState, "deck-name-col")}
-            ${sortHeader("decks-main", "colors", "Color Identity", sortState, "deck-colors-col")}
-            ${sortHeader("decks-main", "bracket", "Bracket", sortState, "deck-tight-col")}
-            ${sortHeader("decks-main", "games", "Games", sortState, "deck-tight-col")}
-            ${sortHeader("decks-main", "wins", "Wins", sortState, "deck-tight-col")}
-            ${sortHeader("decks-main", "winRate", "Win Rate", sortState, "deck-stat-col")}
-            ${sortHeader("decks-main", "normWr", "Norm WR", sortState, "deck-stat-col")}
-            <th class="row-actions-col"></th>
-          </tr></thead>
-          <tbody>
-            ${list.length ? list.map((d) => `<tr><td class="deck-date">${dateCell(d)}</td><td class="deck-name">${renderDeckReportLink(deckCommander(d), data.decks, { label: deckTitle(d), deckSlotId: deckId(d) })}</td><td class="deck-colors">${colorBadge(getDeckColors(d))}</td><td class="deck-tight">${d.bracket}</td><td class="deck-tight">${d.games}</td><td class="deck-tight">${d.wins}</td><td class="deck-stat">${d.games ? pctCell(d.winRate) : "—"}</td><td class="deck-stat">${d.games ? pctCell(d.normalizedWr) : "—"}</td><td class="row-actions"><button type="button" class="btn-icon edit-deck" data-name="${escapeHtml(deckId(d) || deckKey(d))}" title="Edit deck">✎</button></td></tr>`).join("") : '<tr><td colspan="9"></td></tr>'}
-          </tbody>
-        </table>
-      </div>
-    </section>
-    <div id="deck-modal" class="modal${deckModalOpen ? "" : " hidden"}">
-      <div class="modal-content modal-content-deck">
-        <h3>${editingDeck ? "Edit Deck" : "Add Deck"}</h3>
-        <form id="deck-form" class="deck-form" novalidate>
-          ${editingDeck ? `<input type="hidden" name="originalId" value="${escapeHtml(deckId(editingDeck))}" />` : ""}
-          <label>Name<input name="name" placeholder="Optional deck name" value="${editingDeck ? escapeHtml(editingDeck.name || "") : ""}" /></label>
-          <label>Commander<input name="commander" value="${editingDeck ? escapeHtml(deckLabel(editingDeck)) : ""}" /></label>
-          <label>Created<input type="date" name="createdAt" value="${createdAtValue}" /></label>
-          <label>Bracket<select name="bracket">${[1, 2, 3, 4, 5].map((b) => `<option value="${b}" ${(editingDeck ? editingDeck.bracket : 4) === b ? "selected" : ""}>${b}</option>`).join("")}</select></label>
-          <label>Archetypes
-            <div class="deck-archetype-wrap opponent-input-wrap">
-              <textarea name="archetypes" class="deck-archetype-input opponent-input" rows="1" placeholder="Turbo, Storm, …" autocomplete="off">${editingDeck ? escapeHtml(formatArchetypesForInput(editingDeck.archetypes)) : ""}</textarea>
-              <ul class="opponent-suggestions deck-archetype-suggestions" hidden role="listbox"></ul>
-            </div>
-          </label>
-          <label class="deck-tribe-field"${showTribeField ? "" : " hidden"}>Tribe
-            <div class="deck-tribe-wrap opponent-input-wrap">
-              <textarea name="tribes" class="deck-tribe-input opponent-input" rows="1" placeholder="Elf, Dragon, …" autocomplete="off">${editingDeck ? escapeHtml(formatTribesForInput(editingDeck.tribes)) : ""}</textarea>
-              <ul class="opponent-suggestions deck-tribe-suggestions" hidden role="listbox"></ul>
-            </div>
-          </label>
-          <fieldset class="color-fieldset"><legend>Colors</legend>
-            ${["W", "U", "B", "R", "G"].map((c) => `<label class="checkbox mana-check"><input type="checkbox" name="color" value="${c}" ${editingDeck?.colors?.includes(c) ? "checked" : ""} />${colorBadge([c])}</label>`).join("")}
-          </fieldset>
-          <label class="checkbox"><input type="checkbox" name="retired" ${editingDeck?.retired ? "checked" : ""} /> Retired</label>
-          <div class="form-actions${editingDeck ? " form-actions--split" : ""}">
-            ${editingDeck ? `<button type="button" class="btn btn-danger" id="delete-deck-modal">Delete</button>` : ""}
-            <button type="button" class="btn btn-primary" id="save-deck-btn">${editingDeck ? "Save" : "Add Deck"}</button>
-          </div>
-        </form>
-      </div>
-    </div>`;
+          </colgroup>`
+            }
+            <thead><tr>${isOpponentsPage ? opponentHeaders : mineHeaders}</tr></thead>
+            <tbody>${tableBody}</tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+    ${renderDeckModal(editingDeck, editingOpponentDeck)}`;
 }
 
 function renderGames() {
@@ -3501,10 +3729,14 @@ function saveGameFromForm(fd) {
       gameSaveInFlight = false;
       return toast("Game not found", true);
     }
-    data.games[idx] = buildGameRecordFromPayload(payload, gameId, data.games[idx]);
+    const record = buildGameRecordFromPayload(payload, gameId, data.games[idx]);
+    linkGameOpponentsToDecks(record, ensureOpponentDecks(data));
+    data.games[idx] = record;
   } else {
     const newId = nextGameId(data.games);
-    data.games.push(buildGameRecordFromPayload(payload, newId));
+    const record = buildGameRecordFromPayload(payload, newId);
+    linkGameOpponentsToDecks(record, ensureOpponentDecks(data));
+    data.games.push(record);
   }
 
   if (!saveData(data)) {

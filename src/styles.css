@@ -407,6 +407,70 @@ main {
   text-overflow: ellipsis;
 }
 
+/* Folder tabs (Decks page) */
+.decks-page {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.folder-tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.35rem;
+  margin: 0 0 -1px;
+  padding: 0 0.25rem;
+  position: relative;
+  z-index: 1;
+}
+
+.folder-tab {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 600;
+  padding: 0.7rem 1.15rem 0.65rem;
+}
+
+.folder-tab:hover {
+  color: var(--text);
+  background: var(--surface);
+}
+
+.folder-tab.active {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.decks-page-panel {
+  border: 1px solid var(--border);
+  border-radius: 0 12px 12px 12px;
+  margin-top: 0;
+}
+
+.decks-table-opponents col.decks-col-player {
+  width: 9rem;
+}
+
+.decks-table .deck-player,
+.decks-table .deck-player-col {
+  min-width: 7rem;
+}
+
+.deck-player-readonly {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--text);
+  font-weight: 500;
+}
+
 .decks-table {
   table-layout: fixed;
   width: 100%;
