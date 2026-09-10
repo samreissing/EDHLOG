@@ -1302,14 +1302,15 @@ function renderPlayerDeckGrid(deckList, decks, playerScope) {
       ${deckList
         .map((row) => {
           const commander = row.commander || row.name;
-          const artSlot = commanderImageSlots(commander)[0];
-          const artImg = artSlot
-            ? `<img class="commander-img commander-art-img loading" data-card-name="${escapeHtml(artSlot.name)}"${artSlot.face ? ` data-card-face="${artSlot.face}"` : ""} data-card-image="art" alt="${escapeHtml(commander)}" />`
-            : "";
+          const commanderImgs = renderCommanderImageTags(commander, {
+            escapeHtml,
+            art: true,
+            className: "commander-img commander-art-img loading",
+          });
           return `
         <div class="entity-deck-card">
           <div class="entity-deck-card-art">
-            ${artImg}
+            ${commanderImgs}
           </div>
           <div class="entity-deck-card-body">
             <div class="entity-deck-card-name">${renderDeckReportLink(commander, decks, {

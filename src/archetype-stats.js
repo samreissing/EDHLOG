@@ -211,6 +211,15 @@ export function mergeArchetypeStatsRows(rowsA, rowsB) {
     .filter((row) => row.games > 0);
 }
 
+/** @param {string[]} tags @param {string} rowKey @param {ArchetypeView} view @param {Map<string, string>} canonicalNames */
+function deckMatchesTagRow(tags, rowKey, view, canonicalNames) {
+  const target = String(rowKey || "").trim().toLowerCase();
+  if (!target) return false;
+  return rowKeysForDeckTags(tags, view, canonicalNames).some(
+    (key) => key.toLowerCase() === target
+  );
+}
+
 export function deckMatchesArchetypeKey(tags, rowKey, view) {
   /** @type {Map<string, string>} */
   const canonicalNames = new Map();

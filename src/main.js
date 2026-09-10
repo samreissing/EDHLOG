@@ -75,7 +75,7 @@ import {
   gameHasPodDetail,
   renderGameLogPodCard,
 } from "./entity-report.js";
-import { loadImagesIntoEntityReport } from "./scryfall.js";
+import { loadImagesIntoRoot } from "./scryfall.js";
 import { bindPodAutocomplete, MY_PLAYER_NAME } from "./opponent-search.js";
 import {
   bindDeckTagAutocompletes,
@@ -1873,7 +1873,7 @@ function syncEntityReportModal() {
     "entity-report"
   );
   fitEntityDeckCardStats(modal);
-  void loadImagesIntoEntityReport(report.title);
+  void loadImagesIntoRoot(modal.querySelector("[data-entity-report-root]"));
 }
 
 function findEditingDeck() {
