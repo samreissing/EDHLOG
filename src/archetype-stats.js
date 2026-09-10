@@ -1,10 +1,11 @@
 import { winRate, normalizedWinRate } from "./stats.js";
-import { deckId, findDeck } from "./deck-identity.js";
+import { deckId, deckKey, findDeck, deckMapByKey } from "./deck-identity.js";
 import { parseGameSeats } from "./matchups.js";
 import { MY_PLAYER_NAME } from "./opponent-search.js";
 import {
   findOpponentDeck,
   findOpponentDeckByPair,
+  opponentDeckMatchKey,
   opponentEntryMatchesDeck,
 } from "./opponent-decks.js";
 
@@ -31,20 +32,6 @@ function tagRowKey(tags, canonicalNames) {
     .join(", ");
 }
 
-/** @param {string[]} tags */
-function subsets(tags) {
-  const out = [];
-  const count = tags.length;
-  for (let mask = 1; mask < 1 << count; mask++) {
-    const subset = [];
-    for (let index = 0; index < count; index++) {
-      if (mask & (1 << index)) subset.push(tags[index]);
-    }
-    out.push(subset);
-  }
-  return out;
-}
-
 /**
  * @param {string[]} tags
  * @param {ArchetypeView} view
@@ -66,38 +53,51 @@ function rowKeysForDeckTags(tags, view, canonicalNames) {
     return [tagRowKey(canonical, canonicalNames)];
   }
 
-  return subsets(canonical).map((subset) => tagRowKey(subset, canonicalNames));
+  const keys = [];
+  const count = canonical.length;
+  for (let mask = 1; mask < 1 << count; mask++) {
+    const subset = [];
+    for (let index = 0; index < count; index++) {
+      if (mask & (1 << index)) subset.push(canonical[index]);
+    }
+    keys.push(tagRowKey(subset, canonicalNames));
+  }
+  return keys;
 }
 
 /**
- * @param {string[]} deckTags
- * @param {string} rowKey
+ * @param {string[]} tags
  * @param {ArchetypeView} view
  * @param {Map<string, string>} canonicalNames
+ * @param {Map<string, string[]>} cache
  */
-function deckMatchesTagRow(deckTags, rowKey, view, canonicalNames) {
-  const deckList = normalizeTags(deckTags).map((name) => canonicalTag(canonicalNames, name));
-  if (!deckList.length) return false;
+function cachedRowKeys(tags, view, canonicalNames, cache) {
+  const normalized = normalizeTags(tags);
+  if (!normalized.length) return [];
+  const cacheKey = `${view}:${normalized
+    .map((tag) => tag.toLowerCase())
+    .sort()
+    .join("\0")}`;
+  const hit = cache.get(cacheKey);
+  if (hit) return hit;
+  const keys = rowKeysForDeckTags(normalized, view, canonicalNames);
+  cache.set(cacheKey, keys);
+  return keys;
+}
 
-  if (view === "unique") {
-    return deckList.some(
-      (name) => name.toLowerCase() === String(rowKey || "").trim().toLowerCase()
-    );
-  }
-
-  if (view === "exact") {
-    return tagRowKey(deckList, canonicalNames) === rowKey;
-  }
-
-  const rowParts = String(rowKey || "")
-    .split(",")
-    .map((part) => part.trim())
-    .filter(Boolean);
-  if (!rowParts.length) return false;
-
-  return rowParts.every((part) =>
-    deckList.some((name) => name.localeCompare(part, undefined, { sensitivity: "base" }) === 0)
-  );
+/** @param {Map<string, { key: string, label: string, games: number, wins: number, deckKeys: Set<string> }>} rows */
+function finalizeTagRows(rows) {
+  return [...rows.values()]
+    .map(({ key, label, games, wins, deckKeys }) => ({
+      key,
+      label,
+      decks: deckKeys.size,
+      games,
+      wins,
+      winRate: winRate(wins, games),
+      normalizedWr: normalizedWinRate(wins, games),
+    }))
+    .filter((row) => row.games > 0);
 }
 
 function normalizeKey(value) {
@@ -117,51 +117,23 @@ function deckTags(deck, tagKind) {
 }
 
 /**
- * @param {import('./store.js').Game[]} games
- * @param {Array<{ archetypes?: string[], tribes?: string[] }>} decks
- * @param {ArchetypeView} view
- * @param {Map<string, string>} canonicalNames
- * @param {'archetype' | 'tribe'} tagKind
- * @param {(game: import('./store.js').Game) => { tags: string[], deckKey: string, didWin: boolean } | null} matchGame
+ * @param {Map<string, { key: string, label: string, games: number, wins: number, deckKeys: Set<string> }>} rows
+ * @param {string[]} keys
+ * @param {string} deckKey
+ * @param {boolean} didWin
  */
-function computeTagStats(games, decks, view, canonicalNames, tagKind, matchGame) {
-  /** @type {Set<string>} */
-  const rowKeys = new Set();
-
-  for (const deck of decks) {
-    for (const key of rowKeysForDeckTags(deckTags(deck, tagKind), view, canonicalNames)) {
-      rowKeys.add(key);
+function accumulateTagRows(rows, keys, deckKey, didWin) {
+  for (const key of keys) {
+    const mapKey = key.toLowerCase();
+    let row = rows.get(mapKey);
+    if (!row) {
+      row = { key, label: key, games: 0, wins: 0, deckKeys: new Set() };
+      rows.set(mapKey, row);
     }
+    row.games += 1;
+    if (didWin) row.wins += 1;
+    if (deckKey) row.deckKeys.add(deckKey);
   }
-
-  return [...rowKeys]
-    .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }))
-    .map((key) => {
-      let gamesCount = 0;
-      let wins = 0;
-      /** @type {Set<string>} */
-      const deckIds = new Set();
-
-      for (const game of games) {
-        const match = matchGame(game);
-        if (!match) continue;
-        if (!deckMatchesTagRow(match.tags, key, view, canonicalNames)) continue;
-        gamesCount += 1;
-        if (match.didWin) wins += 1;
-        if (match.deckKey) deckIds.add(match.deckKey);
-      }
-
-      return {
-        key,
-        label: key,
-        decks: deckIds.size,
-        games: gamesCount,
-        wins,
-        winRate: winRate(wins, gamesCount),
-        normalizedWr: normalizedWinRate(wins, gamesCount),
-      };
-    })
-    .filter((row) => row.games > 0);
 }
 
 /** @param {ArchetypeView} view */
@@ -247,16 +219,57 @@ export function mergeArchetypeStatsRows(rowsA, rowsB) {
 export function computeArchetypeStats(games, decks, { view, tagKind = "archetype" }) {
   /** @type {Map<string, string>} */
   const canonicalNames = new Map();
+  /** @type {Map<string, string[]>} */
+  const rowKeyCache = new Map();
+  /** @type {Map<string, { key: string, label: string, games: number, wins: number, deckKeys: Set<string> }>} */
+  const rows = new Map();
+  const deckMap = deckMapByKey(decks);
 
-  return computeTagStats(games, decks, view, canonicalNames, tagKind, (game) => {
-    const deck = findDeck(decks, game.deck);
-    if (!deck) return null;
-    return {
-      tags: deckTags(deck, tagKind),
-      deckKey: deckId(deck) || "",
-      didWin: game.result === "Win",
-    };
-  });
+  for (const game of games) {
+    const deck = deckMap.get(String(game.deck || "").trim()) || findDeck(decks, game.deck);
+    if (!deck) continue;
+
+    const keys = cachedRowKeys(deckTags(deck, tagKind), view, canonicalNames, rowKeyCache);
+    if (!keys.length) continue;
+
+    accumulateTagRows(rows, keys, deckId(deck) || deckKey(deck), game.result === "Win");
+  }
+
+  return finalizeTagRows(rows);
+}
+
+/** @param {import('./opponent-decks.js').OpponentDeck[]} opponentDecks */
+function buildOpponentDeckMaps(opponentDecks) {
+  /** @type {Map<string, import('./opponent-decks.js').OpponentDeck>} */
+  const byId = new Map();
+  /** @type {Map<string, import('./opponent-decks.js').OpponentDeck>} */
+  const byPair = new Map();
+
+  for (const deck of opponentDecks) {
+    if (deck.id) byId.set(deck.id, deck);
+    byPair.set(opponentDeckMatchKey(deck.player, deck.commander), deck);
+  }
+
+  return { byId, byPair };
+}
+
+/**
+ * @param {{ byId: Map<string, import('./opponent-decks.js').OpponentDeck>, byPair: Map<string, import('./opponent-decks.js').OpponentDeck> }} maps
+ * @param {import('./store.js').Game} game
+ * @param {{ seat: number, player?: string, name: string, opponentDeckId?: string }} opp
+ * @param {string} player
+ * @param {import('./opponent-decks.js').OpponentDeck[]} opponentDecks
+ */
+function resolveOpponentDeckForSeat(maps, game, opp, player, opponentDecks) {
+  if (opp.opponentDeckId) {
+    const byId = maps.byId.get(opp.opponentDeckId);
+    if (byId && opponentEntryMatchesDeck(game, opp, byId)) return byId;
+  }
+
+  const byPair = maps.byPair.get(opponentDeckMatchKey(player, opp.name));
+  if (byPair && opponentEntryMatchesDeck(game, opp, byPair)) return byPair;
+
+  return findOpponentDeckByPair(opponentDecks, player, opp.name);
 }
 
 /**
@@ -267,52 +280,35 @@ export function computeArchetypeStats(games, decks, { view, tagKind = "archetype
 export function computePodTagStats(games, opponentDecks, { view, tagKind = "archetype", excludeMyPlayer = false }) {
   /** @type {Map<string, string>} */
   const canonicalNames = new Map();
-  /** @type {Set<string>} */
-  const rowKeys = new Set();
+  /** @type {Map<string, string[]>} */
+  const rowKeyCache = new Map();
+  /** @type {Map<string, { key: string, label: string, games: number, wins: number, deckKeys: Set<string> }>} */
+  const rows = new Map();
+  const deckMaps = buildOpponentDeckMaps(opponentDecks);
 
-  for (const deck of opponentDecks) {
-    for (const key of rowKeysForDeckTags(deckTags(deck, tagKind), view, canonicalNames)) {
-      rowKeys.add(key);
+  for (const game of games) {
+    const seats = parseGameSeats(game);
+    for (const seat of seats) {
+      if (excludeMyPlayer && isMyPlayer(seat)) continue;
+
+      const opp = (game.opponents || []).find((entry) => Number(entry.seat) === Number(seat.seat));
+      if (!opp) continue;
+
+      const deck = resolveOpponentDeckForSeat(
+        deckMaps,
+        game,
+        opp,
+        seat.player || "",
+        opponentDecks
+      );
+      if (!deck) continue;
+
+      const keys = cachedRowKeys(deckTags(deck, tagKind), view, canonicalNames, rowKeyCache);
+      if (!keys.length) continue;
+
+      accumulateTagRows(rows, keys, deck.id || "", !!seat.didWin);
     }
   }
 
-  return [...rowKeys]
-    .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }))
-    .map((key) => {
-      let gamesCount = 0;
-      let wins = 0;
-      /** @type {Set<string>} */
-      const deckIds = new Set();
-
-      for (const game of games) {
-        const seats = parseGameSeats(game);
-        for (const seat of seats) {
-          if (excludeMyPlayer && isMyPlayer(seat)) continue;
-
-          const opp = (game.opponents || []).find((entry) => Number(entry.seat) === Number(seat.seat));
-          if (!opp) continue;
-
-          const deck =
-            (opp.opponentDeckId && findOpponentDeck(opponentDecks, opp.opponentDeckId)) ||
-            findOpponentDeckByPair(opponentDecks, seat.player || "", opp.name);
-          if (!deck || !opponentEntryMatchesDeck(game, opp, deck)) continue;
-          if (!deckMatchesTagRow(deckTags(deck, tagKind), key, view, canonicalNames)) continue;
-
-          gamesCount += 1;
-          if (seat.didWin) wins += 1;
-          if (deck.id) deckIds.add(deck.id);
-        }
-      }
-
-      return {
-        key,
-        label: key,
-        decks: deckIds.size,
-        games: gamesCount,
-        wins,
-        winRate: winRate(wins, gamesCount),
-        normalizedWr: normalizedWinRate(wins, gamesCount),
-      };
-    })
-    .filter((row) => row.games > 0);
+  return finalizeTagRows(rows);
 }
