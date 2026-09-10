@@ -30,7 +30,13 @@ import {
 import { formatDate, gameSortKey, gameYear, normalizeDate, normalizeTime, nowTime, todayISO, compareGamesChronologically } from "./dates.js";
 import { colorIdentitySortIndex } from "./color-identity.js";
 import { pctCell, valueCell, colorStatAverage } from "./wr-color.js";
-import { sortHeader, applySort, toggleSort, WINS_SORT_TIE_BREAKERS } from "./table.js";
+import {
+  sortHeader,
+  applySort,
+  toggleSort,
+  toggleDeckDateSort,
+  WINS_SORT_TIE_BREAKERS,
+} from "./table.js";
 import {
   getBracketColor,
   renderPieChart,
@@ -174,12 +180,6 @@ const STATS_TABS = [
   { id: "totals", label: "Totals" },
 ];
 
-const DECK_STATUS_OPTIONS = [
-  { id: "active", label: "Active" },
-  { id: "retired", label: "Retired" },
-  { id: "all", label: "All" },
-];
-
 const DECKS_PAGE_TABS = [
   { id: "mine", label: "My Decks" },
   { id: "opponents", label: "Opponent Decks" },
@@ -213,8 +213,6 @@ let seatViewMode = "mine";
 let seatRange = { start: null, end: null, customized: false };
 let decksTab = "active";
 let decksPageTab = "mine";
-let opponentDeckSort = "recent";
-let opponentDeckSortDir = "desc";
 let editingOpponentDeckId = null;
 let gameModalOpen = false;
 let deckModalOpen = false;
@@ -242,8 +240,6 @@ let entityReportChartRange = { start: null, end: null, customized: false };
 let entityReportGameRange = { min: 1, max: null, customized: false };
 /** @type {import('./recovery.js').RecoveryFinding[]} */
 let recoveryFindings = [];
-let deckSort = "normWr";
-let deckSortDir = "desc";
 let deckBracketFilter = "";
 let logFilters = { deck: "", bracket: "", result: "", year: "" };
 let colorView = "wubrgc";
@@ -270,12 +266,12 @@ let lastColorsPieSignature = "";
 let lastBracketsPieSignature = "";
 let tableSort = {
   "color-stats": { col: "colorOrder", dir: "asc" },
-  "archetype-stats": { col: "label", dir: "asc" },
+  "archetype-stats": { col: "normalizedWr", dir: "desc" },
   "turn-stats": { col: "turn", dir: "asc" },
   "bracket-stats": { col: "bracket", dir: "asc" },
   "trends-windows": { col: "rangeStart", dir: "asc" },
   "trends-cumulative": { col: "games", dir: "asc" },
-  "decks-main": { col: "normWr", dir: "desc" },
+  "decks-main": { col: "createdAt", dir: "desc" },
   "opponent-decks-main": { col: "lastPlayed", dir: "desc" },
   "game-log": { col: "date", dir: "desc" },
   matchups: { col: "normalizedMatchupImpact", dir: "desc" },
@@ -319,7 +315,7 @@ function resetStatsTabState(tab) {
     tableSort["trends-cumulative"] = { col: "games", dir: "asc" };
   } else if (tab === "archetypes") {
     archetypeView = "unique";
-    tableSort["archetype-stats"] = { col: "label", dir: "asc" };
+    tableSort["archetype-stats"] = { col: "normalizedWr", dir: "desc" };
   } else if (tab === "turns") {
     tableSort["turn-stats"] = { col: "turn", dir: "asc" };
   } else if (tab === "seats") {
@@ -359,12 +355,8 @@ function resetDecksViewState() {
   decksTab = "active";
   decksPageTab = "mine";
   deckBracketFilter = "";
-  deckSort = "normWr";
-  deckSortDir = "desc";
-  opponentDeckSort = "recent";
-  opponentDeckSortDir = "desc";
   closeDeckModal();
-  tableSort["decks-main"] = { col: "normWr", dir: "desc" };
+  tableSort["decks-main"] = { col: "createdAt", dir: "desc" };
   tableSort["opponent-decks-main"] = { col: "lastPlayed", dir: "desc" };
 }
 
@@ -779,18 +771,26 @@ function bindEvents() {
       const col = sortTh.getAttribute("data-sort-col");
       if (tableId === "turn-stats" && col === "turn" && tableSort[tableId]?.col !== col) {
         tableSort[tableId] = { col: "turn", dir: "asc" };
+      } else if (
+        (tableId === "decks-main" || tableId === "opponent-decks-main") &&
+        col === "date"
+      ) {
+        tableSort[tableId] = toggleDeckDateSort(tableSort[tableId]);
       } else {
         tableSort[tableId] = toggleSort(tableSort[tableId], col);
       }
-      if (tableId === "decks-main") {
-        deckSort = col;
-        deckSortDir = tableSort[tableId].dir;
-        if (col === "lastPlayed") deckSort = "recent";
-        else if (col === "createdAt") deckSort = "newest";
-      } else if (tableId === "opponent-decks-main") {
-        opponentDeckSort = col === "lastPlayed" ? "recent" : col === "createdAt" ? "newest" : col;
-        opponentDeckSortDir = tableSort[tableId].dir;
-      }
+      render();
+      return;
+    }
+
+    if (e.target.id === "decks-status-filter-toggle") {
+      decksTab = decksTab === "active" ? "retired" : decksTab === "retired" ? "all" : "active";
+      render();
+      return;
+    }
+
+    if (e.target.id === "decks-bracket-filter-toggle") {
+      deckBracketFilter = cycleBracketFilter(deckBracketFilter);
       render();
       return;
     }
@@ -1238,30 +1238,7 @@ function bindEvents() {
   document.getElementById("main").addEventListener("change", (e) => {
     const { id, value, checked } = e.target;
 
-    if (id === "deck-status") {
-      decksTab = value;
-      render();
-    } else if (id === "deck-bracket") {
-      deckBracketFilter = value;
-      render();
-    } else if (id === "deck-sort") {
-      const isOpponents = decksPageTab === "opponents";
-      if (isOpponents) opponentDeckSort = value;
-      else deckSort = value;
-      let col = value;
-      let dir = isOpponents ? opponentDeckSortDir : deckSortDir;
-      if (value === "recent") {
-        col = "lastPlayed";
-        dir = "desc";
-      } else if (value === "newest") {
-        col = "createdAt";
-        dir = "desc";
-      }
-      tableSort[isOpponents ? "opponent-decks-main" : "decks-main"] = { col, dir };
-      if (isOpponents) opponentDeckSortDir = dir;
-      else deckSortDir = dir;
-      render();
-    } else if (e.target.name === "deck") {
+    if (e.target.name === "deck") {
       syncBracketFromDeck();
     } else if (e.target.name === "mySeat") {
       syncPodFormSeats();
@@ -3074,18 +3051,23 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
-function renderDeckFilters(sortValue) {
+function renderDecksFilterToggles() {
   return `
-          <label>Status <select id="deck-status">${DECK_STATUS_OPTIONS.map((opt) => `<option value="${opt.id}" ${decksTab === opt.id ? "selected" : ""}>${opt.label}</option>`).join("")}</select></label>
-          <label>Bracket <select id="deck-bracket"><option value="">All</option>${[1, 2, 3, 4, 5].map((b) => `<option value="${b}" ${deckBracketFilter === String(b) ? "selected" : ""}>${b}</option>`).join("")}</select></label>
-          <label>Sort <select id="deck-sort">
-            <option value="normWr" ${sortValue === "normWr" ? "selected" : ""}>Norm WR</option>
-            <option value="games" ${sortValue === "games" ? "selected" : ""}>Most games</option>
-            <option value="wr" ${sortValue === "wr" ? "selected" : ""}>Win rate</option>
-            <option value="newest" ${sortValue === "newest" ? "selected" : ""}>Newest</option>
-            <option value="recent" ${sortValue === "recent" ? "selected" : ""}>Most recent</option>
-            <option value="name" ${sortValue === "name" ? "selected" : ""}>Name</option>
-          </select></label>`;
+    <button type="button" class="btn btn-ghost btn-sm stats-deck-filter-toggle" id="decks-status-filter-toggle">${statsDeckFilterLabel(decksTab)}</button>
+    ${renderBracketFilterToggle("decks-bracket-filter-toggle", deckBracketFilter)}`;
+}
+
+function deckDateSortMode(sortState) {
+  return sortState.col === "lastPlayed" ? "recent" : "added";
+}
+
+function deckDateColumnLabel(sortState) {
+  return deckDateSortMode(sortState) === "recent" ? "Most Recent" : "Added";
+}
+
+function deckDateSortHeaderState(sortState) {
+  if (sortState.col !== "createdAt" && sortState.col !== "lastPlayed") return null;
+  return { col: "date", dir: sortState.dir };
 }
 
 function renderDeckModal(editingDeck, editingOpponentDeck) {
@@ -3151,20 +3133,11 @@ function renderDeckModal(editingDeck, editingOpponentDeck) {
 
 function renderDecks() {
   const isOpponentsPage = decksPageTab === "opponents";
-  const sortValue = isOpponentsPage ? opponentDeckSort : deckSort;
   const sortTableId = isOpponentsPage ? "opponent-decks-main" : "decks-main";
-  const sortState = tableSort[sortTableId] || { col: isOpponentsPage ? "lastPlayed" : "normWr", dir: "desc" };
-
-  if (isOpponentsPage) {
-    opponentDeckSort = sortState.col === "lastPlayed" ? "recent" : sortState.col === "createdAt" ? "newest" : sortState.col;
-    opponentDeckSortDir = sortState.dir;
-  } else {
-    deckSort = sortState.col === "lastPlayed" ? "recent" : sortState.col === "createdAt" ? "newest" : sortState.col;
-    deckSortDir = sortState.dir;
-    if (sortState.col === "lastPlayed") deckSort = "recent";
-    else if (sortState.col === "createdAt") deckSort = "newest";
-    else if (sortState.col === "colors") deckSort = "colors";
-  }
+  const sortState = tableSort[sortTableId] || {
+    col: isOpponentsPage ? "lastPlayed" : "createdAt",
+    dir: "desc",
+  };
 
   let list = isOpponentsPage
     ? computeOpponentDeckStats(data.games, ensureOpponentDecks(data))
@@ -3176,9 +3149,9 @@ function renderDecks() {
 
   list = sortDeckList(list, sortState.col, sortState.dir);
 
-  const showLastPlayed = sortValue === "recent" || sortState.col === "lastPlayed";
-  const dateSortCol = showLastPlayed ? "lastPlayed" : "createdAt";
-  const dateColLabel = showLastPlayed ? "Played" : "Added";
+  const showLastPlayed = deckDateSortMode(sortState) === "recent";
+  const dateColLabel = deckDateColumnLabel(sortState);
+  const dateSortHeaderState = deckDateSortHeaderState(sortState);
   const dateCell = (d) =>
     showLastPlayed ? (d.lastPlayed ? formatDate(d.lastPlayed) : "—") : formatDate(d.createdAt);
 
@@ -3233,7 +3206,7 @@ function renderDecks() {
       : `<tr><td colspan="9"></td></tr>`;
 
   const opponentHeaders = `
-            ${sortHeader(sortTableId, dateSortCol, dateColLabel, sortState, "deck-date-col")}
+            ${sortHeader(sortTableId, "date", dateColLabel, dateSortHeaderState, "deck-date-col")}
             <th class="deck-player-col">Player</th>
             ${sortHeader(sortTableId, "name", "Deck", sortState, "deck-name-col")}
             ${sortHeader(sortTableId, "colors", "Color Identity", sortState, "deck-colors-col")}
@@ -3245,7 +3218,7 @@ function renderDecks() {
             <th class="row-actions-col"></th>`;
 
   const mineHeaders = `
-            ${sortHeader(sortTableId, dateSortCol, dateColLabel, sortState, "deck-date-col")}
+            ${sortHeader(sortTableId, "date", dateColLabel, dateSortHeaderState, "deck-date-col")}
             ${sortHeader(sortTableId, "name", "Deck", sortState, "deck-name-col")}
             ${sortHeader(sortTableId, "colors", "Color Identity", sortState, "deck-colors-col")}
             ${sortHeader(sortTableId, "bracket", "Bracket", sortState, "deck-tight-col")}
@@ -3260,8 +3233,8 @@ function renderDecks() {
       <div class="folder-tabs" role="tablist">${pageTabs}</div>
       <section class="section decks-page-panel">
         <div class="section-header">
-          <div class="filters inline">
-            ${renderDeckFilters(sortValue)}
+          <div class="filters inline stats-range-toolbar">
+            ${renderDecksFilterToggles()}
           </div>
           ${isOpponentsPage ? "" : `<button type="button" class="btn btn-primary" id="add-deck-btn">+ Deck</button>`}
         </div>
