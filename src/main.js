@@ -2219,7 +2219,11 @@ function render() {
   }
 
   if (currentView === "decks" && deckModalOpen) {
-    bindDeckTagAutocompletes(document.getElementById("deck-form"), data.decks);
+    bindDeckTagAutocompletes(
+      document.getElementById("deck-form"),
+      data.decks,
+      ensureOpponentDecks(data)
+    );
     const nameInput = document.querySelector('#deck-form input[name="name"]');
     nameInput?.focus();
     if (editingDeckName) nameInput?.select();

@@ -73,21 +73,33 @@ function collectTagHistory(decks, getDeckValues, { includeRetired = true } = {},
 }
 
 /**
- * @param {import('./store.js').Deck[]} decks
+ * @param {Array<{ archetypes?: string[] }>} decks
  * @param {{ includeRetired?: boolean }} [options]
  * @param {string[]} [extraValues]
+ * @param {Array<{ archetypes?: string[] }>} [opponentDecks]
  */
-export function collectArchetypeHistory(decks, options = {}, extraValues = []) {
-  return collectTagHistory(decks, (deck) => deck.archetypes, options, extraValues);
+export function collectArchetypeHistory(decks, options = {}, extraValues = [], opponentDecks = []) {
+  return collectTagHistory(
+    [...decks, ...opponentDecks],
+    (deck) => deck.archetypes,
+    options,
+    extraValues
+  );
 }
 
 /**
- * @param {import('./store.js').Deck[]} decks
+ * @param {Array<{ tribes?: string[] }>} decks
  * @param {{ includeRetired?: boolean }} [options]
  * @param {string[]} [extraValues]
+ * @param {Array<{ tribes?: string[] }>} [opponentDecks]
  */
-export function collectTribeHistory(decks, options = {}, extraValues = []) {
-  return collectTagHistory(decks, (deck) => deck.tribes, options, extraValues);
+export function collectTribeHistory(decks, options = {}, extraValues = [], opponentDecks = []) {
+  return collectTagHistory(
+    [...decks, ...opponentDecks],
+    (deck) => deck.tribes,
+    options,
+    extraValues
+  );
 }
 
 /** @param {string} query @param {string[]} allValues @param {string[]} committed */
@@ -275,9 +287,10 @@ export function syncDeckTribeFieldVisibility(form) {
 /**
  * @param {HTMLFormElement | null} form
  * @param {import('./store.js').Deck[]} decks
- * @param {{ includeRetired?: boolean }} [options]
+ * @param {{ includeRetired?: boolean, opponentDecks?: import('./opponent-decks.js').OpponentDeck[] }} [options]
  */
 export function bindArchetypeAutocomplete(form, decks, options = {}) {
+  const { opponentDecks = [], ...historyOptions } = options;
   bindCommaSeparatedTagAutocomplete(form, {
     inputSelector: ".deck-archetype-input",
     listSelector: ".deck-archetype-suggestions",
@@ -286,7 +299,7 @@ export function bindArchetypeAutocomplete(form, decks, options = {}) {
       const input = form.querySelector(".deck-archetype-input");
       const extra =
         input instanceof HTMLTextAreaElement ? parseArchetypesFromInput(input.value) : [];
-      return collectArchetypeHistory(decks, options, extra);
+      return collectArchetypeHistory(decks, historyOptions, extra, opponentDecks);
     },
     onInput: (input) => {
       resizeArchetypeInput(input);
@@ -300,9 +313,10 @@ export function bindArchetypeAutocomplete(form, decks, options = {}) {
 /**
  * @param {HTMLFormElement | null} form
  * @param {import('./store.js').Deck[]} decks
- * @param {{ includeRetired?: boolean }} [options]
+ * @param {{ includeRetired?: boolean, opponentDecks?: import('./opponent-decks.js').OpponentDeck[] }} [options]
  */
 export function bindTribeAutocomplete(form, decks, options = {}) {
+  const { opponentDecks = [], ...historyOptions } = options;
   bindCommaSeparatedTagAutocomplete(form, {
     inputSelector: ".deck-tribe-input",
     listSelector: ".deck-tribe-suggestions",
@@ -310,14 +324,14 @@ export function bindTribeAutocomplete(form, decks, options = {}) {
     getAllValues: () => {
       const input = form.querySelector(".deck-tribe-input");
       const extra = input instanceof HTMLTextAreaElement ? parseTribesFromInput(input.value) : [];
-      return collectTribeHistory(decks, options, extra);
+      return collectTribeHistory(decks, historyOptions, extra, opponentDecks);
     },
     onInput: (input) => resizeArchetypeInput(input),
   });
 }
 
-/** @param {HTMLFormElement | null} form @param {import('./store.js').Deck[]} decks */
-export function bindDeckTagAutocompletes(form, decks) {
-  bindArchetypeAutocomplete(form, decks);
-  bindTribeAutocomplete(form, decks);
+/** @param {HTMLFormElement | null} form @param {import('./store.js').Deck[]} decks @param {import('./opponent-decks.js').OpponentDeck[]} [opponentDecks] */
+export function bindDeckTagAutocompletes(form, decks, opponentDecks = []) {
+  bindArchetypeAutocomplete(form, decks, { opponentDecks });
+  bindTribeAutocomplete(form, decks, { opponentDecks });
 }
