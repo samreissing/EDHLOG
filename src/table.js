@@ -12,11 +12,37 @@ export function sortHeader(tableId, col, label, state, extraClass = "") {
   return `<th class="sortable${active} ${extraClass}" data-sort-table="${tableId}" data-sort-col="${col}">${label}${sortIndicator(state, col)}</th>`;
 }
 
+/** Text columns default to A–Z (asc) on first click; numeric columns default to descending. */
+const TEXT_SORT_COLUMNS = new Set([
+  "label",
+  "name",
+  "opponent",
+  "player",
+  "deck",
+  "subject",
+  "archetype",
+]);
+
+export function defaultSortDir(col) {
+  return TEXT_SORT_COLUMNS.has(col) ? "asc" : "desc";
+}
+
 export function toggleSort(state, col) {
   if (state?.col === col) {
     return { col, dir: state.dir === "asc" ? "desc" : "asc" };
   }
-  return { col, dir: "desc" };
+  return { col, dir: defaultSortDir(col) };
+}
+
+/** Three-state date sort for decks tables: Added ↓ → Added ↑ → Most Recent ↓. */
+export function toggleDeckDateSort(state) {
+  if (state?.col === "createdAt" && state.dir === "desc") {
+    return { col: "createdAt", dir: "asc" };
+  }
+  if (state?.col === "createdAt" && state.dir === "asc") {
+    return { col: "lastPlayed", dir: "desc" };
+  }
+  return { col: "createdAt", dir: "desc" };
 }
 
 /** When sorting by wins, break ties with win rate (same direction as primary sort). */
