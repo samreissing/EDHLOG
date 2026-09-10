@@ -453,6 +453,20 @@ main {
   border: 1px solid var(--border);
   border-radius: 0 12px 12px 12px;
   margin-top: 0;
+  padding-top: 0.65rem;
+}
+
+.decks-page-panel .section-header {
+  margin-bottom: 0.35rem;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.decks-page-panel .section-header .filters.inline.stats-range-toolbar {
+  width: auto;
+  flex: 1;
+  margin-bottom: 0;
+  gap: 0.5rem;
 }
 
 .decks-table-opponents col.decks-col-player {
