@@ -72,6 +72,8 @@ import {
   renderArchetypeReportLink,
   renderDeckReportLink,
   fitEntityDeckCardStats,
+  gameHasPodDetail,
+  renderGameLogPodCard,
 } from "./entity-report.js";
 import { loadImagesIntoEntityReport } from "./scryfall.js";
 import { bindPodAutocomplete, MY_PLAYER_NAME } from "./opponent-search.js";
@@ -247,6 +249,8 @@ let entityReportGameRange = { min: 1, max: null, customized: false };
 let recoveryFindings = [];
 let deckBracketFilter = "";
 let logFilters = { deck: "", bracket: "", result: "", year: "" };
+/** @type {'list' | 'grid'} */
+let gamesViewMode = "list";
 let colorView = "wubrgc";
 let colorAgg = "inclusive";
 let colorSortOrder = "wubrgc";
@@ -369,6 +373,7 @@ function resetGamesViewState() {
   gameModalOpen = false;
   editingGameId = null;
   viewingGameId = null;
+  gamesViewMode = "list";
   logFilters = { deck: "", bracket: "", result: "", year: "" };
   tableSort["game-log"] = { col: "date", dir: "desc" };
 }
@@ -470,6 +475,22 @@ function openEntityReport(
   resetEntityReportViewState();
   entityReportScrollToTop = true;
   syncEntityReportModal();
+}
+
+/** @param {Element} entityBtn */
+function openEntityReportFromButton(entityBtn) {
+  openEntityReport(
+    entityBtn.getAttribute("data-entity-kind") || "",
+    entityBtn.getAttribute("data-entity-key") || "",
+    entityBtn.getAttribute("data-entity-player-scope"),
+    entityBtn.getAttribute("data-entity-deck-slot"),
+    entityBtn.getAttribute("data-entity-opponent-deck"),
+    {
+      archetypeView: entityBtn.getAttribute("data-entity-archetype-view") || "unique",
+      tagKind: entityBtn.getAttribute("data-entity-archetype-tag-kind") || "archetype",
+      archetypeScope: entityBtn.getAttribute("data-entity-archetype-scope") || "mine",
+    }
+  );
 }
 
 function switchEntityReportHeroTab(tabId) {
@@ -691,20 +712,9 @@ function bindEvents() {
       return;
     }
 
-    const entityBtn = e.target.closest("[data-entity-report]");
+    const entityBtn = e.target.closest("[data-entity-kind]");
     if (entityBtn) {
-      openEntityReport(
-        entityBtn.dataset.entityReport,
-        entityBtn.dataset.entityKey,
-        entityBtn.dataset.entityPlayerScope || null,
-        entityBtn.dataset.entityDeckSlot || null,
-        entityBtn.dataset.entityOpponentDeck || null,
-        {
-          archetypeView: entityBtn.dataset.entityArchetypeView || "unique",
-          tagKind: entityBtn.dataset.entityArchetypeTagKind || "archetype",
-          archetypeScope: entityBtn.dataset.entityArchetypeScope || "mine",
-        }
-      );
+      openEntityReportFromButton(entityBtn);
       return;
     }
 
@@ -791,6 +801,22 @@ function bindEvents() {
   });
 
   document.getElementById("main").addEventListener("click", (e) => {
+    if (e.target.closest("#game-log-view-list")) {
+      if (gamesViewMode !== "list") {
+        gamesViewMode = "list";
+        render();
+      }
+      return;
+    }
+
+    if (e.target.closest("#game-log-view-grid")) {
+      if (gamesViewMode !== "grid") {
+        gamesViewMode = "grid";
+        render();
+      }
+      return;
+    }
+
     const sortTh = e.target.closest("[data-sort-table]");
     if (sortTh) {
       const tableId = sortTh.getAttribute("data-sort-table");
@@ -1293,7 +1319,7 @@ function bindEvents() {
         result: document.getElementById("filter-result")?.value || "",
         year: document.getElementById("filter-year")?.value || "",
       };
-      applyLogFilters();
+      render();
     }
   });
 
@@ -2118,7 +2144,6 @@ function render() {
   else if (currentView === "decks") main.innerHTML = renderDecks();
   else main.innerHTML = renderGames();
 
-  if (currentView === "games") applyLogFilters();
   bindPieCharts();
   if (currentView === "stats" && (statsTab === "trends" || statsTab === "seats" || statsTab === "colors" || statsTab === "brackets" || (statsTab === "totals" && totalsTab === "seats"))) {
     bindWinRateLineCharts();
@@ -2170,24 +2195,6 @@ function render() {
     nameInput?.focus();
     if (editingDeckName) nameInput?.select();
   }
-}
-
-function applyLogFilters() {
-  const { deck, bracket, result, year } = logFilters;
-  const count = document.getElementById("filter-count");
-  if (!count) return;
-
-  let visible = 0;
-  document.querySelectorAll("#game-log-table tbody tr").forEach((row) => {
-    const show =
-      (!deck || row.dataset.deck === deck) &&
-      (!bracket || row.dataset.bracket === bracket) &&
-      (!result || row.dataset.result === result) &&
-      (!year || row.dataset.year === year);
-    row.hidden = !show;
-    if (show) visible++;
-  });
-  count.textContent = `${visible} games`;
 }
 
 function statCard(label, value, isWr = false) {
@@ -3340,8 +3347,69 @@ function renderDecks() {
     ${renderDeckModal(editingDeck, editingOpponentDeck)}`;
 }
 
+function filterLogGames(games) {
+  const { deck, bracket, result, year } = logFilters;
+  const deckMap = deckMapByKey(data.decks);
+  return games.filter((game) => {
+    if (deck && game.deck !== deck) return false;
+    if (bracket && String(gameBracket(game, deckMap)) !== String(bracket)) return false;
+    if (result && game.result !== result) return false;
+    if (year && gameYear(game.date) !== year) return false;
+    return true;
+  });
+}
+
+function renderGameLogViewToggle() {
+  return `
+          <div class="game-log-view-toggle" role="group" aria-label="Games view">
+            <button type="button" class="game-log-view-btn ${gamesViewMode === "list" ? "active" : ""}" id="game-log-view-list" aria-label="List view" aria-pressed="${gamesViewMode === "list"}">
+              <span class="game-log-view-icon game-log-view-icon-list" aria-hidden="true"><span></span><span></span></span>
+            </button>
+            <button type="button" class="game-log-view-btn ${gamesViewMode === "grid" ? "active" : ""}" id="game-log-view-grid" aria-label="Grid view" aria-pressed="${gamesViewMode === "grid"}">
+              <span class="game-log-view-icon game-log-view-icon-grid" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
+            </button>
+          </div>`;
+}
+
+function renderGameLogTableHead(sort) {
+  return `
+            ${sortHeader("game-log", "date", "Date", sort)}
+            ${sortHeader("game-log", "deck", "Deck", sort)}
+            ${sortHeader("game-log", "bracket", "Bracket", sort)}
+            ${sortHeader("game-log", "mySeat", "Seat", sort)}
+            ${sortHeader("game-log", "turn", "End Turn", sort)}
+            ${sortHeader("game-log", "result", "Result", sort)}
+            <th class="row-actions-col"></th>`;
+}
+
+function renderGameLogTable(games, sort) {
+  return `
+      <div class="table-wrap">
+        <table class="table sortable-table" id="game-log-table">
+          <thead><tr>${renderGameLogTableHead(sort)}</tr></thead>
+          <tbody>${games.map((g) => gameRow(g)).join("")}</tbody>
+        </table>
+      </div>`;
+}
+
+function renderGameLogBody(games, sort) {
+  if (gamesViewMode === "grid") {
+    const podGames = games.filter(gameHasPodDetail);
+    const simpleGames = games.filter((game) => !gameHasPodDetail(game));
+    const podGrid = podGames.length
+      ? `<div class="entity-game-pod-list game-log-pod-list">${podGames.map((game) => renderGameLogPodCard(game, data.decks)).join("")}</div>`
+      : "";
+    const simpleList = simpleGames.length
+      ? `<div class="game-log-simple-list">${renderGameLogTable(simpleGames, sort)}</div>`
+      : "";
+    return `${podGrid}${simpleList}`;
+  }
+
+  return renderGameLogTable(games, sort);
+}
+
 function renderGames() {
-  let games = [...data.games];
+  let games = filterLogGames([...data.games]);
   games = applySort(games, tableSort["game-log"], {
     date: (g) => gameSortKey(g),
     deck: (g) => g.deck,
@@ -3363,6 +3431,7 @@ function renderGames() {
     <section class="section">
       <div class="section-header">
         <div class="filters inline game-log-filters">
+          ${renderGameLogViewToggle()}
           <label class="game-log-filter-deck">Deck<select id="filter-deck" class="game-log-filter-deck-select"><option value="">All</option>${decks.map((d) => `<option value="${escapeHtml(d)}" ${logFilters.deck === d ? "selected" : ""}>${escapeHtml(deckTitleForKey(d, data.decks))}</option>`).join("")}</select></label>
           <label>Bracket<select id="filter-bracket"><option value="">All</option>${[1, 2, 3, 4, 5]
             .map(
@@ -3376,20 +3445,7 @@ function renderGames() {
         </div>
         <button type="button" class="btn btn-primary" id="add-game-btn">+ Game</button>
       </div>
-      <div class="table-wrap">
-        <table class="table sortable-table" id="game-log-table">
-          <thead><tr>
-            ${sortHeader("game-log", "date", "Date", sort)}
-            ${sortHeader("game-log", "deck", "Deck", sort)}
-            ${sortHeader("game-log", "bracket", "Bracket", sort)}
-            ${sortHeader("game-log", "mySeat", "Seat", sort)}
-            ${sortHeader("game-log", "turn", "End Turn", sort)}
-            ${sortHeader("game-log", "result", "Result", sort)}
-            <th class="row-actions-col"></th>
-          </tr></thead>
-          <tbody>${games.map((g) => gameRow(g)).join("")}</tbody>
-        </table>
-      </div>
+      ${renderGameLogBody(games, sort)}
     </section>
     <div id="game-modal" class="modal ${gameModalOpen ? "" : "hidden"}">
       <div class="modal-content modal-content-wide">

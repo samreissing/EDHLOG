@@ -1648,6 +1648,73 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   text-overflow: ellipsis;
 }
 
+.game-log-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-right: 0.15rem;
+}
+
+.game-log-view-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.game-log-view-btn:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.game-log-view-btn.active {
+  color: var(--text);
+  border-color: var(--accent-dim);
+  background: rgba(91, 159, 212, 0.12);
+}
+
+.game-log-view-icon-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 14px;
+}
+
+.game-log-view-icon-list span {
+  display: block;
+  height: 2px;
+  border-radius: 1px;
+  background: currentColor;
+}
+
+.game-log-view-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 5px);
+  gap: 3px;
+}
+
+.game-log-view-icon-grid span {
+  width: 5px;
+  height: 5px;
+  border-radius: 1px;
+  background: currentColor;
+}
+
+.game-log-pod-list {
+  margin-bottom: 1rem;
+}
+
+.game-log-simple-list .table-wrap {
+  margin-top: 0;
+}
+
 .mana-check {
   margin-right: 0.5rem !important;
 }
