@@ -168,7 +168,8 @@ export function renderEntityDeckCardArt(name, options) {
     })}</div>`;
   }
 
-  return renderCommanderImageTags(name, imgOptions);
+  const slot = slots[0] ?? { name, face: 0 };
+  return renderCommanderImgTag(slot, imgOptions);
 }
 
 /** @param {string[]} names @param {"normal" | "art"} [crop] */
