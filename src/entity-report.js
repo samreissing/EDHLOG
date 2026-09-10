@@ -24,11 +24,14 @@ import { pctCell } from "./wr-color.js";
 import { MY_PLAYER_NAME } from "./opponent-search.js";
 import {
   findOpponentDeck,
+  findOpponentDeckByPair,
   gamesForOpponentDeck,
+  opponentDeckCommander,
   opponentDeckLabel,
   opponentDeckTitle,
   opponentEntryMatchesDeck,
 } from "./opponent-decks.js";
+import { deckMatchesArchetypeKey } from "./archetype-stats.js";
 import { sortHeader, applySort, WINS_SORT_TIE_BREAKERS } from "./table.js";
 
 function escapeHtml(str) {
@@ -384,6 +387,16 @@ export function findOwnedDeckKey(commander, decks) {
 }
 
 /** @param {string} playerName @param {string} [label] */
+export function renderArchetypeReportLink(
+  archetypeKey,
+  label = archetypeKey,
+  { view = "unique", tagKind = "archetype", scope = "mine" } = {}
+) {
+  const trimmed = String(archetypeKey || "").trim();
+  if (!trimmed) return escapeHtml(label || "");
+  return `<button type="button" class="link-btn entity-link" data-entity-report="archetype" data-entity-key="${escapeHtml(trimmed)}" data-entity-archetype-view="${escapeHtml(view)}" data-entity-archetype-tag-kind="${escapeHtml(tagKind)}" data-entity-archetype-scope="${escapeHtml(scope)}">${escapeHtml(label || trimmed)}</button>`;
+}
+
 export function renderPlayerReportLink(playerName, label = playerName) {
   if (!playerName?.trim()) return escapeHtml(label || "");
   return `<button type="button" class="link-btn entity-link" data-entity-report="player" data-entity-key="${escapeHtml(playerName.trim())}">${escapeHtml(label || playerName)}</button>`;
@@ -604,10 +617,145 @@ function renderPilotTable(pilots) {
     </table>`;
 }
 
+/** @param {import('./store.js').Deck | import('./opponent-decks.js').OpponentDeck | null | undefined} deck @param {'archetype' | 'tribe'} tagKind */
+function entityDeckTags(deck, tagKind) {
+  if (!deck) return [];
+  return tagKind === "tribe" ? deck.tribes : deck.archetypes;
+}
+
+/** @param {import('./opponent-decks.js').OpponentDeck[]} opponentDecks @param {import('./store.js').Game} game @param {import('./matchups.js').GameSeat} seat */
+function resolveOpponentDeckForEntitySeat(opponentDecks, game, seat) {
+  const opp = (game.opponents || []).find((entry) => Number(entry.seat) === Number(seat.seat));
+  if (!opp) return null;
+
+  if (opp.opponentDeckId) {
+    const byId = findOpponentDeck(opponentDecks, opp.opponentDeckId);
+    if (byId && opponentEntryMatchesDeck(game, opp, byId)) return byId;
+  }
+
+  return findOpponentDeckByPair(opponentDecks, seat.player || "", opp.name);
+}
+
+/**
+ * @param {import('./matchups.js').GameSeat} seat
+ * @param {import('./matchups.js').GameSeat[]} seats
+ * @param {import('./store.js').Game} game
+ * @param {string} archetypeKey
+ * @param {'unique' | 'combined' | 'exact'} archetypeView
+ * @param {'archetype' | 'tribe'} tagKind
+ * @param {'mine' | 'all' | 'opponents'} archetypeScope
+ * @param {import('./store.js').Deck[]} decks
+ * @param {import('./opponent-decks.js').OpponentDeck[]} opponentDecks
+ */
+function seatMatchesArchetype(
+  seat,
+  seats,
+  game,
+  archetypeKey,
+  archetypeView,
+  tagKind,
+  archetypeScope,
+  decks,
+  opponentDecks
+) {
+  const isMe = normalizeEntityKey(seat.player) === normalizeEntityKey(MY_PLAYER_NAME);
+
+  if (archetypeScope === "opponents" && isMe) return false;
+
+  if (isMe) {
+    if (archetypeScope === "opponents") return false;
+    const deck = findDeck(decks, game.deck);
+    return deckMatchesArchetypeKey(entityDeckTags(deck, tagKind), archetypeKey, archetypeView);
+  }
+
+  if (archetypeScope === "mine") return false;
+
+  const oppDeck = resolveOpponentDeckForEntitySeat(opponentDecks, game, seat);
+  return deckMatchesArchetypeKey(entityDeckTags(oppDeck, tagKind), archetypeKey, archetypeView);
+}
+
+/** @param {import('./store.js').Game[]} games @param {(seat: import('./matchups.js').GameSeat, seats: import('./matchups.js').GameSeat[], game: import('./store.js').Game) => boolean} seatFilter @param {import('./store.js').Deck[]} decks */
+function gamesForArchetypeSeatFilter(games, seatFilter, decks) {
+  return games.filter((game) => {
+    const seats = parseGameSeats(game, decks);
+    return seats.some((seat) => seatFilter(seat, seats, game));
+  });
+}
+
 /**
  * @param {import('./store.js').Game[]} games
  * @param {import('./store.js').Deck[]} decks
- * @param {{ kind: 'player' | 'deck', key: string, playerScope?: string | null, splitPartners?: boolean, deckSlotId?: string | null, opponentDeckId?: string | null, opponentDecks?: import('./store.js').OpponentDeck[] }} request
+ * @param {import('./opponent-decks.js').OpponentDeck[]} opponentDecks
+ * @param {string} archetypeKey
+ * @param {'unique' | 'combined' | 'exact'} archetypeView
+ * @param {'archetype' | 'tribe'} tagKind
+ * @param {'mine' | 'all' | 'opponents'} archetypeScope
+ */
+function buildArchetypeDeckList(games, decks, opponentDecks, archetypeKey, archetypeView, tagKind, archetypeScope) {
+  /** @type {{ key: string, name: string, commander: string, games: number, wins: number, winRate: number, owned: boolean, deckSlotId?: string | null, opponentDeckId?: string | null, playerScope?: string | null }[]} */
+  const deckList = [];
+
+  if (archetypeScope !== "opponents") {
+    for (const deck of decks) {
+      if (!deckMatchesArchetypeKey(entityDeckTags(deck, tagKind), archetypeKey, archetypeView)) continue;
+      const slotId = deckId(deck);
+      const deckGames = games.filter((game) => game.deck === slotId);
+      const wins = deckGames.filter((game) => game.result === "Win").length;
+      const gamesCount = deckGames.length;
+      deckList.push({
+        key: slotId,
+        name: deckTitle(deck),
+        commander: deckCommander(deck),
+        deckSlotId: slotId,
+        games: gamesCount,
+        wins,
+        winRate: winRate(wins, gamesCount),
+        owned: true,
+      });
+    }
+  }
+
+  if (archetypeScope !== "mine") {
+    for (const oppDeck of opponentDecks) {
+      if (!deckMatchesArchetypeKey(entityDeckTags(oppDeck, tagKind), archetypeKey, archetypeView)) {
+        continue;
+      }
+
+      let gamesCount = 0;
+      let wins = 0;
+      for (const game of games) {
+        const seats = parseGameSeats(game, decks);
+        for (const seat of seats) {
+          if (normalizeEntityKey(seat.player) === normalizeEntityKey(MY_PLAYER_NAME)) continue;
+          const opp = (game.opponents || []).find((entry) => Number(entry.seat) === Number(seat.seat));
+          if (!opp || !opponentEntryMatchesDeck(game, opp, oppDeck)) continue;
+          if (normalizeEntityKey(seat.player) !== normalizeEntityKey(oppDeck.player)) continue;
+          gamesCount += 1;
+          if (seat.didWin) wins += 1;
+        }
+      }
+
+      deckList.push({
+        key: oppDeck.id,
+        name: opponentDeckTitle(oppDeck),
+        commander: opponentDeckCommander(oppDeck),
+        opponentDeckId: oppDeck.id,
+        playerScope: oppDeck.player || null,
+        games: gamesCount,
+        wins,
+        winRate: winRate(wins, gamesCount),
+        owned: false,
+      });
+    }
+  }
+
+  return deckList.sort((a, b) => b.games - a.games || a.name.localeCompare(b.name));
+}
+
+/**
+ * @param {import('./store.js').Game[]} games
+ * @param {import('./store.js').Deck[]} decks
+ * @param {{ kind: 'player' | 'deck' | 'archetype', key: string, playerScope?: string | null, splitPartners?: boolean, deckSlotId?: string | null, opponentDeckId?: string | null, opponentDecks?: import('./store.js').OpponentDeck[], archetypeView?: 'unique' | 'combined' | 'exact', tagKind?: 'archetype' | 'tribe', archetypeScope?: 'mine' | 'all' | 'opponents' }} request
  */
 export function buildEntityReport(games, decks, request) {
   const {
@@ -618,7 +766,58 @@ export function buildEntityReport(games, decks, request) {
     deckSlotId = null,
     opponentDeckId = null,
     opponentDecks = [],
+    archetypeView = "unique",
+    tagKind = "archetype",
+    archetypeScope = "mine",
   } = request;
+
+  if (kind === "archetype") {
+    const archetypeKey = key;
+    const seatFilter = (seat, seats, game) =>
+      seatMatchesArchetype(
+        seat,
+        seats,
+        game,
+        archetypeKey,
+        archetypeView,
+        tagKind,
+        archetypeScope,
+        decks,
+        opponentDecks
+      );
+    const stats = computeSeatStats(games, seatFilter, decks);
+    const chartGames = appearanceGamesForChart(games, seatFilter, decks);
+    const deckList = buildArchetypeDeckList(
+      games,
+      decks,
+      opponentDecks,
+      archetypeKey,
+      archetypeView,
+      tagKind,
+      archetypeScope
+    );
+    const entityGames = sortEntityGames(gamesForArchetypeSeatFilter(games, seatFilter, decks));
+
+    return {
+      kind,
+      title: archetypeKey,
+      subtitle: null,
+      colors: [],
+      stats,
+      chartGames,
+      deckList,
+      entityGames,
+      pilots: [],
+      playerMatchups: buildEntityMatchupRows(games, "players", seatFilter, { splitPartners }, decks),
+      deckMatchups: buildEntityMatchupRows(games, "decks", seatFilter, { splitPartners }, decks),
+      playerScope: null,
+      seatRankings: computeEntitySeatRankings(games, seatFilter, decks),
+      archetypeKey,
+      archetypeView,
+      tagKind,
+      archetypeScope,
+    };
+  }
 
   if (kind === "player") {
     const playerName = key;
@@ -848,8 +1047,13 @@ function mergeDeckLists(ownedDecks, playedDecks) {
   return [...merged.values()].sort((a, b) => b.games - a.games || a.name.localeCompare(b.name));
 }
 
-/** @param {import('./store.js').Game} game @param {import('./store.js').Deck[]} decks @param {ReturnType<typeof buildEntityReport>} report */
-function entityGameResultClass(game, decks, report) {
+/** @param {import('./store.js').Game} game @param {import('./store.js').Deck[]} decks @param {ReturnType<typeof buildEntityReport>} report @param {import('./opponent-decks.js').OpponentDeck[]} [opponentDecks] */
+function entityGameResultClass(game, decks, report, opponentDecks = []) {
+  if (report.kind === "archetype") {
+    const seat = entityGameSeat(game, decks, report, opponentDecks);
+    if (!seat) return "";
+    return seat.didWin ? "win" : "loss";
+  }
   if (report.kind === "player") {
     const playerKey = normalizeEntityKey(report.title);
     const seat = parseGameSeats(game, decks).find((s) => normalizeEntityKey(s.player) === playerKey);
@@ -874,8 +1078,8 @@ function entityGameResultClass(game, decks, report) {
   return seat.didWin ? "win" : "loss";
 }
 
-/** @param {import('./store.js').Game} game @param {import('./store.js').Deck[]} decks @param {ReturnType<typeof buildEntityReport>} report */
-function renderEntityGamePodCard(game, decks, report) {
+/** @param {import('./store.js').Game} game @param {import('./store.js').Deck[]} decks @param {ReturnType<typeof buildEntityReport>} report @param {import('./opponent-decks.js').OpponentDeck[]} [opponentDecks] */
+function renderEntityGamePodCard(game, decks, report, opponentDecks = []) {
   const seatsByNumber = new Map(parseGameSeats(game, decks).map((seat) => [seat.seat, seat]));
   const seatBoxes = [1, 2, 3, 4]
     .map((seatNum) => {
@@ -895,7 +1099,7 @@ function renderEntityGamePodCard(game, decks, report) {
     .join("");
 
   const deckMap = deckMapByKey(decks);
-  const resultCls = entityGameResultClass(game, decks, report);
+  const resultCls = entityGameResultClass(game, decks, report, opponentDecks);
 
   return `
     <article class="entity-game-pod-card">
@@ -909,8 +1113,24 @@ function renderEntityGamePodCard(game, decks, report) {
     </article>`;
 }
 
-/** @param {import('./store.js').Game} game @param {import('./store.js').Deck[]} decks @param {ReturnType<typeof buildEntityReport>} report */
-function entityGameSeat(game, decks, report) {
+/** @param {import('./store.js').Game} game @param {import('./store.js').Deck[]} decks @param {ReturnType<typeof buildEntityReport>} report @param {import('./opponent-decks.js').OpponentDeck[]} [opponentDecks] */
+function entityGameSeat(game, decks, report, opponentDecks = []) {
+  if (report.kind === "archetype") {
+    const seats = parseGameSeats(game, decks);
+    return seats.find((seat) =>
+      seatMatchesArchetype(
+        seat,
+        seats,
+        game,
+        report.archetypeKey || report.title,
+        report.archetypeView || "unique",
+        report.tagKind || "archetype",
+        report.archetypeScope || "mine",
+        decks,
+        opponentDecks
+      )
+    );
+  }
   if (report.kind === "player") {
     const playerKey = normalizeEntityKey(report.title);
     return parseGameSeats(game, decks).find((s) => normalizeEntityKey(s.player) === playerKey);
@@ -920,29 +1140,29 @@ function entityGameSeat(game, decks, report) {
   );
 }
 
-/** @param {import('./store.js').Deck[]} decks @param {ReturnType<typeof buildEntityReport>} report */
-function entityGamesSortGetters(decks, report) {
+/** @param {import('./store.js').Deck[]} decks @param {ReturnType<typeof buildEntityReport>} report @param {import('./opponent-decks.js').OpponentDeck[]} [opponentDecks] */
+function entityGamesSortGetters(decks, report, opponentDecks = []) {
   const deckMap = deckMapByKey(decks);
   return {
     date: (game) => gameSortKey(game),
     deck: (game) => deckLabelForKey(game.deck, decks),
-    player: (game) => entityGameSeat(game, decks, report)?.player || "",
-    seat: (game) => entityGameSeat(game, decks, report)?.seat || game.mySeat || 0,
+    player: (game) => entityGameSeat(game, decks, report, opponentDecks)?.player || "",
+    seat: (game) => entityGameSeat(game, decks, report, opponentDecks)?.seat || game.mySeat || 0,
     turn: (game) => (Number(game.turn) > 0 ? Number(game.turn) : null),
     bracket: (game) => gameBracket(game, deckMap),
     result: (game) => (game.result === "Win" ? 1 : 0),
   };
 }
 
-/** @param {import('./store.js').Game[]} games @param {import('./store.js').Deck[]} decks @param {ReturnType<typeof buildEntityReport>} report @param {import('./table.js').SortState} sort */
-function renderEntityGamesTable(games, decks, report, sort) {
+/** @param {import('./store.js').Game[]} games @param {import('./store.js').Deck[]} decks @param {ReturnType<typeof buildEntityReport>} report @param {import('./table.js').SortState} sort @param {import('./opponent-decks.js').OpponentDeck[]} [opponentDecks] */
+function renderEntityGamesTable(games, decks, report, sort, opponentDecks = []) {
   if (!games.length) return "";
   const deckMap = deckMapByKey(decks);
-  const showDeckCol = report.kind === "player";
+  const showDeckCol = report.kind === "player" || report.kind === "archetype";
   const showPlayerCol = report.kind === "deck";
   const tableId = "entity-games";
   const sortState = sort ?? { col: "date", dir: "desc" };
-  const sortedGames = applySort(games, sortState, entityGamesSortGetters(decks, report), {
+  const sortedGames = applySort(games, sortState, entityGamesSortGetters(decks, report, opponentDecks), {
     ...WINS_SORT_TIE_BREAKERS,
     result: "date",
   });
@@ -961,16 +1181,25 @@ function renderEntityGamesTable(games, decks, report, sort) {
       <tbody>
         ${sortedGames
           .map((game) => {
-            const resultCls = entityGameResultClass(game, decks, report);
-            const seat = entityGameSeat(game, decks, report);
+            const resultCls = entityGameResultClass(game, decks, report, opponentDecks);
+            const seat = entityGameSeat(game, decks, report, opponentDecks);
             const deckCell = showDeckCol
               ? `<td>${renderDeckReportLink(
                   seat?.commander || game.deck,
                   decks,
                   {
                     label: seat?.commander || deckTitleForKey(game.deck, decks),
-                    playerScope: report.title,
-                    deckSlotId: seat?.deckSlotId || game.deck || null,
+                    playerScope: report.kind === "player" ? report.title : seat?.player || null,
+                    deckSlotId:
+                      report.kind === "archetype" && seat && normalizeEntityKey(seat.player) === normalizeEntityKey(MY_PLAYER_NAME)
+                        ? game.deck || null
+                        : report.kind === "player"
+                          ? seat?.deckSlotId || game.deck || null
+                          : null,
+                    opponentDeckId:
+                      report.kind === "archetype" && seat
+                        ? resolveOpponentDeckForEntitySeat(opponentDecks, game, seat)?.id || null
+                        : null,
                   }
                 )}</td>`
               : "";
@@ -978,7 +1207,7 @@ function renderEntityGamesTable(games, decks, report, sort) {
               ? `<td>${seat?.player ? renderPlayerReportLink(seat.player) : "—"}</td>`
               : "";
             const seatNum =
-              report.kind === "player"
+              report.kind === "player" || report.kind === "archetype"
                 ? seat?.seat || game.mySeat || "—"
                 : seat?.seat || "—";
 
@@ -998,8 +1227,8 @@ function renderEntityGamesTable(games, decks, report, sort) {
     </table>`;
 }
 
-/** @param {ReturnType<typeof buildEntityReport>} report @param {import('./store.js').Deck[]} decks @param {import('./table.js').SortState} [gamesSort] */
-function renderEntityGamesSection(report, decks, gamesSort) {
+/** @param {ReturnType<typeof buildEntityReport>} report @param {import('./store.js').Deck[]} decks @param {import('./table.js').SortState} [gamesSort] @param {import('./opponent-decks.js').OpponentDeck[]} [opponentDecks] */
+function renderEntityGamesSection(report, decks, gamesSort, opponentDecks = []) {
   const games = report.entityGames || [];
   if (!games.length) {
     return `<p class="muted-text entity-report-empty">No games logged yet.</p>`;
@@ -1007,17 +1236,19 @@ function renderEntityGamesSection(report, decks, gamesSort) {
 
   const podGames = games.filter(gameHasPodDetail);
   const simpleGames = games.filter((game) => !gameHasPodDetail(game));
-  const podCards = podGames.map((game) => renderEntityGamePodCard(game, decks, report)).join("");
+  const podCards = podGames.map((game) => renderEntityGamePodCard(game, decks, report, opponentDecks)).join("");
   const tableGames = simpleGames.length ? simpleGames : podGames.length ? [] : games;
-  const tableHtml = tableGames.length ? renderEntityGamesTable(tableGames, decks, report, gamesSort) : "";
+  const tableHtml = tableGames.length
+    ? renderEntityGamesTable(tableGames, decks, report, gamesSort, opponentDecks)
+    : "";
 
   return `
     ${podGames.length ? `<div class="entity-game-pod-list">${podCards}</div>` : ""}
     ${tableHtml}`;
 }
 
-/** @param {ReturnType<typeof buildEntityReport>} report @param {import('./store.js').Deck[]} decks @param {'games' | 'decks' | 'players'} [activeTab] @param {{ players: import('./table.js').SortState, decks: import('./table.js').SortState }} [matchupSort] @param {import('./table.js').SortState} [gamesSort] */
-function renderEntityTabsSection(report, decks, activeTab = "games", matchupSort, gamesSort) {
+/** @param {ReturnType<typeof buildEntityReport>} report @param {import('./store.js').Deck[]} decks @param {'games' | 'decks' | 'players'} [activeTab] @param {{ players: import('./table.js').SortState, decks: import('./table.js').SortState }} [matchupSort] @param {import('./table.js').SortState} [gamesSort] @param {import('./opponent-decks.js').OpponentDeck[]} [opponentDecks] */
+function renderEntityTabsSection(report, decks, activeTab = "games", matchupSort, gamesSort, opponentDecks = []) {
   const tabs = [
     { id: "games", label: "Games" },
     { id: "decks", label: "Deck Matchups" },
@@ -1031,7 +1262,7 @@ function renderEntityTabsSection(report, decks, activeTab = "games", matchupSort
     )
     .join("");
 
-  const gamesPanel = renderEntityGamesSection(report, decks, gamesSort);
+  const gamesPanel = renderEntityGamesSection(report, decks, gamesSort, opponentDecks);
   const playerSort = matchupSort?.players ?? { col: "normalizedMatchupImpact", dir: "desc" };
   const deckSort = matchupSort?.decks ?? { col: "normalizedMatchupImpact", dir: "desc" };
   const playerPanel = renderMatchupTableWithCells(
@@ -1056,7 +1287,7 @@ function renderEntityTabsSection(report, decks, activeTab = "games", matchupSort
     </div>`;
 }
 
-/** @param {{ key: string, name: string, commander?: string, games: number, wins?: number, winRate?: number, owned: boolean, deckSlotId?: string | null }[]} deckList @param {import('./store.js').Deck[]} decks @param {string} playerScope */
+/** @param {{ key: string, name: string, commander?: string, games: number, wins?: number, winRate?: number, owned: boolean, deckSlotId?: string | null, opponentDeckId?: string | null, playerScope?: string | null }[]} deckList @param {import('./store.js').Deck[]} decks @param {string | null} playerScope */
 function renderPlayerDeckGrid(deckList, decks, playerScope) {
   if (!deckList.length) return "";
 
@@ -1077,8 +1308,9 @@ function renderPlayerDeckGrid(deckList, decks, playerScope) {
           <div class="entity-deck-card-body">
             <div class="entity-deck-card-name">${renderDeckReportLink(commander, decks, {
               label: row.name,
-              playerScope,
+              playerScope: row.opponentDeckId ? row.playerScope || null : playerScope,
               deckSlotId: row.deckSlotId || null,
+              opponentDeckId: row.opponentDeckId || null,
             })}</div>
             <div class="entity-deck-card-stats">
               <span>${row.games}G</span>
@@ -1103,8 +1335,8 @@ function deckArchetypeList(deck) {
   return (deck?.archetypes || []).map((value) => String(value || "").trim()).filter(Boolean);
 }
 
-/** @param {string[] | undefined} archetypes */
-function renderEntityArchetypeList(archetypes) {
+/** @param {string[] | undefined} archetypes @param {{ view?: 'unique' | 'combined' | 'exact', tagKind?: 'archetype' | 'tribe', scope?: 'mine' | 'all' | 'opponents' }} [options] */
+function renderEntityArchetypeList(archetypes, options = {}) {
   const list = (archetypes || []).filter(Boolean);
   if (!list.length) {
     return `<p class="muted-text entity-report-empty">No archetypes tagged.</p>`;
@@ -1112,7 +1344,12 @@ function renderEntityArchetypeList(archetypes) {
 
   return `
     <ul class="entity-archetype-list">
-      ${list.map((name) => `<li class="entity-archetype-item">${escapeHtml(name)}</li>`).join("")}
+      ${list
+        .map(
+          (name) =>
+            `<li class="entity-archetype-item">${renderArchetypeReportLink(name, name, options)}</li>`
+        )
+        .join("")}
     </ul>`;
 }
 
@@ -1162,7 +1399,11 @@ function renderEntityHeroTabsSection(report, heroTab = "overview", chartContext)
         ? heroTab
         : "overview";
   const overviewHtml = `<div class="stat-grid entity-report-stats">${renderEntityOverviewStats(chartContext.filteredStats)}</div>`;
-  const archetypesHtml = renderEntityArchetypeList(report.archetypes);
+  const archetypesHtml = renderEntityArchetypeList(report.archetypes, {
+    view: "unique",
+    tagKind: "archetype",
+    scope: "mine",
+  });
   const seatsHtml = renderEntitySeatRankings(chartContext.filteredSeatRankings);
   const tabButtons = tabs
     .map(
@@ -1241,10 +1482,10 @@ function renderEntityReportHeader(title, canGoBack) {
  * @param {'games' | 'decks' | 'players'} [activeTab]
  * @param {{ players: import('./table.js').SortState, decks: import('./table.js').SortState }} [matchupSort]
  * @param {import('./table.js').SortState} [gamesSort]
- * @param {{ heroTab?: 'overview' | 'archetypes' | 'seats', chartContext?: ReturnType<typeof getEntityChartContext>, canGoBack?: boolean }} [options]
+ * @param {{ heroTab?: 'overview' | 'archetypes' | 'seats', chartContext?: ReturnType<typeof getEntityChartContext>, canGoBack?: boolean, opponentDecks?: import('./opponent-decks.js').OpponentDeck[] }} [options]
  */
 export function renderEntityReportModal(report, decks, activeTab = "games", matchupSort, gamesSort, options = {}) {
-  const { heroTab = "overview", chartContext, canGoBack = false } = options;
+  const { heroTab = "overview", chartContext, canGoBack = false, opponentDecks = [] } = options;
   const rootKey = report.title;
   const resolvedChartContext =
     chartContext ??
@@ -1255,7 +1496,7 @@ export function renderEntityReportModal(report, decks, activeTab = "games", matc
     });
   const heroTabsSection = renderEntityHeroTabsSection(report, heroTab, resolvedChartContext);
   const chartSection = renderEntityChartSection(report, resolvedChartContext);
-  const tabsSection = renderEntityTabsSection(report, decks, activeTab, matchupSort, gamesSort);
+  const tabsSection = renderEntityTabsSection(report, decks, activeTab, matchupSort, gamesSort, opponentDecks);
   const header = renderEntityReportHeader(report.title, canGoBack);
 
   if (report.kind === "deck") {
@@ -1291,7 +1532,7 @@ export function renderEntityReportModal(report, decks, activeTab = "games", matc
   const deckSection = report.deckList.length
     ? `<div class="entity-report-section">
         <h4>Decks</h4>
-        ${renderPlayerDeckGrid(report.deckList, decks, report.title)}
+        ${renderPlayerDeckGrid(report.deckList, decks, report.kind === "player" ? report.title : null)}
       </div>`
     : "";
 

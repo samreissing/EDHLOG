@@ -69,6 +69,7 @@ import {
   getEntityChartContext,
   renderEntityReportModal,
   renderPlayerReportLink,
+  renderArchetypeReportLink,
   renderDeckReportLink,
   fitEntityDeckCardStats,
 } from "./entity-report.js";
@@ -225,7 +226,7 @@ let editingGameId = null;
 let gameSaveInFlight = false;
 let editingDeckName = null;
 let editingDeckIndex = -1;
-/** @type {{ kind: 'player' | 'deck', key: string, playerScope?: string | null, deckSlotId?: string | null } | null} */
+/** @type {{ kind: 'player' | 'deck' | 'archetype', key: string, playerScope?: string | null, deckSlotId?: string | null, opponentDeckId?: string | null, archetypeView?: 'unique' | 'combined' | 'exact', tagKind?: 'archetype' | 'tribe', archetypeScope?: 'mine' | 'all' | 'opponents' } | null} */
 let entityReport = null;
 /** @type {ReturnType<typeof snapshotEntityReportState>[]} */
 let entityReportStack = [];
@@ -444,12 +445,28 @@ function renderMatchupOpponentDeckCell(row, decks) {
   return renderDeckReportLink(row.opponent, decks, { label: row.opponent });
 }
 
-function openEntityReport(kind, key, playerScope = null, deckSlotId = null, opponentDeckId = null) {
+function openEntityReport(
+  kind,
+  key,
+  playerScope = null,
+  deckSlotId = null,
+  opponentDeckId = null,
+  archetypeOptions = {}
+) {
   if (deckModalOpen) closeDeckModal();
   if (entityReport) {
     entityReportStack.push(snapshotEntityReportState());
   }
-  entityReport = { kind, key, playerScope, deckSlotId, opponentDeckId };
+  entityReport = {
+    kind,
+    key,
+    playerScope,
+    deckSlotId,
+    opponentDeckId,
+    archetypeView: archetypeOptions.archetypeView,
+    tagKind: archetypeOptions.tagKind,
+    archetypeScope: archetypeOptions.archetypeScope,
+  };
   resetEntityReportViewState();
   entityReportScrollToTop = true;
   syncEntityReportModal();
@@ -681,7 +698,12 @@ function bindEvents() {
         entityBtn.dataset.entityKey,
         entityBtn.dataset.entityPlayerScope || null,
         entityBtn.dataset.entityDeckSlot || null,
-        entityBtn.dataset.entityOpponentDeck || null
+        entityBtn.dataset.entityOpponentDeck || null,
+        {
+          archetypeView: entityBtn.dataset.entityArchetypeView || "unique",
+          tagKind: entityBtn.dataset.entityArchetypeTagKind || "archetype",
+          archetypeScope: entityBtn.dataset.entityArchetypeScope || "mine",
+        }
       );
       return;
     }
@@ -1564,7 +1586,8 @@ function computeArchetypeTableRows(games, { scope = "mine", view, tagKind }) {
   return computeArchetypeStats(games, data.decks, { view, tagKind });
 }
 
-function renderArchetypeStatsTable(rows, emptyMessage) {
+function renderArchetypeStatsTable(rows, emptyMessage, linkOptions = {}) {
+  const { tagKind = "archetype", scope = "mine" } = linkOptions;
   const sortState = tableSort["archetype-stats"] || {
     col: "normalizedWr",
     dir: "desc",
@@ -1593,7 +1616,11 @@ function renderArchetypeStatsTable(rows, emptyMessage) {
                   .map(
                     (row) => `
             <tr>
-              <td>${escapeHtml(row.label)}</td>
+              <td>${renderArchetypeReportLink(row.key, row.label, {
+                view: archetypeView,
+                tagKind,
+                scope,
+              })}</td>
               <td>${valueCell(row.decks, avgDecks)}</td>
               <td>${valueCell(row.games, avgGames)}</td>
               <td>${valueCell(row.wins, avgWins)}</td>
@@ -1774,6 +1801,9 @@ function syncEntityReportModal() {
     opponentDeckId: entityReport.opponentDeckId,
     opponentDecks: data.opponentDecks || [],
     splitPartners: totalsSplitPartners,
+    archetypeView: entityReport.archetypeView,
+    tagKind: entityReport.tagKind,
+    archetypeScope: entityReport.archetypeScope,
   });
   const chartContext = getEntityChartContext(
     report.chartGames,
@@ -1799,7 +1829,7 @@ function syncEntityReportModal() {
     entityReportTab,
     entityReportMatchupSort,
     entityReportGamesSort,
-    { heroTab: entityReportHeroTab, chartContext, canGoBack: entityReportStack.length > 0 }
+    { heroTab: entityReportHeroTab, chartContext, canGoBack: entityReportStack.length > 0, opponentDecks: data.opponentDecks || [] }
   );
   const newScrollEl = modal.querySelector(".modal-content-report");
   if (newScrollEl) {
@@ -2610,7 +2640,7 @@ function renderStats() {
         ${renderBracketFilterToggle("stats-bracket-filter-toggle", statsBracketFilter)}
         <button type="button" class="btn btn-ghost btn-sm" id="archetype-view-toggle">${archetypeViewLabel(archetypeView)}</button>
       </div>
-      ${renderArchetypeStatsTable(archetypes, emptyMessage)}`;
+      ${renderArchetypeStatsTable(archetypes, emptyMessage, { tagKind, scope: "mine" })}`;
   } else if (statsTab === "turns") {
     const { statsGames } = getStatsScope();
     const turnRows = computeTurnGridStats(statsGames);
@@ -2896,7 +2926,10 @@ function renderStats() {
         ${excludeMeControl}
         <button type="button" class="btn btn-ghost btn-sm" id="archetype-view-toggle">${archetypeViewLabel(archetypeView)}</button>
       </div>
-      ${renderArchetypeStatsTable(archetypes, emptyMessage)}`;
+      ${renderArchetypeStatsTable(archetypes, emptyMessage, {
+        tagKind,
+        scope: totalsExcludeMe ? "opponents" : "all",
+      })}`;
     } else if (isSeatsTab) {
       const seatOptions = { excludeMySeat: totalsExcludeMe };
       const bounds = getSeatDateBounds(totalsGames, "total", seatOptions);
