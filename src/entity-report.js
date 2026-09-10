@@ -716,6 +716,7 @@ export function buildEntityReport(games, decks, request) {
       deckSlotId,
       displayCommander: commanderName,
       seatRankings: computeEntitySeatRankings(games, seatFilter, decks),
+      archetypes: deckArchetypeList(deck),
     };
   }
 
@@ -763,6 +764,7 @@ export function buildEntityReport(games, decks, request) {
     deckSlotId: null,
     displayCommander: commanderName,
     seatRankings: computeEntitySeatRankings(games, seatFilter, decks),
+    archetypes: deckArchetypeList(owned),
   };
 }
 
@@ -1031,8 +1033,27 @@ function renderPlayerDeckGrid(deckList, decks, playerScope) {
 
 const ENTITY_HERO_TABS = [
   { id: "overview", label: "Overview" },
+  { id: "archetypes", label: "Archetypes", deckOnly: true },
   { id: "seats", label: "Seats" },
 ];
+
+/** @param {import('./store.js').Deck | null | undefined} deck */
+function deckArchetypeList(deck) {
+  return (deck?.archetypes || []).map((value) => String(value || "").trim()).filter(Boolean);
+}
+
+/** @param {string[] | undefined} archetypes */
+function renderEntityArchetypeList(archetypes) {
+  const list = (archetypes || []).filter(Boolean);
+  if (!list.length) {
+    return `<p class="muted-text entity-report-empty">No archetypes tagged.</p>`;
+  }
+
+  return `
+    <ul class="entity-archetype-list">
+      ${list.map((name) => `<li class="entity-archetype-item">${escapeHtml(name)}</li>`).join("")}
+    </ul>`;
+}
 
 /** @param {ReturnType<typeof computeStatsFromChartAppearances>} stats */
 function renderEntityOverviewStats(stats) {
@@ -1070,20 +1091,36 @@ function renderEntitySeatRankings(rankings) {
     </ol>`;
 }
 
-/** @param {ReturnType<typeof buildEntityReport>} report @param {'overview' | 'seats'} [heroTab] @param {ReturnType<typeof getEntityChartContext>} chartContext */
+/** @param {ReturnType<typeof buildEntityReport>} report @param {'overview' | 'archetypes' | 'seats'} [heroTab] @param {ReturnType<typeof getEntityChartContext>} chartContext */
 function renderEntityHeroTabsSection(report, heroTab = "overview", chartContext) {
+  const tabs = ENTITY_HERO_TABS.filter((tab) => !tab.deckOnly || report.kind === "deck");
+  const activeTab =
+    heroTab === "archetypes" && report.kind !== "deck"
+      ? "overview"
+      : tabs.some((tab) => tab.id === heroTab)
+        ? heroTab
+        : "overview";
   const overviewHtml = `<div class="stat-grid entity-report-stats">${renderEntityOverviewStats(chartContext.filteredStats)}</div>`;
+  const archetypesHtml = renderEntityArchetypeList(report.archetypes);
   const seatsHtml = renderEntitySeatRankings(chartContext.filteredSeatRankings);
-  const tabButtons = ENTITY_HERO_TABS.map(
-    (tab) =>
-      `<button type="button" role="tab" aria-selected="${tab.id === heroTab}" class="sub-tab entity-report-hero-tab ${tab.id === heroTab ? "active" : ""}" data-entity-hero-tab="${tab.id}">${tab.label}</button>`
-  ).join("");
+  const tabButtons = tabs
+    .map(
+      (tab) =>
+        `<button type="button" role="tab" aria-selected="${tab.id === activeTab}" class="sub-tab entity-report-hero-tab ${tab.id === activeTab ? "active" : ""}" data-entity-hero-tab="${tab.id}">${tab.label}</button>`
+    )
+    .join("");
+
+  const archetypesPanel =
+    report.kind === "deck"
+      ? `<div class="entity-report-hero-panel" data-entity-hero-panel="archetypes" role="tabpanel" ${activeTab === "archetypes" ? "" : "hidden"}>${archetypesHtml}</div>`
+      : "";
 
   return `
     <div class="entity-report-hero-tabs">
       <div class="sub-tabs entity-report-hero-tablist" role="tablist">${tabButtons}</div>
-      <div class="entity-report-hero-panel" data-entity-hero-panel="overview" role="tabpanel" ${heroTab === "overview" ? "" : "hidden"}>${overviewHtml}</div>
-      <div class="entity-report-hero-panel" data-entity-hero-panel="seats" role="tabpanel" ${heroTab === "seats" ? "" : "hidden"}>${seatsHtml}</div>
+      <div class="entity-report-hero-panel" data-entity-hero-panel="overview" role="tabpanel" ${activeTab === "overview" ? "" : "hidden"}>${overviewHtml}</div>
+      ${archetypesPanel}
+      <div class="entity-report-hero-panel" data-entity-hero-panel="seats" role="tabpanel" ${activeTab === "seats" ? "" : "hidden"}>${seatsHtml}</div>
     </div>`;
 }
 
@@ -1143,7 +1180,7 @@ function renderEntityReportHeader(title, canGoBack) {
  * @param {'games' | 'decks' | 'players'} [activeTab]
  * @param {{ players: import('./table.js').SortState, decks: import('./table.js').SortState }} [matchupSort]
  * @param {import('./table.js').SortState} [gamesSort]
- * @param {{ heroTab?: 'overview' | 'seats', chartContext?: ReturnType<typeof getEntityChartContext>, canGoBack?: boolean }} [options]
+ * @param {{ heroTab?: 'overview' | 'archetypes' | 'seats', chartContext?: ReturnType<typeof getEntityChartContext>, canGoBack?: boolean }} [options]
  */
 export function renderEntityReportModal(report, decks, activeTab = "games", matchupSort, gamesSort, options = {}) {
   const { heroTab = "overview", chartContext, canGoBack = false } = options;

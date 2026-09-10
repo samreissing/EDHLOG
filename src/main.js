@@ -218,7 +218,7 @@ let entityReportMatchupSort = {
   decks: { col: "normalizedMatchupImpact", dir: "desc" },
 };
 let entityReportGamesSort = { col: "date", dir: "desc" };
-/** @type {'overview' | 'seats'} */
+/** @type {'overview' | 'archetypes' | 'seats'} */
 let entityReportHeroTab = "overview";
 let entityReportChartRange = { start: null, end: null, customized: false };
 let entityReportGameRange = { min: 1, max: null, customized: false };
@@ -437,7 +437,8 @@ function openEntityReport(kind, key, playerScope = null, deckSlotId = null) {
 }
 
 function switchEntityReportHeroTab(tabId) {
-  if (!entityReport || !["overview", "seats"].includes(tabId)) return;
+  if (!entityReport || !["overview", "archetypes", "seats"].includes(tabId)) return;
+  if (tabId === "archetypes" && entityReport.kind !== "deck") return;
   entityReportHeroTab = tabId;
 
   const modal = document.getElementById("entity-report-modal");
