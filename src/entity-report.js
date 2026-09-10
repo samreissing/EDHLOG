@@ -11,7 +11,7 @@ import { resolveCommanderColors } from "./commander-colors.js";
 import { deckKey, deckCommander, deckId, deckTitle, findDeck, deckLabelForKey, deckTitleForKey, deckMapByKey } from "./deck-identity.js";
 import { winRate, normalizedWinRate, computeTurnAverages, gameBracket } from "./stats.js";
 import { compareGamesChronologically, formatDate, gameSortKey, normalizeDate } from "./dates.js";
-import { renderCommanderImageTags } from "./scryfall.js";
+import { renderCommanderImageTags, renderEntityDeckCardArt } from "./scryfall.js";
 import { getChartDateBounds, getEffectiveChartRange } from "./chart-series.js";
 import {
   clampTrendsGameRange,
@@ -1301,11 +1301,7 @@ function renderPlayerDeckGrid(deckList, decks, playerScope) {
       ${deckList
         .map((row) => {
           const commander = row.commander || row.name;
-          const commanderImgs = renderCommanderImageTags(commander, {
-            escapeHtml,
-            art: true,
-            className: "commander-img commander-art-img loading",
-          });
+          const commanderImgs = renderEntityDeckCardArt(commander, { escapeHtml });
           return `
         <div class="entity-deck-card">
           <div class="entity-deck-card-art">
