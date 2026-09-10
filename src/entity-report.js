@@ -1515,17 +1515,18 @@ export function renderEntityReportModal(report, decks, activeTab = "games", matc
     return `
       <div class="modal-content modal-content-wide modal-content-report entity-report-deck" data-entity-report-root="${escapeHtml(rootKey)}">
         ${header}
-
-        <div class="entity-report-deck-hero">
-          <div class="entity-report-deck-art">
-            <div class="deck-commander-images entity-report-images">${commanderImgs}</div>
+        <div class="entity-report-body">
+          <div class="entity-report-deck-hero">
+            <div class="entity-report-deck-art">
+              <div class="deck-commander-images entity-report-images">${commanderImgs}</div>
+            </div>
+            <div class="entity-report-deck-stats">${heroTabsSection}</div>
           </div>
-          <div class="entity-report-deck-stats">${heroTabsSection}</div>
-        </div>
 
-        ${pilotSection}
-        ${chartSection}
-        ${tabsSection}
+          ${pilotSection}
+          ${chartSection}
+          ${tabsSection}
+        </div>
       </div>`;
   }
 
@@ -1539,11 +1540,12 @@ export function renderEntityReportModal(report, decks, activeTab = "games", matc
   return `
     <div class="modal-content modal-content-wide modal-content-report entity-report-player" data-entity-report-root="${escapeHtml(rootKey)}">
       ${header}
-
-      ${heroTabsSection}
-      ${deckSection}
-      ${chartSection}
-      ${tabsSection}
+      <div class="entity-report-body">
+        ${heroTabsSection}
+        ${deckSection}
+        ${chartSection}
+        ${tabsSection}
+      </div>
     </div>`;
 }
 
