@@ -1820,7 +1820,7 @@ function syncEntityReportModal() {
   }
 
   modal.classList.remove("hidden");
-  const scrollEl = modal.querySelector(".modal-content-report");
+  const scrollEl = modal.querySelector(".entity-report-body");
   const scrollToTop = entityReportScrollToTop;
   const scrollTop = scrollToTop ? 0 : scrollEl?.scrollTop ?? 0;
   modal.innerHTML = renderEntityReportModal(
@@ -1831,7 +1831,7 @@ function syncEntityReportModal() {
     entityReportGamesSort,
     { heroTab: entityReportHeroTab, chartContext, canGoBack: entityReportStack.length > 0, opponentDecks: data.opponentDecks || [] }
   );
-  const newScrollEl = modal.querySelector(".modal-content-report");
+  const newScrollEl = modal.querySelector(".entity-report-body");
   if (newScrollEl) {
     newScrollEl.scrollTop = scrollToTop ? 0 : scrollTop;
     if (scrollToTop) entityReportScrollToTop = false;
@@ -3398,8 +3398,11 @@ function renderGames() {
       </div>
     </div>
     <div id="game-detail-modal" class="modal ${viewing ? "" : "hidden"}">
-      <div class="modal-content modal-content-wide">
-        <h3>Game Details</h3>
+      <div class="modal-content modal-content-wide modal-content-game-detail">
+        <div class="game-detail-header">
+          <h3 class="game-detail-title">Game Details</h3>
+          ${viewing ? renderGameDetailNav(viewing.id) : ""}
+        </div>
         ${viewing ? renderGameDetail(viewing) : ""}
       </div>
     </div>`;
@@ -3537,7 +3540,6 @@ function renderGameDetail(game) {
           )
           .join("")}
       </fieldset>
-      ${renderGameDetailNav(game.id)}
     </div>`;
 }
 
