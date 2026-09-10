@@ -257,6 +257,8 @@ let colorSortOrder = "wubrgc";
 let archetypeView = "unique";
 /** @type {"all" | "active" | "retired"} */
 let statsDeckFilter = "all";
+/** @type {"normalizedWr" | "winRate" | "games"} */
+let turnChartMetric = "normalizedWr";
 /** @type {Map<string, string>} */
 let colorsChartSelection = new Set();
 let colorsChartRange = { start: null, end: null, customized: false };
@@ -860,6 +862,17 @@ function bindEvents() {
       if (statsTab === "brackets") bracketsChartSelection = newChartSelection();
       if (statsTab === "trends") resetTrendsGameRange();
       pieAnimKey++;
+      render();
+      return;
+    }
+
+    if (e.target.id === "turn-chart-metric-toggle") {
+      turnChartMetric =
+        turnChartMetric === "normalizedWr"
+          ? "winRate"
+          : turnChartMetric === "winRate"
+            ? "games"
+            : "normalizedWr";
       render();
       return;
     }
@@ -1568,6 +1581,17 @@ function statsDeckFilterLabel(filter) {
   if (filter === "active") return "Active";
   if (filter === "retired") return "Retired";
   return "All Decks";
+}
+
+/** @param {"normalizedWr" | "winRate" | "games"} metric */
+function turnChartMetricLabel(metric) {
+  if (metric === "winRate") return "Win Rate";
+  if (metric === "games") return "Games";
+  return "Norm WR";
+}
+
+function renderTurnChartMetricToggle() {
+  return `<button type="button" class="btn btn-ghost btn-sm" id="turn-chart-metric-toggle">${turnChartMetricLabel(turnChartMetric)}</button>`;
 }
 
 /** @param {import('./store.js').Deck[]} decks @param {"all" | "active" | "retired"} filter */
@@ -2663,7 +2687,7 @@ function renderStats() {
       },
       WINS_SORT_TIE_BREAKERS
     );
-    const turnChart = renderTurnWinRateChart(turnRows);
+    const turnChart = renderTurnWinRateChart(turnRows, { metric: turnChartMetric });
 
     body = `
       <div class="filters inline turns-toolbar">
@@ -2682,6 +2706,7 @@ function renderStats() {
       ${
         turnRows.length
           ? `${renderTurnStatsGrid(turns)}
+          <div class="turn-chart-toolbar filters inline">${renderTurnChartMetricToggle()}</div>
           ${turnChart}`
           : `<p class="muted">No turn data yet — add an end turn when logging games.</p>`
       }`;
