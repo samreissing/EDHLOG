@@ -271,7 +271,7 @@ let tableSort = {
   "bracket-stats": { col: "bracket", dir: "asc" },
   "trends-windows": { col: "rangeStart", dir: "asc" },
   "trends-cumulative": { col: "games", dir: "asc" },
-  "decks-main": { col: "createdAt", dir: "desc" },
+  "decks-main": { col: "name", dir: "asc" },
   "opponent-decks-main": { col: "lastPlayed", dir: "desc" },
   "game-log": { col: "date", dir: "desc" },
   matchups: { col: "normalizedMatchupImpact", dir: "desc" },
@@ -356,7 +356,7 @@ function resetDecksViewState() {
   decksPageTab = "mine";
   deckBracketFilter = "";
   closeDeckModal();
-  tableSort["decks-main"] = { col: "createdAt", dir: "desc" };
+  tableSort["decks-main"] = { col: "name", dir: "asc" };
   tableSort["opponent-decks-main"] = { col: "lastPlayed", dir: "desc" };
 }
 
@@ -3135,8 +3135,8 @@ function renderDecks() {
   const isOpponentsPage = decksPageTab === "opponents";
   const sortTableId = isOpponentsPage ? "opponent-decks-main" : "decks-main";
   const sortState = tableSort[sortTableId] || {
-    col: isOpponentsPage ? "lastPlayed" : "createdAt",
-    dir: "desc",
+    col: isOpponentsPage ? "lastPlayed" : "name",
+    dir: isOpponentsPage ? "desc" : "asc",
   };
 
   let list = isOpponentsPage
