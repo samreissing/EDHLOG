@@ -394,12 +394,12 @@ export function renderArchetypeReportLink(
 ) {
   const trimmed = String(archetypeKey || "").trim();
   if (!trimmed) return escapeHtml(label || "");
-  return `<button type="button" class="link-btn entity-link" data-entity-report="archetype" data-entity-key="${escapeHtml(trimmed)}" data-entity-archetype-view="${escapeHtml(view)}" data-entity-archetype-tag-kind="${escapeHtml(tagKind)}" data-entity-archetype-scope="${escapeHtml(scope)}">${escapeHtml(label || trimmed)}</button>`;
+  return `<button type="button" class="link-btn entity-link" data-entity-kind="archetype" data-entity-key="${escapeHtml(trimmed)}" data-entity-archetype-view="${escapeHtml(view)}" data-entity-archetype-tag-kind="${escapeHtml(tagKind)}" data-entity-archetype-scope="${escapeHtml(scope)}">${escapeHtml(label || trimmed)}</button>`;
 }
 
 export function renderPlayerReportLink(playerName, label = playerName) {
   if (!playerName?.trim()) return escapeHtml(label || "");
-  return `<button type="button" class="link-btn entity-link" data-entity-report="player" data-entity-key="${escapeHtml(playerName.trim())}">${escapeHtml(label || playerName)}</button>`;
+  return `<button type="button" class="link-btn entity-link" data-entity-kind="player" data-entity-key="${escapeHtml(playerName.trim())}">${escapeHtml(label || playerName)}</button>`;
 }
 
 /**
@@ -420,7 +420,7 @@ export function renderDeckReportLink(commanderOrKey, decks, options = {}) {
   const opponentAttr = opponentDeckId
     ? ` data-entity-opponent-deck="${escapeHtml(opponentDeckId)}"`
     : "";
-  return `<button type="button" class="link-btn entity-link" data-entity-report="deck" data-entity-key="${escapeHtml(key)}"${scopeAttr}${slotAttr}${opponentAttr}>${escapeHtml(label || deckLabelForKey(key, decks))}</button>`;
+  return `<button type="button" class="link-btn entity-link" data-entity-kind="deck" data-entity-key="${escapeHtml(key)}"${scopeAttr}${slotAttr}${opponentAttr}>${escapeHtml(label || deckLabelForKey(key, decks))}</button>`;
 }
 
 function statBlock(label, value, isWr = false) {
@@ -1079,6 +1079,12 @@ function entityGameResultClass(game, decks, report, opponentDecks = []) {
 }
 
 /** @param {import('./store.js').Game} game @param {import('./store.js').Deck[]} decks @param {ReturnType<typeof buildEntityReport>} report @param {import('./opponent-decks.js').OpponentDeck[]} [opponentDecks] */
+/** @param {import('./store.js').Game} game @param {import('./store.js').Deck[]} decks */
+export function renderGameLogPodCard(game, decks) {
+  return renderEntityGamePodCard(game, decks, { kind: "deck", deckSlotId: game.deck });
+}
+
+/** @param {import('./store.js').Game} game @param {import('./store.js').Deck[]} decks @param {ReturnType<typeof buildEntityReport>} report @param {import('./opponent-decks.js').OpponentDeck[]} [opponentDecks] */
 function renderEntityGamePodCard(game, decks, report, opponentDecks = []) {
   const seatsByNumber = new Map(parseGameSeats(game, decks).map((seat) => [seat.seat, seat]));
   const seatBoxes = [1, 2, 3, 4]
@@ -1537,8 +1543,11 @@ export function renderEntityReportModal(report, decks, activeTab = "games", matc
       </div>`
     : "";
 
+  const reportClass =
+    report.kind === "archetype" ? "entity-report-archetype" : "entity-report-player";
+
   return `
-    <div class="modal-content modal-content-wide modal-content-report entity-report-player" data-entity-report-root="${escapeHtml(rootKey)}">
+    <div class="modal-content modal-content-wide modal-content-report ${reportClass}" data-entity-report-root="${escapeHtml(rootKey)}">
       ${header}
       <div class="entity-report-body">
         ${heroTabsSection}
