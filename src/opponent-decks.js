@@ -152,18 +152,21 @@ export function computeOpponentDeckStats(games, opponentDecks) {
     let lastPlayed = null;
 
     for (const game of games) {
+      if (!gameIncludesOpponentDeck(game, deck)) continue;
+
+      const seats = parseGameSeats(game);
       let matched = false;
-      for (const opp of game.opponents || []) {
-        if (!opponentEntryMatchesDeck(game, opp, deck)) continue;
+      for (const seat of seats) {
+        if (normalizeKey(seat.player) !== normalizeKey(deck.player)) continue;
+        const opp = (game.opponents || []).find((entry) => Number(entry.seat) === Number(seat.seat));
+        if (!opp || !opponentEntryMatchesDeck(game, opp, deck)) continue;
         matched = true;
-        const seat = Number(opp.seat) || 0;
-        const winnerSeat = Number(game.winnerSeat) || 0;
-        const didWin = winnerSeat ? winnerSeat === seat : false;
         gamesCount += 1;
-        if (didWin) wins += 1;
+        if (seat.didWin) wins += 1;
         else losses += 1;
         break;
       }
+
       if (matched && (!lastPlayed || String(game.date) > String(lastPlayed))) {
         lastPlayed = game.date;
       }
