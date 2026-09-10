@@ -276,9 +276,18 @@ main {
   margin-bottom: 0.75rem;
 }
 
+.turn-chart-toolbar {
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
 .turn-wr-chart-wrap {
   position: relative;
   margin-top: 1.25rem;
+}
+
+.turn-chart-toolbar + .turn-wr-chart-wrap {
+  margin-top: 0;
 }
 
 .turn-wr-chart {
