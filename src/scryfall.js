@@ -1,5 +1,5 @@
 import { canonicalizeColors } from "./color-identity.js";
-import { commanderImageSlots } from "./commander-names.js";
+import { commanderImageSlots, getCommanderInfo } from "./commander-names.js";
 
 const imageCache = new Map();
 const metadataCache = new Map();
@@ -120,19 +120,55 @@ export async function fetchCardByName(name, crop = "normal", faceIndex = 0) {
 }
 
 /**
+ * @param {{ name: string, face: number }} slot
+ * @param {{ className?: string, art?: boolean, escapeHtml: (value: string) => string }} options
+ */
+function renderCommanderImgTag(slot, options) {
+  const { className = "commander-img loading", art = false, escapeHtml } = options;
+  const artAttr = art ? ' data-card-image="art"' : "";
+  const faceAttr = slot.face ? ` data-card-face="${slot.face}"` : "";
+  const label = slot.name;
+  return `<img class="${className}" data-card-name="${escapeHtml(label)}"${faceAttr}${artAttr} alt="${escapeHtml(label)}" title="${escapeHtml(label)}" />`;
+}
+
+/**
  * @param {string} name
  * @param {{ className?: string, art?: boolean, escapeHtml: (value: string) => string }} options
  */
 export function renderCommanderImageTags(name, options) {
-  const { className = "commander-img loading", art = false, escapeHtml } = options;
   return commanderImageSlots(name)
-    .map((slot) => {
-      const artAttr = art ? ' data-card-image="art"' : "";
-      const faceAttr = slot.face ? ` data-card-face="${slot.face}"` : "";
-      const label = slot.name;
-      return `<img class="${className}" data-card-name="${escapeHtml(label)}"${faceAttr}${artAttr} alt="${escapeHtml(label)}" title="${escapeHtml(label)}" />`;
-    })
+    .map((slot) => renderCommanderImgTag(slot, options))
     .join("");
+}
+
+/**
+ * Deck grid art for entity report popups. Partner pairs use a diagonal split.
+ * @param {string} name
+ * @param {{ escapeHtml: (value: string) => string }} options
+ */
+export function renderEntityDeckCardArt(name, options) {
+  const { escapeHtml } = options;
+  const info = getCommanderInfo(name);
+  const slots = commanderImageSlots(name);
+  const imgOptions = {
+    escapeHtml,
+    art: true,
+    className: "commander-img commander-art-img loading",
+  };
+
+  if (info.kind === "partner" && slots.length === 2) {
+    return `<div class="entity-deck-card-art-partner">${renderCommanderImgTag(slots[0], {
+      ...imgOptions,
+      className:
+        "commander-img commander-art-img entity-deck-card-art-partner-img entity-deck-card-art-partner-a loading",
+    })}${renderCommanderImgTag(slots[1], {
+      ...imgOptions,
+      className:
+        "commander-img commander-art-img entity-deck-card-art-partner-img entity-deck-card-art-partner-b loading",
+    })}</div>`;
+  }
+
+  return renderCommanderImageTags(name, imgOptions);
 }
 
 /** @param {string[]} names @param {"normal" | "art"} [crop] */
