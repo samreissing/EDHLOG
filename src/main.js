@@ -122,6 +122,7 @@ import { computeAllTotals, TOTALS_TABS } from "./totals.js";
 import {
   computeArchetypeStats,
   computePodTagStats,
+  mergeArchetypeStatsRows,
   archetypeViewLabel,
   archetypeLabelHeaderLabel,
   cycleArchetypeView,
@@ -269,7 +270,7 @@ let lastColorsPieSignature = "";
 let lastBracketsPieSignature = "";
 let tableSort = {
   "color-stats": { col: "colorOrder", dir: "asc" },
-  "archetype-stats": { col: "label", dir: "asc", labelMode: "archetype" },
+  "archetype-stats": { col: "normalizedWr", dir: "desc", labelMode: "archetype" },
   "turn-stats": { col: "turn", dir: "asc" },
   "bracket-stats": { col: "bracket", dir: "asc" },
   "trends-windows": { col: "rangeStart", dir: "asc" },
@@ -318,7 +319,7 @@ function resetStatsTabState(tab) {
     tableSort["trends-cumulative"] = { col: "games", dir: "asc" };
   } else if (tab === "archetypes") {
     archetypeView = "unique";
-    tableSort["archetype-stats"] = { col: "label", dir: "asc", labelMode: "archetype" };
+    tableSort["archetype-stats"] = { col: "normalizedWr", dir: "desc", labelMode: "archetype" };
   } else if (tab === "turns") {
     tableSort["turn-stats"] = { col: "turn", dir: "asc" };
   } else if (tab === "seats") {
@@ -1542,19 +1543,33 @@ function getArchetypeTagKind(sortState) {
   return sortState?.labelMode === "tribe" ? "tribe" : "archetype";
 }
 
-function computeArchetypeTableRows(games, { useOpponentPod = false, excludeMyPlayer = false, view, tagKind }) {
-  if (useOpponentPod) {
+function computeArchetypeTableRows(games, { scope = "mine", view, tagKind }) {
+  if (scope === "opponents") {
     return computePodTagStats(games, ensureOpponentDecks(data), {
       view,
       tagKind,
-      excludeMyPlayer,
+      excludeMyPlayer: true,
     });
+  }
+  if (scope === "all") {
+    return mergeArchetypeStatsRows(
+      computeArchetypeStats(games, data.decks, { view, tagKind }),
+      computePodTagStats(games, ensureOpponentDecks(data), {
+        view,
+        tagKind,
+        excludeMyPlayer: false,
+      })
+    );
   }
   return computeArchetypeStats(games, data.decks, { view, tagKind });
 }
 
 function renderArchetypeStatsTable(rows, emptyMessage) {
-  const sortState = tableSort["archetype-stats"] || { col: "label", dir: "asc", labelMode: "archetype" };
+  const sortState = tableSort["archetype-stats"] || {
+    col: "normalizedWr",
+    dir: "desc",
+    labelMode: "archetype",
+  };
   const labelHeader = archetypeLabelHeaderLabel(sortState);
   const labelSort = sortState.col === "label" ? sortState : null;
   const avgGames = colorStatAverage(rows, "games");
@@ -2572,7 +2587,7 @@ function renderStats() {
     const { statsGames } = getStatsScope();
     const tagKind = getArchetypeTagKind(tableSort["archetype-stats"]);
     const archetypes = applySort(
-      computeArchetypeTableRows(statsGames, { view: archetypeView, tagKind }),
+      computeArchetypeTableRows(statsGames, { scope: "mine", view: archetypeView, tagKind }),
       tableSort["archetype-stats"],
       {
         label: (row) => row.label,
@@ -2851,8 +2866,7 @@ function renderStats() {
       const tagKind = getArchetypeTagKind(tableSort["archetype-stats"]);
       const archetypes = applySort(
         computeArchetypeTableRows(totalsGames, {
-          useOpponentPod: totalsExcludeMe,
-          excludeMyPlayer: totalsExcludeMe,
+          scope: totalsExcludeMe ? "opponents" : "all",
           view: archetypeView,
           tagKind,
         }),
