@@ -1,4 +1,4 @@
-import { normalizeDate } from "./dates.js";
+import { gameSortKey, normalizeDate } from "./dates.js";
 import { getCommanderColorIdentity } from "./commander-colors.js";
 import { parseGameSeats } from "./matchups.js";
 import { winRate, normalizedWinRate } from "./stats.js";
@@ -150,6 +150,7 @@ export function computeOpponentDeckStats(games, opponentDecks) {
     let losses = 0;
     /** @type {string | null} */
     let lastPlayed = null;
+    let lastPlayedSortKey = "";
 
     for (const game of games) {
       if (!gameIncludesOpponentDeck(game, deck)) continue;
@@ -167,8 +168,12 @@ export function computeOpponentDeckStats(games, opponentDecks) {
         break;
       }
 
-      if (matched && (!lastPlayed || String(game.date) > String(lastPlayed))) {
-        lastPlayed = game.date;
+      if (matched) {
+        const playedKey = gameSortKey(game);
+        if (!lastPlayedSortKey || playedKey.localeCompare(lastPlayedSortKey) > 0) {
+          lastPlayed = game.date;
+          lastPlayedSortKey = playedKey;
+        }
       }
     }
 
@@ -178,6 +183,7 @@ export function computeOpponentDeckStats(games, opponentDecks) {
       wins,
       losses,
       lastPlayed,
+      lastPlayedSortKey,
       winRate: winRate(wins, gamesCount),
       normalizedWr: normalizedWinRate(wins, gamesCount),
     };
