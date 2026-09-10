@@ -11,7 +11,6 @@ import { resolveCommanderColors } from "./commander-colors.js";
 import { deckKey, deckCommander, deckId, deckTitle, findDeck, deckLabelForKey, deckTitleForKey, deckMapByKey } from "./deck-identity.js";
 import { winRate, normalizedWinRate, computeTurnAverages, gameBracket } from "./stats.js";
 import { compareGamesChronologically, formatDate, gameSortKey, normalizeDate } from "./dates.js";
-import { commanderImageSlots } from "./commander-names.js";
 import { renderCommanderImageTags } from "./scryfall.js";
 import { getChartDateBounds, getEffectiveChartRange } from "./chart-series.js";
 import {
