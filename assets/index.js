@@ -790,7 +790,7 @@
           <div class="filters inline stats-range-toolbar">
             ${tu()}
           </div>
-          ${t?"":'<button type="button" class="btn btn-primary" id="add-deck-btn">+ Deck</button>'}
+          ${t?"":'<button type="button" class="btn btn-primary btn-sm" id="add-deck-btn">+ Deck</button>'}
         </div>
         <div class="table-wrap">
           <table class="table sortable-table decks-table${t?" decks-table-opponents":""}">
