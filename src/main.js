@@ -121,8 +121,11 @@ import {
 import { computeAllTotals, TOTALS_TABS } from "./totals.js";
 import {
   computeArchetypeStats,
+  computePodTagStats,
   archetypeViewLabel,
+  archetypeLabelHeaderLabel,
   cycleArchetypeView,
+  toggleArchetypeLabelSort,
 } from "./archetype-stats.js";
 import { computeTurnGridStats, computeTurnDistributionStats } from "./turn-stats.js";
 import { renderTurnWinRateChart, bindTurnWinRateChart } from "./turn-chart.js";
@@ -266,7 +269,7 @@ let lastColorsPieSignature = "";
 let lastBracketsPieSignature = "";
 let tableSort = {
   "color-stats": { col: "colorOrder", dir: "asc" },
-  "archetype-stats": { col: "normalizedWr", dir: "desc" },
+  "archetype-stats": { col: "label", dir: "asc", labelMode: "archetype" },
   "turn-stats": { col: "turn", dir: "asc" },
   "bracket-stats": { col: "bracket", dir: "asc" },
   "trends-windows": { col: "rangeStart", dir: "asc" },
@@ -315,7 +318,7 @@ function resetStatsTabState(tab) {
     tableSort["trends-cumulative"] = { col: "games", dir: "asc" };
   } else if (tab === "archetypes") {
     archetypeView = "unique";
-    tableSort["archetype-stats"] = { col: "normalizedWr", dir: "desc" };
+    tableSort["archetype-stats"] = { col: "label", dir: "asc", labelMode: "archetype" };
   } else if (tab === "turns") {
     tableSort["turn-stats"] = { col: "turn", dir: "asc" };
   } else if (tab === "seats") {
@@ -776,8 +779,14 @@ function bindEvents() {
         col === "date"
       ) {
         tableSort[tableId] = toggleDeckDateSort(tableSort[tableId]);
+      } else if (tableId === "archetype-stats" && col === "label") {
+        tableSort[tableId] = toggleArchetypeLabelSort(tableSort[tableId]);
       } else {
-        tableSort[tableId] = toggleSort(tableSort[tableId], col);
+        const prev = tableSort[tableId];
+        tableSort[tableId] = {
+          ...toggleSort(tableSort[tableId], col),
+          labelMode: prev?.labelMode || "archetype",
+        };
       }
       render();
       return;
@@ -1527,6 +1536,61 @@ function filterGamesForStats(games, decks, filter) {
     const retired = deckMap.get(game.deck)?.retired ?? false;
     return filter === "retired" ? retired : !retired;
   });
+}
+
+function getArchetypeTagKind(sortState) {
+  return sortState?.labelMode === "tribe" ? "tribe" : "archetype";
+}
+
+function computeArchetypeTableRows(games, { useOpponentPod = false, excludeMyPlayer = false, view, tagKind }) {
+  if (useOpponentPod) {
+    return computePodTagStats(games, ensureOpponentDecks(data), {
+      view,
+      tagKind,
+      excludeMyPlayer,
+    });
+  }
+  return computeArchetypeStats(games, data.decks, { view, tagKind });
+}
+
+function renderArchetypeStatsTable(rows, emptyMessage) {
+  const sortState = tableSort["archetype-stats"] || { col: "label", dir: "asc", labelMode: "archetype" };
+  const labelHeader = archetypeLabelHeaderLabel(sortState);
+  const labelSort = sortState.col === "label" ? sortState : null;
+  const avgGames = colorStatAverage(rows, "games");
+  const avgWins = colorStatAverage(rows, "wins");
+  const avgDecks = colorStatAverage(rows, "decks");
+
+  return `
+      <table class="table compact sortable-table">
+        <thead><tr>
+          ${sortHeader("archetype-stats", "label", labelHeader, labelSort)}
+          ${sortHeader("archetype-stats", "decks", "Decks", sortState)}
+          ${sortHeader("archetype-stats", "games", "G", sortState)}
+          ${sortHeader("archetype-stats", "wins", "W", sortState)}
+          ${sortHeader("archetype-stats", "winRate", "WR", sortState)}
+          ${sortHeader("archetype-stats", "normalizedWr", "Norm WR", sortState)}
+        </tr></thead>
+        <tbody>
+          ${
+            rows.length
+              ? rows
+                  .map(
+                    (row) => `
+            <tr>
+              <td>${escapeHtml(row.label)}</td>
+              <td>${valueCell(row.decks, avgDecks)}</td>
+              <td>${valueCell(row.games, avgGames)}</td>
+              <td>${valueCell(row.wins, avgWins)}</td>
+              <td>${row.games ? pctCell(row.winRate) : "—"}</td>
+              <td>${row.games ? pctCell(row.normalizedWr) : "—"}</td>
+            </tr>`
+                  )
+                  .join("")
+              : `<tr><td colspan="6">${emptyMessage}</td></tr>`
+          }
+        </tbody>
+      </table>`;
 }
 
 function getStats() {
@@ -2506,8 +2570,9 @@ function renderStats() {
     }
   } else if (statsTab === "archetypes") {
     const { statsGames } = getStatsScope();
+    const tagKind = getArchetypeTagKind(tableSort["archetype-stats"]);
     const archetypes = applySort(
-      computeArchetypeStats(statsGames, data.decks, { view: archetypeView }),
+      computeArchetypeTableRows(statsGames, { view: archetypeView, tagKind }),
       tableSort["archetype-stats"],
       {
         label: (row) => row.label,
@@ -2519,9 +2584,10 @@ function renderStats() {
       },
       WINS_SORT_TIE_BREAKERS
     );
-    const avgGames = colorStatAverage(archetypes, "games");
-    const avgWins = colorStatAverage(archetypes, "wins");
-    const avgDecks = colorStatAverage(archetypes, "decks");
+    const emptyMessage =
+      tagKind === "tribe"
+        ? "No tribe data yet — add tribes to your decks."
+        : "No archetype data yet — add archetypes to your decks.";
 
     body = `
       <div class="filters inline archetype-toolbar">
@@ -2529,35 +2595,7 @@ function renderStats() {
         ${renderBracketFilterToggle("stats-bracket-filter-toggle", statsBracketFilter)}
         <button type="button" class="btn btn-ghost btn-sm" id="archetype-view-toggle">${archetypeViewLabel(archetypeView)}</button>
       </div>
-      <table class="table compact sortable-table">
-        <thead><tr>
-          ${sortHeader("archetype-stats", "label", "Archetype", tableSort["archetype-stats"])}
-          ${sortHeader("archetype-stats", "decks", "Decks", tableSort["archetype-stats"])}
-          ${sortHeader("archetype-stats", "games", "G", tableSort["archetype-stats"])}
-          ${sortHeader("archetype-stats", "wins", "W", tableSort["archetype-stats"])}
-          ${sortHeader("archetype-stats", "winRate", "WR", tableSort["archetype-stats"])}
-          ${sortHeader("archetype-stats", "normalizedWr", "Norm WR", tableSort["archetype-stats"])}
-        </tr></thead>
-        <tbody>
-          ${
-            archetypes.length
-              ? archetypes
-                  .map(
-                    (row) => `
-            <tr>
-              <td>${escapeHtml(row.label)}</td>
-              <td>${valueCell(row.decks, avgDecks)}</td>
-              <td>${valueCell(row.games, avgGames)}</td>
-              <td>${valueCell(row.wins, avgWins)}</td>
-              <td>${row.games ? pctCell(row.winRate) : "—"}</td>
-              <td>${row.games ? pctCell(row.normalizedWr) : "—"}</td>
-            </tr>`
-                  )
-                  .join("")
-              : '<tr><td colspan="6">No archetype data yet — add archetypes to your decks.</td></tr>'
-          }
-        </tbody>
-      </table>`;
+      ${renderArchetypeStatsTable(archetypes, emptyMessage)}`;
   } else if (statsTab === "turns") {
     const { statsGames } = getStatsScope();
     const turnRows = computeTurnGridStats(statsGames);
@@ -2810,24 +2848,32 @@ function renderStats() {
     </label>`;
 
     if (isArchetypeTab) {
-      const archetypes = totalsExcludeMe
-        ? []
-        : applySort(
-            computeArchetypeStats(totalsGames, data.decks, { view: archetypeView }),
-            tableSort["archetype-stats"],
-            {
-              label: (row) => row.label,
-              decks: (row) => row.decks,
-              games: (row) => row.games,
-              wins: (row) => row.wins,
-              winRate: (row) => row.winRate,
-              normalizedWr: (row) => row.normalizedWr,
-            },
-            WINS_SORT_TIE_BREAKERS
-          );
-      const avgGames = colorStatAverage(archetypes, "games");
-      const avgWins = colorStatAverage(archetypes, "wins");
-      const avgDecks = colorStatAverage(archetypes, "decks");
+      const tagKind = getArchetypeTagKind(tableSort["archetype-stats"]);
+      const archetypes = applySort(
+        computeArchetypeTableRows(totalsGames, {
+          useOpponentPod: totalsExcludeMe,
+          excludeMyPlayer: totalsExcludeMe,
+          view: archetypeView,
+          tagKind,
+        }),
+        tableSort["archetype-stats"],
+        {
+          label: (row) => row.label,
+          decks: (row) => row.decks,
+          games: (row) => row.games,
+          wins: (row) => row.wins,
+          winRate: (row) => row.winRate,
+          normalizedWr: (row) => row.normalizedWr,
+        },
+        WINS_SORT_TIE_BREAKERS
+      );
+      const emptyMessage = totalsExcludeMe
+        ? tagKind === "tribe"
+          ? "No tribe data yet — add tribes to opponent decks."
+          : "No archetype data yet — add archetypes to opponent decks."
+        : tagKind === "tribe"
+          ? "No tribe data yet — add tribes to your decks."
+          : "No archetype data yet — add archetypes to your decks.";
 
       body = `
       ${subTabs(TOTALS_TABS, totalsTab, "totals-tab")}
@@ -2836,35 +2882,7 @@ function renderStats() {
         ${excludeMeControl}
         <button type="button" class="btn btn-ghost btn-sm" id="archetype-view-toggle">${archetypeViewLabel(archetypeView)}</button>
       </div>
-      <table class="table compact sortable-table">
-        <thead><tr>
-          ${sortHeader("archetype-stats", "label", "Archetype", tableSort["archetype-stats"])}
-          ${sortHeader("archetype-stats", "decks", "Decks", tableSort["archetype-stats"])}
-          ${sortHeader("archetype-stats", "games", "G", tableSort["archetype-stats"])}
-          ${sortHeader("archetype-stats", "wins", "W", tableSort["archetype-stats"])}
-          ${sortHeader("archetype-stats", "winRate", "WR", tableSort["archetype-stats"])}
-          ${sortHeader("archetype-stats", "normalizedWr", "Norm WR", tableSort["archetype-stats"])}
-        </tr></thead>
-        <tbody>
-          ${
-            archetypes.length
-              ? archetypes
-                  .map(
-                    (row) => `
-            <tr>
-              <td>${escapeHtml(row.label)}</td>
-              <td>${valueCell(row.decks, avgDecks)}</td>
-              <td>${valueCell(row.games, avgGames)}</td>
-              <td>${valueCell(row.wins, avgWins)}</td>
-              <td>${row.games ? pctCell(row.winRate) : "—"}</td>
-              <td>${row.games ? pctCell(row.normalizedWr) : "—"}</td>
-            </tr>`
-                  )
-                  .join("")
-              : `<tr><td colspan="6">No archetype data yet — add archetypes to your decks.</td></tr>`
-          }
-        </tbody>
-      </table>`;
+      ${renderArchetypeStatsTable(archetypes, emptyMessage)}`;
     } else if (isSeatsTab) {
       const seatOptions = { excludeMySeat: totalsExcludeMe };
       const bounds = getSeatDateBounds(totalsGames, "total", seatOptions);
