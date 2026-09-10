@@ -22,6 +22,13 @@ import {
 } from "./trends-chart.js";
 import { pctCell } from "./wr-color.js";
 import { MY_PLAYER_NAME } from "./opponent-search.js";
+import {
+  findOpponentDeck,
+  gamesForOpponentDeck,
+  opponentDeckLabel,
+  opponentDeckTitle,
+  opponentEntryMatchesDeck,
+} from "./opponent-decks.js";
 import { sortHeader, applySort, WINS_SORT_TIE_BREAKERS } from "./table.js";
 
 function escapeHtml(str) {
@@ -385,19 +392,22 @@ export function renderPlayerReportLink(playerName, label = playerName) {
 /**
  * @param {string} commanderOrKey
  * @param {import('./store.js').Deck[]} decks
- * @param {{ label?: string, playerScope?: string | null, deckSlotId?: string | null }} [options]
+ * @param {{ label?: string, playerScope?: string | null, deckSlotId?: string | null, opponentDeckId?: string | null }} [options]
  */
 export function renderDeckReportLink(commanderOrKey, decks, options = {}) {
-  const { label, playerScope = null, deckSlotId = null } = options;
+  const { label, playerScope = null, deckSlotId = null, opponentDeckId = null } = options;
   const trimmed = String(commanderOrKey || "").trim();
-  if (!trimmed && !deckSlotId) return escapeHtml(label || "");
-  const owned = deckSlotId ? null : findOwnedDeckKey(trimmed, decks);
+  if (!trimmed && !deckSlotId && !opponentDeckId) return escapeHtml(label || "");
+  const owned = deckSlotId || opponentDeckId ? null : findOwnedDeckKey(trimmed, decks);
   const key = deckSlotId || owned || trimmed;
   const scopeAttr = playerScope
     ? ` data-entity-player-scope="${escapeHtml(playerScope)}"`
     : "";
   const slotAttr = deckSlotId ? ` data-entity-deck-slot="${escapeHtml(deckSlotId)}"` : "";
-  return `<button type="button" class="link-btn entity-link" data-entity-report="deck" data-entity-key="${escapeHtml(key)}"${scopeAttr}${slotAttr}>${escapeHtml(label || deckLabelForKey(key, decks))}</button>`;
+  const opponentAttr = opponentDeckId
+    ? ` data-entity-opponent-deck="${escapeHtml(opponentDeckId)}"`
+    : "";
+  return `<button type="button" class="link-btn entity-link" data-entity-report="deck" data-entity-key="${escapeHtml(key)}"${scopeAttr}${slotAttr}${opponentAttr}>${escapeHtml(label || deckLabelForKey(key, decks))}</button>`;
 }
 
 function statBlock(label, value, isWr = false) {
@@ -597,10 +607,18 @@ function renderPilotTable(pilots) {
 /**
  * @param {import('./store.js').Game[]} games
  * @param {import('./store.js').Deck[]} decks
- * @param {{ kind: 'player' | 'deck', key: string, playerScope?: string | null, splitPartners?: boolean, deckSlotId?: string | null }} request
+ * @param {{ kind: 'player' | 'deck', key: string, playerScope?: string | null, splitPartners?: boolean, deckSlotId?: string | null, opponentDeckId?: string | null, opponentDecks?: import('./store.js').OpponentDeck[] }} request
  */
 export function buildEntityReport(games, decks, request) {
-  const { kind, key, playerScope = null, splitPartners = false, deckSlotId = null } = request;
+  const {
+    kind,
+    key,
+    playerScope = null,
+    splitPartners = false,
+    deckSlotId = null,
+    opponentDeckId = null,
+    opponentDecks = [],
+  } = request;
 
   if (kind === "player") {
     const playerName = key;
@@ -720,6 +738,42 @@ export function buildEntityReport(games, decks, request) {
     };
   }
 
+  if (kind === "deck" && opponentDeckId) {
+    const oppDeck = findOpponentDeck(opponentDecks, opponentDeckId);
+    const commanderName = oppDeck ? opponentDeckLabel(oppDeck) : deckLabelForKey(key, decks);
+    const scope = oppDeck?.player || playerScope || null;
+    const scopedGames = oppDeck ? gamesForOpponentDeck(games, oppDeck) : [];
+    const seatFilter = (seat, _seats, game) => {
+      if (scope && normalizeEntityKey(seat.player) !== normalizeEntityKey(scope)) return false;
+      const opp = (game.opponents || []).find((entry) => Number(entry.seat) === Number(seat.seat));
+      if (!opp) return false;
+      return oppDeck ? opponentEntryMatchesDeck(game, opp, oppDeck) : commanderMatchesTarget(seat.commander, commanderName, { splitPartners });
+    };
+    const colors = oppDeck?.colors?.length
+      ? oppDeck.colors
+      : resolveCommanderColors(commanderName, { splitPartners });
+
+    return {
+      kind,
+      title: oppDeck ? opponentDeckTitle(oppDeck) : commanderName,
+      subtitle: null,
+      colors,
+      stats: computeSeatStats(scopedGames.length ? scopedGames : games, seatFilter, decks),
+      chartGames: appearanceGamesForChart(scopedGames.length ? scopedGames : games, seatFilter, decks),
+      deckList: [],
+      entityGames: sortEntityGames(scopedGames),
+      pilots: [],
+      playerMatchups: buildEntityMatchupRows(scopedGames.length ? scopedGames : games, "players", seatFilter, { splitPartners }, decks),
+      deckMatchups: buildEntityMatchupRows(scopedGames.length ? scopedGames : games, "decks", seatFilter, { splitPartners }, decks),
+      playerScope: scope,
+      deckSlotId: null,
+      opponentDeckId,
+      displayCommander: commanderName,
+      seatRankings: computeEntitySeatRankings(scopedGames.length ? scopedGames : games, seatFilter, decks),
+      archetypes: oppDeck ? deckArchetypeList(/** @type {import('./store.js').Deck} */ (oppDeck)) : [],
+    };
+  }
+
   const commanderName = deckLabelForKey(key, decks);
   const seatFilter = (seat) => {
     if (playerScope && normalizeEntityKey(seat.player) !== normalizeEntityKey(playerScope)) {
@@ -804,6 +858,13 @@ function entityGameResultClass(game, decks, report) {
   }
   if (report.deckSlotId) {
     return game.result === "Win" ? "win" : "loss";
+  }
+  if (report.opponentDeckId && report.playerScope) {
+    const seat = parseGameSeats(game, decks).find(
+      (entry) => normalizeEntityKey(entry.player) === normalizeEntityKey(report.playerScope)
+    );
+    if (!seat) return "";
+    return seat.didWin ? "win" : "loss";
   }
   const commanderName = report.displayCommander || report.title;
   const seat = parseGameSeats(game, decks).find((s) =>

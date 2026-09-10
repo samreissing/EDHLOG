@@ -1,15 +1,17 @@
 import { appBaseUrl } from "./base-url.js";
 import { normalizeDate, todayISO, backupFileStamp } from "./dates.js";
 import { deckKey, deckCommander, findDeck, resolveDeckCommanderOnDate } from "./deck-identity.js";
+import { syncOpponentDecksFromGames } from "./opponent-decks.js";
 
 const STORAGE_KEY = "edhlog-data-v1";
 
 /** @typedef {{ name: string, qty: number, board: string }} DeckCard */
 /** @typedef {{ commander: string, name?: string, bracket: number, colors?: string[], changedAt: string }} DeckHistoryEntry */
 /** @typedef {{ id?: string, name: string, commander: string, bracket: number, colors: string[], retired: boolean, archetypes?: string[], tribes?: string[], createdAt?: string, history?: DeckHistoryEntry[], listUrl?: string, listSource?: 'moxfield' | 'deckstats', listSyncedAt?: string, cards?: DeckCard[] }} Deck */
-/** @typedef {{ id: string, date: string, time?: string, deck: string, myCommander?: string, result: 'Win' | 'Loss', source?: 'local', bracket?: number, mySeat?: number, myPlayer?: string, winnerSeat?: number, turn?: number, opponents?: { seat: number, name: string, player?: string }[] }} Game */
+/** @typedef {{ id: string, player: string, commander: string, name?: string, bracket?: number, colors?: string[], archetypes?: string[], tribes?: string[], retired?: boolean, createdAt?: string, commanderAliases?: string[] }} OpponentDeck */
+/** @typedef {{ id: string, date: string, time?: string, deck: string, myCommander?: string, result: 'Win' | 'Loss', source?: 'local', bracket?: number, mySeat?: number, myPlayer?: string, winnerSeat?: number, turn?: number, opponents?: { seat: number, name: string, player?: string, opponentDeckId?: string }[] }} Game */
 /** @typedef {{ seedHash?: string, seedGames?: number, removedSeedDeckKeys?: string[], deckSeedKeyById?: Record<string, string> }} DataMeta */
-/** @typedef {{ meta?: DataMeta, decks: Deck[], games: Game[] }} AppData */
+/** @typedef {{ meta?: DataMeta, decks: Deck[], opponentDecks?: OpponentDeck[], games: Game[] }} AppData */
 
 /** @type {AppData | null} */
 let cache = null;
@@ -228,6 +230,7 @@ function sanitizeData(data) {
   if (purgeRemovedSeedDecks(data)) changed = true;
   if (collapseRenamedSeedDeckDuplicates(data)) changed = true;
   if (migrateDecks(data)) changed = true;
+  if (syncOpponentDecksFromGames(data)) changed = true;
   return changed;
 }
 
