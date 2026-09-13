@@ -135,7 +135,10 @@ import {
   gameHasMySeat,
   nonMySeatNumbers,
   opponentEntryForPodSlot,
+  opponentWinnerPodSlot,
   podFormSlots,
+  podRowOutcomeClass,
+  podRowWinnerKey,
   podSlotCommanderLabel,
   podSlotPlayerLabel,
 } from "./matchups.js";
@@ -1401,7 +1404,6 @@ function bindEvents() {
 
     if (e.target.closest(".result-toggle.result-locked")) {
       e.preventDefault();
-      syncResultFromSeats();
     }
   });
 
@@ -1416,13 +1418,13 @@ function bindEvents() {
       const next = Number(e.target.value) || 0;
       if (form && prev !== next) remapPodFormSeats(form, prev, next);
       syncPodFormSeats();
-      syncResultFromSeats();
-    } else if (e.target.name === "winnerSeat") {
-      syncResultFromSeats();
+    } else if (e.target.name === "winnerPodSlot") {
+      syncResultFromWinnerToggle();
     } else if (e.target.name === "result") {
-      const form = document.getElementById("add-game-form");
-      const winnerSeat = Number(form?.querySelector('[name="winnerSeat"]')?.value) || 0;
-      if (winnerSeat > 0) syncResultFromSeats();
+      if (e.target.value === "Win") {
+        const form = document.getElementById("add-game-form");
+        if (form) clearWinnerPodSlotToggles(form);
+      }
     } else if (
       id === "filter-deck" ||
       id === "filter-bracket" ||
@@ -2342,7 +2344,7 @@ function render() {
   }
   if (gameModalOpen) {
     syncPodFormSeats();
-    syncResultFromSeats();
+    syncResultFromWinnerToggle();
     syncBracketFromDeck();
     const decksForPodSearch = editingGameId
       ? data.decks
@@ -3758,21 +3760,6 @@ function podCommanderName(game, seat) {
   return opponentName(game, seat);
 }
 
-function winnerSeatForGame(game) {
-  if (game.winnerSeat) return Number(game.winnerSeat);
-  if (game.mySeat && game.result === "Win") return Number(game.mySeat);
-  return 0;
-}
-
-function seatOutcomeClass(game, seat) {
-  const winnerSeat = winnerSeatForGame(game);
-  if (!winnerSeat) {
-    if (Number(game.mySeat) === seat && game.result === "Loss") return "pod-seat-loss";
-    return "";
-  }
-  return seat === winnerSeat ? "pod-seat-win" : "pod-seat-loss";
-}
-
 function getFilteredSortedGames() {
   let games = [...data.games];
   games = applySort(games, tableSort["game-log"], {
@@ -3826,7 +3813,7 @@ function renderGameDetail(game) {
   const myPodRow =
     hasPodPlayers && !gameHasMySeat(game)
       ? `
-          <div class="pod-seat-row ${game.result === "Win" ? "pod-seat-win" : "pod-seat-loss"}">
+          <div class="pod-seat-row ${podRowOutcomeClass(game, 0, mySeat, true)}">
             <label class="pod-player">Player w${fieldValueLink(MY_PLAYER_NAME)}</label>
             <label class="pod-commander">Commander w<span class="field-value">${renderDeckReportLink(myCommander, data.decks, { label: myCommander, playerScope: MY_PLAYER_NAME, deckSlotId: game.deck })}</span></label>
           </div>`
@@ -3834,7 +3821,7 @@ function renderGameDetail(game) {
   const opponentRows = podSlots
     .map(
       (seat) => `
-          <div class="pod-seat-row ${seatOutcomeClass(game, seat)}">
+          <div class="pod-seat-row ${podRowOutcomeClass(game, seat, mySeat, false)}">
             <label class="pod-player">${podSlotPlayerLabel(seat, mySeat)}${fieldValueLink(podPlayerName(game, seat))}</label>
             <label class="pod-commander">${podSlotCommanderLabel(seat, mySeat)}${fieldValueLink(podCommanderName(game, seat), "deck", game, seat)}</label>
           </div>`
@@ -3883,6 +3870,31 @@ function recentDecksPlayed(deckStats, limit = 5) {
   return recent;
 }
 
+function renderPodWinnerToggle(slotKey, editing, formMySeat) {
+  const selected =
+    editing?.result === "Loss" && opponentWinnerPodSlot(editing) === slotKey;
+  return `
+      <label class="pod-winner-toggle">
+        <input type="radio" name="winnerPodSlot" value="${escapeHtml(slotKey)}" ${selected ? "checked" : ""} />
+        <span>Mark as winner</span>
+      </label>`;
+}
+
+function renderPodPlayerLabel(slot, formMySeat, editing) {
+  const slotKey = podRowWinnerKey(slot, formMySeat, false);
+  return `
+            <label class="pod-player">
+              <span class="pod-field-header">
+                <span class="pod-field-label">${podSlotPlayerLabel(slot, formMySeat)}</span>
+                ${renderPodWinnerToggle(slotKey, editing, formMySeat)}
+              </span>
+              <div class="opponent-input-wrap">
+                <input type="text" class="player-input" name="player-${slot}" value="${escapeHtml(playerName(editing, slot))}" placeholder="Player name" autocomplete="off" />
+                <ul class="opponent-suggestions" hidden role="listbox"></ul>
+              </div>
+            </label>`;
+}
+
 function renderLogForm() {
   const { deckStats } = getStats();
   const editing = editingGameId ? data.games.find((g) => g.id === editingGameId) : null;
@@ -3923,19 +3935,13 @@ function renderLogForm() {
         )
         .join("")}</select></label>
       <label>My seat<select name="mySeat"><option value="">—</option>${seatOptions(editing?.mySeat)}</select></label>
-      <label>Winning seat<select name="winnerSeat"><option value="">—</option>${seatOptions(editing?.winnerSeat)}</select></label>
       <fieldset class="pod-fieldset">
         <legend>Pod</legend>
         ${[1, 2, 3, 4]
           .map(
             (seat) => `
           <div class="pod-seat-row" data-opponent-seat="${seat}">
-            <label class="pod-player"><span class="pod-field-label">${podSlotPlayerLabel(seat, formMySeat)}</span>
-              <div class="opponent-input-wrap">
-                <input type="text" class="player-input" name="player-${seat}" value="${escapeHtml(playerName(editing, seat))}" placeholder="Player name" autocomplete="off" />
-                <ul class="opponent-suggestions" hidden role="listbox"></ul>
-              </div>
-            </label>
+            ${renderPodPlayerLabel(seat, formMySeat, editing)}
             <label class="pod-commander"><span class="pod-field-label">${podSlotCommanderLabel(seat, formMySeat)}</span>
               <div class="opponent-input-wrap">
                 <input type="text" class="opponent-input" name="opponent-${seat}" value="${escapeHtml(opponentName(editing, seat))}" placeholder="Commander name" autocomplete="off" />
@@ -4004,7 +4010,7 @@ function parseGameForm(fd) {
     if (mySeat) return [{ seat: slot, name, ...(player ? { player } : {}) }];
     return [{ name, ...(player ? { player } : {}) }];
   });
-  const winnerSeatRaw = fd.get("winnerSeat");
+  const winnerPodSlotRaw = fd.get("winnerPodSlot");
   const turnRaw = fd.get("turn");
   const timeRaw = fd.get("time");
 
@@ -4030,11 +4036,9 @@ function parseGameForm(fd) {
     if (myPlayer) game.myPlayer = myPlayer;
   }
   game.opponents = opponents;
-  if (winnerSeatRaw) {
-    game.winnerSeat = Number(winnerSeatRaw);
-    if (mySeatRaw) {
-      game.result = Number(winnerSeatRaw) === Number(mySeatRaw) ? "Win" : "Loss";
-    }
+  game.result = fd.get("result") === "Loss" ? "Loss" : "Win";
+  if (game.result === "Loss" && winnerPodSlotRaw) {
+    game.winnerPodSlot = String(winnerPodSlotRaw);
   }
   if (turnRaw !== null && String(turnRaw).trim() !== "") {
     const turn = Number(turnRaw);
@@ -4068,7 +4072,7 @@ function buildGameRecordFromPayload(payload, gameId, existing = null) {
     if (payload.myPlayer) record.myPlayer = payload.myPlayer;
   }
   if (payload.opponents !== undefined) record.opponents = payload.opponents;
-  if (payload.winnerSeat) record.winnerSeat = payload.winnerSeat;
+  if (payload.winnerPodSlot) record.winnerPodSlot = payload.winnerPodSlot;
   if (payload.turn) record.turn = payload.turn;
   if (payload.time) record.time = payload.time;
   if (payload.bracket) record.bracket = payload.bracket;
@@ -4123,34 +4127,29 @@ function fillLogForm({ deck, result }) {
   if (!form) return;
   const deckSelect = form.querySelector('[name="deck"]');
   const resultInput = form.querySelector(`[name="result"][value="${result}"]`);
-  const winnerSeat = Number(form.querySelector('[name="winnerSeat"]')?.value) || 0;
   if (deckSelect) deckSelect.value = deck;
   syncBracketFromDeck();
-  if (winnerSeat === 0 && resultInput) resultInput.checked = true;
+  if (resultInput) resultInput.checked = true;
+  if (result === "Win") clearWinnerPodSlotToggles(form);
   form.querySelector('[name="date"]')?.focus();
   syncPodFormSeats();
-  syncResultFromSeats();
 }
 
-function syncResultFromSeats() {
+function clearWinnerPodSlotToggles(form) {
+  form.querySelectorAll('[name="winnerPodSlot"]').forEach((input) => {
+    input.checked = false;
+  });
+}
+
+function syncResultFromWinnerToggle() {
   const form = document.getElementById("add-game-form");
   if (!form) return;
-
-  const mySeat = Number(form.querySelector('[name="mySeat"]')?.value) || 0;
-  const winnerSeat = Number(form.querySelector('[name="winnerSeat"]')?.value) || 0;
-  const winInput = form.querySelector('[name="result"][value="Win"]');
+  const checked = form.querySelector('[name="winnerPodSlot"]:checked');
   const lossInput = form.querySelector('[name="result"][value="Loss"]');
-  const toggle = form.querySelector(".result-toggle");
-  const locked = winnerSeat > 0;
-
-  if (toggle) toggle.classList.toggle("result-locked", locked);
-  if (winInput) winInput.disabled = locked;
-  if (lossInput) lossInput.disabled = locked;
-
-  if (locked && mySeat > 0) {
-    const isWin = winnerSeat === mySeat;
-    if (winInput) winInput.checked = isWin;
-    if (lossInput) lossInput.checked = !isWin;
+  const winInput = form.querySelector('[name="result"][value="Win"]');
+  if (checked && lossInput) {
+    lossInput.checked = true;
+    if (winInput) winInput.checked = false;
   }
 }
 

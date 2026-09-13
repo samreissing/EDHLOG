@@ -67,6 +67,43 @@ export function podSlotCommanderLabel(slot, mySeat) {
   return `Commander ${POD_SLOT_LETTERS[slot - 1] || slot}`;
 }
 
+/** @param {number} slot @param {number} mySeat @param {boolean} [isMeRow] */
+export function podRowWinnerKey(slot, mySeat, isMeRow = false) {
+  if (isMeRow) return "w";
+  if (mySeat >= 1 && mySeat <= 4) return String(slot);
+  return POD_SLOT_LETTERS[slot - 1] || String(slot);
+}
+
+/** @param {import('./store.js').Game} game */
+export function opponentWinnerPodSlot(game) {
+  if (game.result === "Win") return null;
+  if (game.winnerPodSlot) return String(game.winnerPodSlot);
+  if (!game.winnerSeat) return null;
+  if (gameHasMySeat(game)) return String(Number(game.winnerSeat));
+  const index = Number(game.winnerSeat) - 1;
+  return POD_SLOT_LETTERS[index] || String(game.winnerSeat);
+}
+
+/** @param {import('./store.js').Game} game @param {number} slot @param {number} mySeat @param {boolean} [isMeRow] */
+export function podRowOutcomeClass(game, slot, mySeat, isMeRow = false) {
+  const rowKey = podRowWinnerKey(slot, mySeat, isMeRow);
+  if (game.result === "Win") {
+    return isMeRow ? "pod-seat-win" : "pod-seat-loss";
+  }
+  const winnerKey = opponentWinnerPodSlot(game);
+  if (!winnerKey) return isMeRow ? "pod-seat-loss" : "";
+  return rowKey === winnerKey ? "pod-seat-win" : "pod-seat-loss";
+}
+
+/** @param {import('./store.js').Game} game @param {number} opponentIndex @param {import('./store.js').Game['opponents'][number]} opp */
+function opponentDidWin(game, opponentIndex, opp) {
+  if (game.result === "Win") return false;
+  const winnerKey = opponentWinnerPodSlot(game);
+  if (!winnerKey) return false;
+  if (gameHasMySeat(game)) return winnerKey === String(Number(opp.seat));
+  return winnerKey === (POD_SLOT_LETTERS[opponentIndex] || "");
+}
+
 /** @typedef {{ seat: number, player: string, deck: string, commander: string, deckSlotId?: string, didWin: boolean }} GameSeat */
 
 function normalizeKey(value) {
@@ -96,29 +133,27 @@ export function parseGameSeats(game, decks = null) {
       ? resolveMyCommander(game, decks)
       : String(game.myCommander || "").trim() || deckSlotId;
     const seat = Number(game.mySeat) || 0;
-    const winnerSeat = winnerSeatForGame(game);
     seats.push({
       seat,
       player,
       deck: commander,
       deckSlotId,
       commander,
-      didWin: winnerSeat ? winnerSeat === seat : game.result === "Win",
+      didWin: game.result === "Win",
     });
   }
 
-  for (const opp of game.opponents || []) {
+  for (const [index, opp] of (game.opponents || []).entries()) {
     const commander = String(opp.name || "").trim();
     if (!commander) continue;
     const player = String(opp.player || "").trim();
     const seat = Number(opp.seat) || 0;
-    const winnerSeat = winnerSeatForGame(game);
     seats.push({
       seat,
       player,
       deck: commander,
       commander,
-      didWin: winnerSeat ? winnerSeat === seat : false,
+      didWin: opponentDidWin(game, index, opp),
     });
   }
 
@@ -139,8 +174,14 @@ export function collectAllPodCommanderNames(games) {
 
 /** @param {import('./store.js').Game} game */
 function winnerSeatForGame(game) {
-  if (game.winnerSeat) return Number(game.winnerSeat);
-  if (game.mySeat && game.result === "Win") return Number(game.mySeat);
+  if (game.result === "Win" && gameHasMySeat(game)) return Number(game.mySeat);
+  if (game.result === "Loss" && gameHasMySeat(game)) {
+    const winnerKey = opponentWinnerPodSlot(game);
+    if (winnerKey) return Number(winnerKey);
+  }
+  if (game.result === "Loss" && game.winnerSeat && gameHasMySeat(game)) {
+    return Number(game.winnerSeat);
+  }
   return 0;
 }
 
