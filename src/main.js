@@ -132,7 +132,9 @@ import {
   matchupImpactClass,
   MATCHUP_TABS,
   collectAllPodCommanderNames,
-  gameUsesSeatNumbers,
+  gameHasMySeat,
+  nonMySeatNumbers,
+  opponentEntryForPodSlot,
   podFormSlots,
   podSlotCommanderLabel,
   podSlotPlayerLabel,
@@ -1409,6 +1411,10 @@ function bindEvents() {
     if (e.target.name === "deck") {
       syncBracketFromDeck();
     } else if (e.target.name === "mySeat") {
+      const form = document.getElementById("add-game-form");
+      const prev = Number(form?.dataset.prevMySeat) || 0;
+      const next = Number(e.target.value) || 0;
+      if (form && prev !== next) remapPodFormSeats(form, prev, next);
       syncPodFormSeats();
       syncResultFromSeats();
     } else if (e.target.name === "winnerSeat") {
@@ -3663,22 +3669,66 @@ function seatOptions(selected = "") {
 }
 
 function opponentName(game, slot) {
-  if (!game?.opponents) return "";
-  if (gameUsesSeatNumbers(game)) {
-    const row = game.opponents.find((o) => Number(o.seat) === slot);
-    return row?.name || "";
+  if (!game) return "";
+  if (gameHasMySeat(game)) {
+    if (Number(game.mySeat) === slot) return "";
+    return opponentEntryForPodSlot(game, slot)?.name || "";
   }
-  return game.opponents[slot - 1]?.name || "";
+  return game.opponents?.[slot - 1]?.name || "";
 }
 
 function playerName(game, slot) {
   if (!game) return "";
-  if (gameUsesSeatNumbers(game)) {
-    if (game.mySeat === slot && game.myPlayer) return game.myPlayer;
-    const row = game.opponents?.find((o) => Number(o.seat) === slot);
-    return row?.player || "";
+  if (gameHasMySeat(game)) {
+    if (Number(game.mySeat) === slot) return game.myPlayer || "";
+    return opponentEntryForPodSlot(game, slot)?.player || "";
   }
   return game.opponents?.[slot - 1]?.player || "";
+}
+
+function readPodSlot(form, slot) {
+  return {
+    player: String(form.querySelector(`[name="player-${slot}"]`)?.value || "").trim(),
+    commander: String(form.querySelector(`[name="opponent-${slot}"]`)?.value || "").trim(),
+  };
+}
+
+function writePodSlot(form, slot, { player, commander }) {
+  const playerInput = form.querySelector(`[name="player-${slot}"]`);
+  const commanderInput = form.querySelector(`[name="opponent-${slot}"]`);
+  if (playerInput) playerInput.value = player;
+  if (commanderInput) commanderInput.value = commander;
+}
+
+function clearPodSlot(form, slot) {
+  writePodSlot(form, slot, { player: "", commander: "" });
+}
+
+function collectPodEntries(form, mySeat) {
+  const entries = [];
+  for (const slot of podFormSlots(mySeat)) {
+    if (mySeat && slot === mySeat) continue;
+    const entry = readPodSlot(form, slot);
+    if (entry.player || entry.commander) entries.push(entry);
+  }
+  return entries;
+}
+
+function remapPodFormSeats(form, prevMySeat, nextMySeat) {
+  const entries = collectPodEntries(form, prevMySeat);
+  for (let slot = 1; slot <= 4; slot += 1) clearPodSlot(form, slot);
+
+  if (nextMySeat) {
+    const targets = nonMySeatNumbers(nextMySeat);
+    entries.forEach((entry, index) => {
+      if (targets[index]) writePodSlot(form, targets[index], entry);
+    });
+    return;
+  }
+
+  entries.forEach((entry, index) => {
+    if (index < 3) writePodSlot(form, index + 1, entry);
+  });
 }
 
 function fieldValue(value, placeholder = "—") {
@@ -3834,7 +3884,7 @@ function renderLogForm() {
   const formMySeat = editing?.mySeat ? Number(editing.mySeat) : 0;
 
   return `
-    <form id="add-game-form" class="game-form">
+    <form id="add-game-form" class="game-form" data-prev-my-seat="${formMySeat}">
       ${editing ? `<input type="hidden" name="gameId" value="${escapeHtml(editing.id)}" />` : ""}
       <div class="game-form-row game-form-row-split">
         <label>Date<input type="date" name="date" value="${dateVal}" required /></label>
@@ -4108,6 +4158,7 @@ function syncPodFormSeats() {
   const mySeat = Number(form.querySelector('[name="mySeat"]')?.value) || 0;
   const fieldset = form.querySelector(".pod-fieldset");
   if (fieldset) fieldset.hidden = false;
+  form.dataset.prevMySeat = String(mySeat);
 
   form.querySelectorAll("[data-opponent-seat]").forEach((row) => {
     const seat = Number(row.dataset.opponentSeat);
@@ -4118,18 +4169,6 @@ function syncPodFormSeats() {
     const commanderLabel = row.querySelector(".pod-commander .pod-field-label");
     if (playerLabel) playerLabel.textContent = podSlotPlayerLabel(seat, mySeat);
     if (commanderLabel) commanderLabel.textContent = podSlotCommanderLabel(seat, mySeat);
-    if (isMySeat) {
-      const playerInput = row.querySelector(".player-input");
-      const commanderInput = row.querySelector(".opponent-input");
-      if (playerInput) {
-        playerInput.value = "";
-        playerInput.closest(".opponent-input-wrap")?.querySelector(".opponent-suggestions")?.setAttribute("hidden", "");
-      }
-      if (commanderInput) {
-        commanderInput.value = "";
-        commanderInput.closest(".opponent-input-wrap")?.querySelector(".opponent-suggestions")?.setAttribute("hidden", "");
-      }
-    }
   });
 }
 

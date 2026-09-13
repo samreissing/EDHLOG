@@ -23,6 +23,38 @@ export function podFormSlots(mySeat) {
   return mySeat >= 1 && mySeat <= 4 ? [1, 2, 3, 4] : [1, 2, 3];
 }
 
+/** @param {number} mySeat */
+export function nonMySeatNumbers(mySeat) {
+  return [1, 2, 3, 4].filter((seat) => seat !== mySeat);
+}
+
+/** @param {import('./store.js').Game | null | undefined} game */
+export function gameHasMySeat(game) {
+  const mySeat = Number(game?.mySeat);
+  return Number.isInteger(mySeat) && mySeat >= 1 && mySeat <= 4;
+}
+
+/** @param {import('./store.js').Game} game @param {number} slot */
+export function opponentEntryForPodSlot(game, slot) {
+  if (!gameHasMySeat(game)) {
+    return game.opponents?.[slot - 1] || null;
+  }
+
+  const mySeat = Number(game.mySeat);
+  if (slot === mySeat) return null;
+
+  const bySeat = (game.opponents || []).find((opp) => Number(opp.seat) === slot);
+  if (bySeat) return bySeat;
+
+  const unseated = (game.opponents || []).filter((opp) => {
+    const seat = Number(opp.seat);
+    return !(Number.isInteger(seat) && seat >= 1 && seat <= 4);
+  });
+  const targets = nonMySeatNumbers(mySeat);
+  const index = targets.indexOf(slot);
+  return index >= 0 ? unseated[index] || null : null;
+}
+
 /** @param {number} slot @param {number} mySeat */
 export function podSlotPlayerLabel(slot, mySeat) {
   if (mySeat >= 1 && mySeat <= 4) return `Player ${slot}`;
@@ -49,12 +81,7 @@ function isMySeat(seat) {
 
 /** @param {import('./store.js').Game} game */
 export function gameUsesSeatNumbers(game) {
-  const mySeat = Number(game.mySeat);
-  if (Number.isInteger(mySeat) && mySeat >= 1 && mySeat <= 4) return true;
-  return (game.opponents || []).some((opp) => {
-    const seat = Number(opp.seat);
-    return Number.isInteger(seat) && seat >= 1 && seat <= 4;
-  });
+  return gameHasMySeat(game);
 }
 
 /** @param {import('./store.js').Game} game @param {import('./store.js').Deck[] | null} [decks] */
