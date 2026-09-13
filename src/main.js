@@ -3870,29 +3870,31 @@ function recentDecksPlayed(deckStats, limit = 5) {
   return recent;
 }
 
-function renderPodWinnerToggle(slotKey, editing, formMySeat) {
+function renderPodSeatRow(seat, formMySeat, editing) {
+  const slotKey = podRowWinnerKey(seat, formMySeat, false);
   const selected =
     editing?.result === "Loss" && opponentWinnerPodSlot(editing) === slotKey;
   return `
-      <label class="pod-winner-toggle">
-        <input type="radio" name="winnerPodSlot" value="${escapeHtml(slotKey)}" ${selected ? "checked" : ""} />
-        <span>Mark as winner</span>
-      </label>`;
-}
-
-function renderPodPlayerLabel(slot, formMySeat, editing) {
-  const slotKey = podRowWinnerKey(slot, formMySeat, false);
-  return `
+          <div class="pod-seat-row" data-opponent-seat="${seat}">
+            <span class="pod-field-label pod-player-label" data-pod-player-label>${podSlotPlayerLabel(seat, formMySeat)}</span>
+            <label class="pod-winner-btn-wrap">
+              <input type="radio" name="winnerPodSlot" value="${escapeHtml(slotKey)}" ${selected ? "checked" : ""} />
+              <span class="btn btn-ghost btn-sm pod-winner-btn">Mark as winner</span>
+            </label>
+            <span class="pod-field-label pod-commander-label" data-pod-commander-label>${podSlotCommanderLabel(seat, formMySeat)}</span>
             <label class="pod-player">
-              <span class="pod-field-header">
-                <span class="pod-field-label">${podSlotPlayerLabel(slot, formMySeat)}</span>
-                ${renderPodWinnerToggle(slotKey, editing, formMySeat)}
-              </span>
               <div class="opponent-input-wrap">
-                <input type="text" class="player-input" name="player-${slot}" value="${escapeHtml(playerName(editing, slot))}" placeholder="Player name" autocomplete="off" />
+                <input type="text" class="player-input" name="player-${seat}" value="${escapeHtml(playerName(editing, seat))}" placeholder="Player name" autocomplete="off" />
                 <ul class="opponent-suggestions" hidden role="listbox"></ul>
               </div>
-            </label>`;
+            </label>
+            <label class="pod-commander">
+              <div class="opponent-input-wrap">
+                <input type="text" class="opponent-input" name="opponent-${seat}" value="${escapeHtml(opponentName(editing, seat))}" placeholder="Commander name" autocomplete="off" />
+                <ul class="opponent-suggestions" hidden role="listbox"></ul>
+              </div>
+            </label>
+          </div>`;
 }
 
 function renderLogForm() {
@@ -3938,18 +3940,7 @@ function renderLogForm() {
       <fieldset class="pod-fieldset">
         <legend>Pod</legend>
         ${[1, 2, 3, 4]
-          .map(
-            (seat) => `
-          <div class="pod-seat-row" data-opponent-seat="${seat}">
-            ${renderPodPlayerLabel(seat, formMySeat, editing)}
-            <label class="pod-commander"><span class="pod-field-label">${podSlotCommanderLabel(seat, formMySeat)}</span>
-              <div class="opponent-input-wrap">
-                <input type="text" class="opponent-input" name="opponent-${seat}" value="${escapeHtml(opponentName(editing, seat))}" placeholder="Commander name" autocomplete="off" />
-                <ul class="opponent-suggestions" hidden role="listbox"></ul>
-              </div>
-            </label>
-          </div>`
-          )
+          .map((seat) => renderPodSeatRow(seat, formMySeat, editing))
           .join("")}
       </fieldset>
       <label>Result
@@ -4179,8 +4170,8 @@ function syncPodFormSeats() {
     const isMySeat = mySeat > 0 && seat === mySeat;
     const isExtraOpponentSlot = mySeat === 0 && seat === 4;
     row.hidden = isMySeat || isExtraOpponentSlot;
-    const playerLabel = row.querySelector(".pod-player .pod-field-label");
-    const commanderLabel = row.querySelector(".pod-commander .pod-field-label");
+    const playerLabel = row.querySelector("[data-pod-player-label]");
+    const commanderLabel = row.querySelector("[data-pod-commander-label]");
     if (playerLabel) playerLabel.textContent = podSlotPlayerLabel(seat, mySeat);
     if (commanderLabel) commanderLabel.textContent = podSlotCommanderLabel(seat, mySeat);
   });

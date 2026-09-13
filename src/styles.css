@@ -2016,9 +2016,37 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 
 .pod-seat-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: 0.75rem;
+  row-gap: 0.35rem;
   margin-bottom: 0.75rem;
+  align-items: center;
+}
+
+.pod-player-label {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.pod-winner-btn-wrap {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.pod-commander-label {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.pod-player {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.pod-commander {
+  grid-column: 3;
+  grid-row: 2;
 }
 
 .pod-seat-row:last-child {
@@ -2028,48 +2056,46 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .pod-player,
 .pod-commander {
   display: block;
-  font-size: 0.9rem;
-  color: var(--muted);
+  min-width: 0;
+  margin: 0;
 }
 
 .pod-field-label {
   display: block;
-  margin-bottom: 0.35rem;
-}
-
-.pod-field-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 0.35rem;
-}
-
-.pod-field-header .pod-field-label {
-  margin-bottom: 0;
-}
-
-.pod-winner-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.72rem;
+  font-size: 0.9rem;
+  line-height: 1.25rem;
   color: var(--muted);
-  cursor: pointer;
-  white-space: nowrap;
 }
 
-.pod-winner-toggle input {
+.pod-winner-btn-wrap {
+  position: relative;
+  display: inline-flex;
   margin: 0;
 }
 
-.pod-winner-toggle span {
-  line-height: 1.2;
+.pod-winner-btn-wrap input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  width: 0;
+  height: 0;
+}
+
+.pod-winner-btn {
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+
+.pod-winner-btn-wrap input:checked + .pod-winner-btn {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(91, 159, 212, 0.12);
 }
 
 .pod-player .opponent-input-wrap,
 .pod-commander .opponent-input-wrap {
-  margin-top: 0.35rem;
+  margin-top: 0;
 }
 
 .pod-seat-row[hidden] {
