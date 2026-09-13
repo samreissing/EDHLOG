@@ -3836,6 +3836,10 @@ function renderGameDetail(game) {
         ${myPodRow}${opponentRows}
       </fieldset>`
     : "";
+  const isWin = game.result === "Win";
+  const resultSection = hasPodPlayers
+    ? podSection
+    : `<div class="game-detail-result ${isWin ? "game-detail-result-win" : "game-detail-result-loss"}">${isWin ? "Win" : "Loss"}</div>`;
   return `
     <div class="game-form game-form-readonly game-detail-view">
       <div class="game-form-row game-form-row-split">
@@ -3846,7 +3850,7 @@ function renderGameDetail(game) {
         <label>Bracket${fieldValue(bracket)}</label>
         <label>Turn Ended${fieldValue(turn)}</label>
       </div>
-      ${podSection}
+      ${resultSection}
     </div>`;
 }
 
