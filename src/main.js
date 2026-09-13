@@ -133,6 +133,7 @@ import {
   MATCHUP_TABS,
   collectAllPodCommanderNames,
   gameUsesSeatNumbers,
+  podFormSlots,
   podSlotCommanderLabel,
   podSlotPlayerLabel,
 } from "./matchups.js";
@@ -3769,6 +3770,7 @@ function renderGameDetail(game) {
   const bracket = gameBracket(game, deckMapByKey(data.decks));
   const turn = Number(game.turn) > 0 ? String(game.turn) : "—";
   const mySeat = Number(game.mySeat) || 0;
+  const podSlots = podFormSlots(mySeat);
   return `
     <div class="game-form game-form-readonly game-detail-view">
       <div class="game-form-row game-form-row-split">
@@ -3781,7 +3783,7 @@ function renderGameDetail(game) {
       </div>
       <fieldset class="pod-fieldset">
         <legend>Pod</legend>
-        ${[1, 2, 3, 4]
+        ${podSlots
           .map(
             (seat) => `
           <div class="pod-seat-row ${seatOutcomeClass(game, seat)}">
@@ -3929,7 +3931,7 @@ function gameRow(g) {
 function parseGameForm(fd) {
   const mySeatRaw = fd.get("mySeat");
   const mySeat = mySeatRaw ? Number(mySeatRaw) : 0;
-  const opponents = [1, 2, 3, 4].flatMap((slot) => {
+  const opponents = podFormSlots(mySeat).flatMap((slot) => {
     if (mySeat && slot === mySeat) return [];
     const name = String(fd.get(`opponent-${slot}`) || "").trim();
     const player = String(fd.get(`player-${slot}`) || "").trim();
@@ -4110,7 +4112,8 @@ function syncPodFormSeats() {
   form.querySelectorAll("[data-opponent-seat]").forEach((row) => {
     const seat = Number(row.dataset.opponentSeat);
     const isMySeat = mySeat > 0 && seat === mySeat;
-    row.hidden = isMySeat;
+    const isExtraOpponentSlot = mySeat === 0 && seat === 4;
+    row.hidden = isMySeat || isExtraOpponentSlot;
     const playerLabel = row.querySelector(".pod-player .pod-field-label");
     const commanderLabel = row.querySelector(".pod-commander .pod-field-label");
     if (playerLabel) playerLabel.textContent = podSlotPlayerLabel(seat, mySeat);
