@@ -2346,10 +2346,12 @@ function render() {
     syncPodFormSeats();
     syncResultFromWinnerToggle();
     syncBracketFromDeck();
+    const gameForm = document.getElementById("add-game-form");
+    bindGameDeckSelect(gameForm);
     const decksForPodSearch = editingGameId
       ? data.decks
       : data.decks.filter((d) => !d.retired);
-    bindPodAutocomplete(document.getElementById("add-game-form"), data.games, decksForPodSearch);
+    bindPodAutocomplete(gameForm, data.games, decksForPodSearch);
   }
   syncEntityReportModal();
 
@@ -3936,13 +3938,23 @@ function renderLogForm() {
           .join("")}</select></label>
         <label>Turn ended<input type="number" name="turn" min="0" step="1" placeholder="Optional (blank or 0 = none)" value="${editing?.turn ?? ""}" /></label>
       </div>
-      <label>My deck<select name="deck" required><option value="">Select…</option>${decks
+      <div class="game-form-row game-form-row-split">
+        <label class="game-form-deck-label">My deck
+          <div class="game-deck-select">
+            <select name="deck" class="game-deck-select-native" required><option value="">Select…</option>${decks
         .map(
           (d) =>
             `<option value="${escapeHtml(deckId(d))}" data-bracket="${d.bracket}" ${editing?.deck === deckId(d) ? "selected" : ""}>${escapeHtml(deckTitle(d))}</option>`
         )
-        .join("")}</select></label>
-      <label>My seat<select name="mySeat"><option value="">—</option>${seatOptions(editing?.mySeat)}</select></label>
+        .join("")}</select>
+            <button type="button" class="game-deck-select-trigger" aria-haspopup="listbox" aria-expanded="false">
+              <span class="game-deck-select-value">Select…</span>
+            </button>
+            <ul class="game-deck-select-menu" role="listbox" hidden></ul>
+          </div>
+        </label>
+        <label>My seat<select name="mySeat"><option value="">—</option>${seatOptions(editing?.mySeat)}</select></label>
+      </div>
       <fieldset class="pod-fieldset">
         <legend>Pod</legend>
         ${[1, 2, 3, 4]
@@ -4125,6 +4137,7 @@ function fillLogForm({ deck, result }) {
   const deckSelect = form.querySelector('[name="deck"]');
   const resultInput = form.querySelector(`[name="result"][value="${result}"]`);
   if (deckSelect) deckSelect.value = deck;
+  refreshGameDeckSelect(form);
   syncBracketFromDeck();
   if (resultInput) resultInput.checked = true;
   if (result === "Win") clearWinnerPodSlotToggles(form);
@@ -4181,6 +4194,66 @@ function syncPodFormSeats() {
     if (playerLabel) playerLabel.textContent = podSlotPlayerLabel(seat, mySeat);
     if (commanderLabel) commanderLabel.textContent = podSlotCommanderLabel(seat, mySeat);
   });
+}
+
+function refreshGameDeckSelect(form) {
+  const wrap = form?.querySelector(".game-deck-select");
+  const select = wrap?.querySelector(".game-deck-select-native");
+  const valueEl = wrap?.querySelector(".game-deck-select-value");
+  if (!select || !valueEl) return;
+  const opt = select.selectedOptions[0];
+  valueEl.textContent = opt?.textContent?.trim() || "Select…";
+}
+
+function bindGameDeckSelect(form) {
+  const wrap = form?.querySelector(".game-deck-select");
+  if (!wrap || wrap.dataset.bound) return;
+  wrap.dataset.bound = "1";
+
+  const select = wrap.querySelector(".game-deck-select-native");
+  const trigger = wrap.querySelector(".game-deck-select-trigger");
+  const menu = wrap.querySelector(".game-deck-select-menu");
+  if (!select || !trigger || !menu) return;
+
+  function closeMenu() {
+    menu.hidden = true;
+    trigger.setAttribute("aria-expanded", "false");
+  }
+
+  function openMenu() {
+    menu.innerHTML = "";
+    for (const opt of select.options) {
+      const item = document.createElement("li");
+      item.setAttribute("role", "option");
+      item.dataset.value = opt.value;
+      item.textContent = opt.textContent;
+      if (opt.selected) item.setAttribute("aria-selected", "true");
+      menu.appendChild(item);
+    }
+    menu.hidden = false;
+    trigger.setAttribute("aria-expanded", "true");
+  }
+
+  trigger.addEventListener("click", (e) => {
+    e.preventDefault();
+    if (menu.hidden) openMenu();
+    else closeMenu();
+  });
+
+  menu.addEventListener("click", (e) => {
+    const item = e.target.closest('[role="option"]');
+    if (!item) return;
+    select.value = item.dataset.value;
+    refreshGameDeckSelect(form);
+    closeMenu();
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!wrap.contains(e.target)) closeMenu();
+  });
+
+  refreshGameDeckSelect(form);
 }
 
 function toast(msg, isError = false) {
