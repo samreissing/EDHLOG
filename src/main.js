@@ -3820,7 +3820,33 @@ function renderGameDetail(game) {
   const bracket = gameBracket(game, deckMapByKey(data.decks));
   const turn = Number(game.turn) > 0 ? String(game.turn) : "—";
   const mySeat = Number(game.mySeat) || 0;
+  const hasPodPlayers = gameHasPodDetail(game);
   const podSlots = podFormSlots(mySeat);
+  const myCommander = resolveMyCommander(game, data.decks);
+  const myPodRow =
+    hasPodPlayers && !gameHasMySeat(game)
+      ? `
+          <div class="pod-seat-row ${game.result === "Win" ? "pod-seat-win" : "pod-seat-loss"}">
+            <label class="pod-player">Player w${fieldValueLink(MY_PLAYER_NAME)}</label>
+            <label class="pod-commander">Commander w<span class="field-value">${renderDeckReportLink(myCommander, data.decks, { label: myCommander, playerScope: MY_PLAYER_NAME, deckSlotId: game.deck })}</span></label>
+          </div>`
+      : "";
+  const opponentRows = podSlots
+    .map(
+      (seat) => `
+          <div class="pod-seat-row ${seatOutcomeClass(game, seat)}">
+            <label class="pod-player">${podSlotPlayerLabel(seat, mySeat)}${fieldValueLink(podPlayerName(game, seat))}</label>
+            <label class="pod-commander">${podSlotCommanderLabel(seat, mySeat)}${fieldValueLink(podCommanderName(game, seat), "deck", game, seat)}</label>
+          </div>`
+    )
+    .join("");
+  const podSection = hasPodPlayers
+    ? `
+      <fieldset class="pod-fieldset">
+        <legend>Pod</legend>
+        ${myPodRow}${opponentRows}
+      </fieldset>`
+    : "";
   return `
     <div class="game-form game-form-readonly game-detail-view">
       <div class="game-form-row game-form-row-split">
@@ -3831,18 +3857,7 @@ function renderGameDetail(game) {
         <label>Bracket${fieldValue(bracket)}</label>
         <label>Turn Ended${fieldValue(turn)}</label>
       </div>
-      <fieldset class="pod-fieldset">
-        <legend>Pod</legend>
-        ${podSlots
-          .map(
-            (seat) => `
-          <div class="pod-seat-row ${seatOutcomeClass(game, seat)}">
-            <label class="pod-player">${podSlotPlayerLabel(seat, mySeat)}${fieldValueLink(podPlayerName(game, seat))}</label>
-            <label class="pod-commander">${podSlotCommanderLabel(seat, mySeat)}${fieldValueLink(podCommanderName(game, seat), "deck", game, seat)}</label>
-          </div>`
-          )
-          .join("")}
-      </fieldset>
+      ${podSection}
     </div>`;
 }
 
