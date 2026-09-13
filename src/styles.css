@@ -2016,37 +2016,24 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 
 .pod-seat-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  grid-template-rows: auto auto;
-  column-gap: 0.75rem;
-  row-gap: 0.35rem;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.75rem;
   margin-bottom: 0.75rem;
+}
+
+.pod-player-col,
+.pod-commander-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.pod-player-header {
+  display: flex;
   align-items: center;
-}
-
-.pod-player-label {
-  grid-column: 1;
-  grid-row: 1;
-}
-
-.pod-winner-btn-wrap {
-  grid-column: 2;
-  grid-row: 1;
-}
-
-.pod-commander-label {
-  grid-column: 3;
-  grid-row: 1;
-}
-
-.pod-player {
-  grid-column: 1;
-  grid-row: 2;
-}
-
-.pod-commander {
-  grid-column: 3;
-  grid-row: 2;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .pod-seat-row:last-child {
@@ -2067,10 +2054,15 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   color: var(--muted);
 }
 
+.pod-player-header .pod-field-label {
+  display: inline-block;
+}
+
 .pod-winner-btn-wrap {
   position: relative;
   display: inline-flex;
   margin: 0;
+  flex-shrink: 0;
 }
 
 .pod-winner-btn-wrap input {
