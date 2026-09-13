@@ -2462,6 +2462,19 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   gap: 0.5rem;
 }
 
+.footer-storage {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: min(100%, 28rem);
+}
+
+.storage-file-warning {
+  color: color-mix(in srgb, var(--accent) 72%, var(--text));
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
 /* Toast */
 .toast {
   position: fixed;
