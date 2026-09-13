@@ -2037,6 +2037,36 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   margin-bottom: 0.35rem;
 }
 
+.pod-field-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.35rem;
+}
+
+.pod-field-header .pod-field-label {
+  margin-bottom: 0;
+}
+
+.pod-winner-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.pod-winner-toggle input {
+  margin: 0;
+}
+
+.pod-winner-toggle span {
+  line-height: 1.2;
+}
+
 .pod-player .opponent-input-wrap,
 .pod-commander .opponent-input-wrap {
   margin-top: 0.35rem;

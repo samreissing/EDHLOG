@@ -18,6 +18,10 @@ export const SEAT_VIEW_LABELS = {
 
 /** @param {import('./store.js').Game} game */
 export function explicitWinnerSeat(game) {
+  if (game.result === "Win" && mySeatForGame(game)) return mySeatForGame(game);
+  if (game.result === "Loss" && game.winnerPodSlot && mySeatForGame(game)) {
+    return Number(game.winnerPodSlot);
+  }
   if (game.winnerSeat) return Number(game.winnerSeat);
   if (game.mySeat && game.result === "Win") return Number(game.mySeat);
   return 0;

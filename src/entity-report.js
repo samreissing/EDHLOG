@@ -1,4 +1,14 @@
-import { gameUsesSeatNumbers, parseGameSeats, POD_SLOT_LETTERS } from "./matchups.js";
+import {
+  gameUsesSeatNumbers,
+  opponentWinnerPodSlot,
+  parseGameSeats,
+  POD_SLOT_LETTERS,
+  podFormSlots,
+  podRowOutcomeClass,
+  podRowWinnerKey,
+  podSlotCommanderLabel,
+  podSlotPlayerLabel,
+} from "./matchups.js";
 import {
   calcMatchupImpact,
   calcNormalizedMatchupImpact,
@@ -8,7 +18,7 @@ import {
 } from "./matchups.js";
 import { getCommanderInfo, getCommanderMatchupIdentities, commanderMatchesTarget } from "./commander-names.js";
 import { resolveCommanderColors } from "./commander-colors.js";
-import { deckKey, deckCommander, deckId, deckTitle, findDeck, deckLabelForKey, deckTitleForKey, deckMapByKey } from "./deck-identity.js";
+import { deckKey, deckCommander, deckId, deckTitle, findDeck, deckLabelForKey, deckTitleForKey, deckMapByKey, resolveMyCommander } from "./deck-identity.js";
 import { winRate, normalizedWinRate, computeTurnAverages, gameBracket } from "./stats.js";
 import { compareGamesChronologically, formatDate, gameSortKey, normalizeDate } from "./dates.js";
 import { renderCommanderImageTags, renderEntityDeckCardArt } from "./scryfall.js";
@@ -59,6 +69,13 @@ export function gameHasPodDetail(game) {
 /** @param {import('./store.js').Game[]} games */
 function sortEntityGames(games) {
   return [...games].sort((a, b) => compareGamesChronologically(b, a));
+}
+
+function entityPodRowOutcomeClass(game, slot, mySeat, isMeRow = false) {
+  const cls = podRowOutcomeClass(game, slot, mySeat, isMeRow);
+  if (cls === "pod-seat-win") return "entity-game-seat-win";
+  if (cls === "pod-seat-loss") return "entity-game-seat-loss";
+  return "";
 }
 
 /** @param {import('./store.js').Game[]} games @param {string} playerName @param {import('./store.js').Deck[]} decks */
@@ -1103,19 +1120,33 @@ function renderEntityGamePodCard(game, decks, report, opponentDecks = []) {
       .join("");
   } else {
     const opponents = game.opponents || [];
-    seatBoxes = [0, 1, 2]
-      .map((index) => {
-        const opp = opponents[index];
-        const playerLabel = opp?.player ? renderPlayerReportLink(opp.player) : "—";
-        const commanderLabel = opp?.name ? escapeHtml(opp.name) : "—";
-        return `
-        <div class="entity-game-seat-box">
+    const mySeat = 0;
+    const myCommander = resolveMyCommander(game, decks);
+    const myBox = gameHasPodDetail(game)
+      ? `
+        <div class="entity-game-seat-box ${entityPodRowOutcomeClass(game, 0, mySeat, true)}">
+          <span class="entity-game-seat-num">Player w</span>
+          <span class="entity-game-seat-player">${renderPlayerReportLink(MY_PLAYER_NAME)}</span>
+          <span class="entity-game-seat-commander">${escapeHtml(myCommander)}</span>
+        </div>`
+      : "";
+    seatBoxes =
+      myBox +
+      [0, 1, 2]
+        .map((index) => {
+          const opp = opponents[index];
+          const slot = index + 1;
+          const playerLabel = opp?.player ? renderPlayerReportLink(opp.player) : "—";
+          const commanderLabel = opp?.name ? escapeHtml(opp.name) : "—";
+          const outcomeClass = opp ? entityPodRowOutcomeClass(game, slot, mySeat, false) : "";
+          return `
+        <div class="entity-game-seat-box ${outcomeClass}">
           <span class="entity-game-seat-num">Player ${POD_SLOT_LETTERS[index] || index + 1}</span>
           <span class="entity-game-seat-player">${playerLabel}</span>
           <span class="entity-game-seat-commander">${commanderLabel}</span>
         </div>`;
-      })
-      .join("");
+        })
+        .join("");
   }
 
   const deckMap = deckMapByKey(decks);
