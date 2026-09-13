@@ -16,7 +16,12 @@ export const MATCHUP_TABS = [
   { id: "colors", label: "Color Matchups" },
 ];
 
-export const POD_SLOT_LETTERS = ["x", "y", "z", "w"];
+export const POD_SLOT_LETTERS = ["x", "y", "z"];
+
+/** @param {number} mySeat */
+export function podFormSlots(mySeat) {
+  return mySeat >= 1 && mySeat <= 4 ? [1, 2, 3, 4] : [1, 2, 3];
+}
 
 /** @param {number} slot @param {number} mySeat */
 export function podSlotPlayerLabel(slot, mySeat) {

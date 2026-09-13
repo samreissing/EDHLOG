@@ -1103,7 +1103,7 @@ function renderEntityGamePodCard(game, decks, report, opponentDecks = []) {
       .join("");
   } else {
     const opponents = game.opponents || [];
-    seatBoxes = [0, 1, 2, 3]
+    seatBoxes = [0, 1, 2]
       .map((index) => {
         const opp = opponents[index];
         const playerLabel = opp?.player ? renderPlayerReportLink(opp.player) : "—";
