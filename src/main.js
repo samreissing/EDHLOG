@@ -8,9 +8,21 @@ import {
   nextGameId,
   nextDeckId,
   getLastSeedSync,
+  loadData,
   recordRemovedSeedDeck,
   linkDeckSeedKey,
 } from "./store.js";
+import {
+  chooseDataFile,
+  disconnectDataFile,
+  getDataFileStatus,
+  isDataFileConnected,
+  isDataFileStorageSupported,
+  readConnectedDataFile,
+  reconnectDataFile,
+  requestPersistentBrowserStorage,
+  writeConnectedDataFile,
+} from "./file-storage.js";
 import {
   computeDeckStats,
   computeOverview,
@@ -665,11 +677,92 @@ function ensureRecoverButton() {
   else actions.appendChild(btn);
 }
 
+function updateStorageStatus() {
+  const statusEl = document.getElementById("storage-status");
+  const warningEl = document.getElementById("storage-file-warning");
+  const createBtn = document.getElementById("data-file-create-btn");
+  const openBtn = document.getElementById("data-file-open-btn");
+  const reconnectBtn = document.getElementById("data-file-reconnect-btn");
+  const disconnectBtn = document.getElementById("data-file-disconnect-btn");
+  if (!statusEl) return;
+
+  const fileStatus = getDataFileStatus();
+  const supported = isDataFileStorageSupported();
+
+  if (createBtn) createBtn.hidden = !supported;
+  if (openBtn) openBtn.hidden = !supported;
+
+  if (!supported) {
+    statusEl.textContent = "Data is stored in your browser — export JSON backups regularly.";
+    if (warningEl) warningEl.hidden = true;
+    if (reconnectBtn) reconnectBtn.hidden = true;
+    if (disconnectBtn) disconnectBtn.hidden = true;
+    return;
+  }
+
+  if (fileStatus.connected && fileStatus.fileName) {
+    if (disconnectBtn) disconnectBtn.hidden = false;
+    if (fileStatus.permissionNeeded) {
+      statusEl.textContent = `Data file: ${fileStatus.fileName} (needs permission)`;
+      if (reconnectBtn) reconnectBtn.hidden = false;
+      if (warningEl) {
+        warningEl.textContent = "Click Reconnect file to resume auto-saving.";
+        warningEl.hidden = false;
+      }
+    } else if (fileStatus.lastError) {
+      statusEl.textContent = `Data file: ${fileStatus.fileName}`;
+      if (reconnectBtn) reconnectBtn.hidden = false;
+      if (warningEl) {
+        warningEl.textContent = fileStatus.lastError;
+        warningEl.hidden = false;
+      }
+    } else {
+      statusEl.textContent = `Auto-saving to ${fileStatus.fileName}`;
+      if (reconnectBtn) reconnectBtn.hidden = true;
+      if (warningEl) warningEl.hidden = true;
+    }
+    return;
+  }
+
+  if (disconnectBtn) disconnectBtn.hidden = true;
+  if (reconnectBtn) reconnectBtn.hidden = true;
+  statusEl.textContent =
+    "Browser storage only — create or open a data file (for example D:\\EDHLOG\\edhlog-data.json) so restarts cannot wipe your data.";
+  if (warningEl) {
+    warningEl.textContent = "Recommended: pick a file on your D: drive once, then every save updates that file automatically.";
+    warningEl.hidden = false;
+  }
+}
+
+async function connectDataFile(mode) {
+  try {
+    const handle = await chooseDataFile(mode);
+    const current = loadData();
+    if (current) {
+      await writeConnectedDataFile(current);
+    } else if (mode === "open") {
+      const imported = await readConnectedDataFile();
+      if (imported) {
+        saveData(imported);
+        data = imported;
+      }
+    }
+    updateStorageStatus();
+    render();
+    toast(`Now auto-saving to ${handle.name}`);
+  } catch (err) {
+    if (err?.name === "AbortError") return;
+    toast(String(err?.message || err), true);
+  }
+}
+
 async function boot() {
   sessionStorage.removeItem("edhlog-stale-reload");
+  void requestPersistentBrowserStorage();
   data = await initData();
   const sync = getLastSeedSync();
   ensureRecoverButton();
+  updateStorageStatus();
   bindEvents();
   renderNav();
   render();
@@ -1350,6 +1443,40 @@ function bindEvents() {
   });
 
   document.getElementById("export-btn").addEventListener("click", exportData);
+  document.getElementById("data-file-create-btn")?.addEventListener("click", () => {
+    void connectDataFile("create");
+  });
+  document.getElementById("data-file-open-btn")?.addEventListener("click", () => {
+    void connectDataFile("open");
+  });
+  document.getElementById("data-file-reconnect-btn")?.addEventListener("click", async () => {
+    const ok = await reconnectDataFile();
+    if (!ok) {
+      toast("Could not reconnect to the data file", true);
+      updateStorageStatus();
+      return;
+    }
+    const imported = await readConnectedDataFile();
+    if (imported) {
+      saveData(imported);
+      data = imported;
+      render();
+    }
+    updateStorageStatus();
+    toast("Data file reconnected");
+  });
+  document.getElementById("data-file-disconnect-btn")?.addEventListener("click", async () => {
+    if (
+      !confirm(
+        "Stop auto-saving to the data file? Your data will remain in browser storage only until you connect a file again."
+      )
+    ) {
+      return;
+    }
+    await disconnectDataFile();
+    updateStorageStatus();
+    toast("Using browser storage only");
+  });
   document.getElementById("recover-btn")?.addEventListener("click", () => {
     void openRecoveryModal();
   });
@@ -3890,7 +4017,9 @@ function saveGameFromForm(fd) {
 
   editingGameId = null;
   gameModalOpen = false;
-  downloadDataBackup(data);
+  if (!isDataFileConnected()) {
+    downloadDataBackup(data);
+  }
   toast(gameId ? "Game saved" : `${payload.result} logged`);
   render();
   gameSaveInFlight = false;

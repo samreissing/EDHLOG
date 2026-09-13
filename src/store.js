@@ -1,6 +1,11 @@
 import { appBaseUrl } from "./base-url.js";
 import { normalizeDate, todayISO, backupFileStamp } from "./dates.js";
 import { deckKey, deckCommander, findDeck, resolveDeckCommanderOnDate } from "./deck-identity.js";
+import {
+  readConnectedDataFile,
+  restoreDataFileConnection,
+  writeConnectedDataFile,
+} from "./file-storage.js";
 import { syncOpponentDecksFromGames } from "./opponent-decks.js";
 
 const STORAGE_KEY = "edhlog-data-v1";
@@ -241,15 +246,13 @@ export function syncFromSeed(local, seed) {
 
   const localEditsById = new Map();
   for (const game of local.games) {
-    if (game.source === "local" && seedIds.has(game.id)) {
+    if (seedIds.has(game.id)) {
       localEditsById.set(game.id, game);
     }
   }
 
   // Games logged in the app that are not in the seed spreadsheet.
-  const localOnlyGames = local.games.filter(
-    (game) => game.source === "local" && !seedIds.has(game.id)
-  );
+  const localOnlyGames = local.games.filter((game) => !seedIds.has(game.id));
 
   local.games = seed.games.map((game) => {
     const edit = localEditsById.get(game.id);
@@ -326,14 +329,36 @@ export function loadData() {
   return null;
 }
 
+/** @param {AppData} data */
+function appDataScore(data) {
+  return (data.games?.length || 0) * 1000 + (data.decks?.length || 0);
+}
+
+/** @param {AppData | null | undefined} local @param {AppData | null | undefined} fileData */
+function preferAppDataSource(local, fileData) {
+  if (!fileData) return local;
+  if (!local) return fileData;
+  return appDataScore(fileData) >= appDataScore(local) ? fileData : local;
+}
+
 export async function initData() {
   lastSeedSync = null;
+  await restoreDataFileConnection();
   const seed = await loadSeed();
-  let data = loadData();
+  const localData = loadData();
+  const fileData = await readConnectedDataFile();
+  let data = preferAppDataSource(localData, fileData);
 
   if (!data) {
     saveData(seed);
     return seed;
+  }
+
+  if (fileData && data === fileData && localData && data !== localData) {
+    cache = data;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } else if (localData && data === localData && fileData && appDataScore(localData) > appDataScore(fileData)) {
+    void writeConnectedDataFile(localData);
   }
 
   const seedHash = seed.meta?.seedHash;
@@ -360,6 +385,7 @@ export function saveData(data) {
   try {
     cache = data;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    void writeConnectedDataFile(data);
     return true;
   } catch (err) {
     console.error("EDHLOG save failed", err);
