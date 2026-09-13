@@ -2032,6 +2032,11 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   color: var(--muted);
 }
 
+.pod-field-label {
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
 .pod-player .opponent-input-wrap,
 .pod-commander .opponent-input-wrap {
   margin-top: 0.35rem;

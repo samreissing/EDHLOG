@@ -133,6 +133,8 @@ import {
   MATCHUP_TABS,
   collectAllPodCommanderNames,
   gameUsesSeatNumbers,
+  podSlotCommanderLabel,
+  podSlotPlayerLabel,
 } from "./matchups.js";
 import { computeAllTotals, TOTALS_TABS } from "./totals.js";
 import {
@@ -3766,6 +3768,7 @@ function renderGameDetailNav(gameId) {
 function renderGameDetail(game) {
   const bracket = gameBracket(game, deckMapByKey(data.decks));
   const turn = Number(game.turn) > 0 ? String(game.turn) : "—";
+  const mySeat = Number(game.mySeat) || 0;
   return `
     <div class="game-form game-form-readonly game-detail-view">
       <div class="game-form-row game-form-row-split">
@@ -3782,8 +3785,8 @@ function renderGameDetail(game) {
           .map(
             (seat) => `
           <div class="pod-seat-row ${seatOutcomeClass(game, seat)}">
-            <label class="pod-player">Player ${seat}${fieldValueLink(podPlayerName(game, seat))}</label>
-            <label class="pod-commander">Commander${fieldValueLink(podCommanderName(game, seat), "deck", game, seat)}</label>
+            <label class="pod-player">${podSlotPlayerLabel(seat, mySeat)}${fieldValueLink(podPlayerName(game, seat))}</label>
+            <label class="pod-commander">${podSlotCommanderLabel(seat, mySeat)}${fieldValueLink(podCommanderName(game, seat), "deck", game, seat)}</label>
           </div>`
           )
           .join("")}
@@ -3826,6 +3829,7 @@ function renderLogForm() {
   const resultLoss = editing?.result === "Loss";
   const bracketVal =
     editing?.bracket ?? (editing?.deck ? deckBracketValue(editing.deck) : "");
+  const formMySeat = editing?.mySeat ? Number(editing.mySeat) : 0;
 
   return `
     <form id="add-game-form" class="game-form">
@@ -3859,13 +3863,13 @@ function renderLogForm() {
           .map(
             (seat) => `
           <div class="pod-seat-row" data-opponent-seat="${seat}">
-            <label class="pod-player">Player ${seat}
+            <label class="pod-player"><span class="pod-field-label">${podSlotPlayerLabel(seat, formMySeat)}</span>
               <div class="opponent-input-wrap">
                 <input type="text" class="player-input" name="player-${seat}" value="${escapeHtml(playerName(editing, seat))}" placeholder="Player name" autocomplete="off" />
                 <ul class="opponent-suggestions" hidden role="listbox"></ul>
               </div>
             </label>
-            <label class="pod-commander">Commander
+            <label class="pod-commander"><span class="pod-field-label">${podSlotCommanderLabel(seat, formMySeat)}</span>
               <div class="opponent-input-wrap">
                 <input type="text" class="opponent-input" name="opponent-${seat}" value="${escapeHtml(opponentName(editing, seat))}" placeholder="Commander name" autocomplete="off" />
                 <ul class="opponent-suggestions" hidden role="listbox"></ul>
@@ -4100,11 +4104,17 @@ function syncPodFormSeats() {
   const form = document.getElementById("add-game-form");
   if (!form) return;
   const mySeat = Number(form.querySelector('[name="mySeat"]')?.value) || 0;
+  const fieldset = form.querySelector(".pod-fieldset");
+  if (fieldset) fieldset.hidden = false;
 
   form.querySelectorAll("[data-opponent-seat]").forEach((row) => {
     const seat = Number(row.dataset.opponentSeat);
     const isMySeat = mySeat > 0 && seat === mySeat;
     row.hidden = isMySeat;
+    const playerLabel = row.querySelector(".pod-player .pod-field-label");
+    const commanderLabel = row.querySelector(".pod-commander .pod-field-label");
+    if (playerLabel) playerLabel.textContent = podSlotPlayerLabel(seat, mySeat);
+    if (commanderLabel) commanderLabel.textContent = podSlotCommanderLabel(seat, mySeat);
     if (isMySeat) {
       const playerInput = row.querySelector(".player-input");
       const commanderInput = row.querySelector(".opponent-input");

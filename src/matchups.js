@@ -16,6 +16,20 @@ export const MATCHUP_TABS = [
   { id: "colors", label: "Color Matchups" },
 ];
 
+export const POD_SLOT_LETTERS = ["x", "y", "z", "w"];
+
+/** @param {number} slot @param {number} mySeat */
+export function podSlotPlayerLabel(slot, mySeat) {
+  if (mySeat >= 1 && mySeat <= 4) return `Player ${slot}`;
+  return `Player ${POD_SLOT_LETTERS[slot - 1] || slot}`;
+}
+
+/** @param {number} slot @param {number} mySeat */
+export function podSlotCommanderLabel(slot, mySeat) {
+  if (mySeat >= 1 && mySeat <= 4) return "Commander";
+  return `Commander ${POD_SLOT_LETTERS[slot - 1] || slot}`;
+}
+
 /** @typedef {{ seat: number, player: string, deck: string, commander: string, deckSlotId?: string, didWin: boolean }} GameSeat */
 
 function normalizeKey(value) {

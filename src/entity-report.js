@@ -1,4 +1,4 @@
-import { gameUsesSeatNumbers, parseGameSeats } from "./matchups.js";
+import { gameUsesSeatNumbers, parseGameSeats, POD_SLOT_LETTERS } from "./matchups.js";
 import {
   calcMatchupImpact,
   calcNormalizedMatchupImpact,
@@ -1110,7 +1110,7 @@ function renderEntityGamePodCard(game, decks, report, opponentDecks = []) {
         const commanderLabel = opp?.name ? escapeHtml(opp.name) : "—";
         return `
         <div class="entity-game-seat-box">
-          <span class="entity-game-seat-num">Player ${index + 1}</span>
+          <span class="entity-game-seat-num">Player ${POD_SLOT_LETTERS[index] || index + 1}</span>
           <span class="entity-game-seat-player">${playerLabel}</span>
           <span class="entity-game-seat-commander">${commanderLabel}</span>
         </div>`;
