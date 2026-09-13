@@ -3881,7 +3881,7 @@ function renderPodSeatRow(seat, formMySeat, editing) {
                 <span class="pod-field-label pod-player-label" data-pod-player-label>${podSlotPlayerLabel(seat, formMySeat)}</span>
                 <label class="pod-winner-btn-wrap">
                   <input type="radio" name="winnerPodSlot" value="${escapeHtml(slotKey)}" ${selected ? "checked" : ""} />
-                  <span class="btn btn-ghost btn-sm pod-winner-btn">Mark as winner</span>
+                  <span class="btn btn-ghost pod-winner-btn">Mark as winner</span>
                 </label>
               </div>
               <span class="pod-field-label pod-commander-label" data-pod-commander-label>${podSlotCommanderLabel(seat, formMySeat)}</span>

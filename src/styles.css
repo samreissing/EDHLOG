@@ -2029,9 +2029,13 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   align-items: center;
 }
 
+.pod-seat-headers {
+  align-items: baseline;
+}
+
 .pod-player-header {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 0.5rem;
   min-width: 0;
 }
@@ -2062,7 +2066,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   position: relative;
   display: inline-flex;
   align-items: center;
-  margin: 0;
+  margin: 0.12rem 0 0;
   flex-shrink: 0;
 }
 
@@ -2078,9 +2082,12 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   white-space: nowrap;
   cursor: pointer;
   user-select: none;
-  padding: 0.15rem 0.55rem;
+  padding: 0 0.55rem;
   font-size: 0.72rem;
-  line-height: 1.25rem;
+  font-weight: 600;
+  line-height: calc(1.25rem - 2px);
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .pod-winner-btn-wrap input:checked + .pod-winner-btn {
@@ -2270,6 +2277,15 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .btn-sm.loss {
   background: rgba(224, 92, 92, 0.2);
   color: var(--red);
+}
+
+.pod-winner-btn-wrap .pod-winner-btn {
+  padding: 0 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: calc(1.25rem - 2px);
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .btn-icon {
