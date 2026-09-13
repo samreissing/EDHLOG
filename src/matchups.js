@@ -16,6 +16,20 @@ export const MATCHUP_TABS = [
   { id: "colors", label: "Color Matchups" },
 ];
 
+export const POD_SLOT_LETTERS = ["x", "y", "z", "w"];
+
+/** @param {number} slot @param {number} mySeat */
+export function podSlotPlayerLabel(slot, mySeat) {
+  if (mySeat >= 1 && mySeat <= 4) return `Player ${slot}`;
+  return `Player ${POD_SLOT_LETTERS[slot - 1] || slot}`;
+}
+
+/** @param {number} slot @param {number} mySeat */
+export function podSlotCommanderLabel(slot, mySeat) {
+  if (mySeat >= 1 && mySeat <= 4) return "Commander";
+  return `Commander ${POD_SLOT_LETTERS[slot - 1] || slot}`;
+}
+
 /** @typedef {{ seat: number, player: string, deck: string, commander: string, deckSlotId?: string, didWin: boolean }} GameSeat */
 
 function normalizeKey(value) {
@@ -26,6 +40,16 @@ function normalizeKey(value) {
 
 function isMySeat(seat) {
   return normalizeKey(seat.player) === normalizeKey(MY_PLAYER_NAME);
+}
+
+/** @param {import('./store.js').Game} game */
+export function gameUsesSeatNumbers(game) {
+  const mySeat = Number(game.mySeat);
+  if (Number.isInteger(mySeat) && mySeat >= 1 && mySeat <= 4) return true;
+  return (game.opponents || []).some((opp) => {
+    const seat = Number(opp.seat);
+    return Number.isInteger(seat) && seat >= 1 && seat <= 4;
+  });
 }
 
 /** @param {import('./store.js').Game} game @param {import('./store.js').Deck[] | null} [decks] */

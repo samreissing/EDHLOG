@@ -132,6 +132,9 @@ import {
   matchupImpactClass,
   MATCHUP_TABS,
   collectAllPodCommanderNames,
+  gameUsesSeatNumbers,
+  podSlotCommanderLabel,
+  podSlotPlayerLabel,
 } from "./matchups.js";
 import { computeAllTotals, TOTALS_TABS } from "./totals.js";
 import {
@@ -3658,17 +3661,23 @@ function seatOptions(selected = "") {
     .join("");
 }
 
-function opponentName(game, seat) {
+function opponentName(game, slot) {
   if (!game?.opponents) return "";
-  const row = game.opponents.find((o) => o.seat === seat);
-  return row?.name || "";
+  if (gameUsesSeatNumbers(game)) {
+    const row = game.opponents.find((o) => Number(o.seat) === slot);
+    return row?.name || "";
+  }
+  return game.opponents[slot - 1]?.name || "";
 }
 
-function playerName(game, seat) {
+function playerName(game, slot) {
   if (!game) return "";
-  if (game.mySeat === seat && game.myPlayer) return game.myPlayer;
-  const row = game.opponents?.find((o) => o.seat === seat);
-  return row?.player || "";
+  if (gameUsesSeatNumbers(game)) {
+    if (game.mySeat === slot && game.myPlayer) return game.myPlayer;
+    const row = game.opponents?.find((o) => Number(o.seat) === slot);
+    return row?.player || "";
+  }
+  return game.opponents?.[slot - 1]?.player || "";
 }
 
 function fieldValue(value, placeholder = "—") {
@@ -3759,6 +3768,7 @@ function renderGameDetailNav(gameId) {
 function renderGameDetail(game) {
   const bracket = gameBracket(game, deckMapByKey(data.decks));
   const turn = Number(game.turn) > 0 ? String(game.turn) : "—";
+  const mySeat = Number(game.mySeat) || 0;
   return `
     <div class="game-form game-form-readonly game-detail-view">
       <div class="game-form-row game-form-row-split">
@@ -3775,8 +3785,8 @@ function renderGameDetail(game) {
           .map(
             (seat) => `
           <div class="pod-seat-row ${seatOutcomeClass(game, seat)}">
-            <label class="pod-player">Player ${seat}${fieldValueLink(podPlayerName(game, seat))}</label>
-            <label class="pod-commander">Commander${fieldValueLink(podCommanderName(game, seat), "deck", game, seat)}</label>
+            <label class="pod-player">${podSlotPlayerLabel(seat, mySeat)}${fieldValueLink(podPlayerName(game, seat))}</label>
+            <label class="pod-commander">${podSlotCommanderLabel(seat, mySeat)}${fieldValueLink(podCommanderName(game, seat), "deck", game, seat)}</label>
           </div>`
           )
           .join("")}
@@ -3819,6 +3829,7 @@ function renderLogForm() {
   const resultLoss = editing?.result === "Loss";
   const bracketVal =
     editing?.bracket ?? (editing?.deck ? deckBracketValue(editing.deck) : "");
+  const formMySeat = editing?.mySeat ? Number(editing.mySeat) : 0;
 
   return `
     <form id="add-game-form" class="game-form">
@@ -3852,13 +3863,13 @@ function renderLogForm() {
           .map(
             (seat) => `
           <div class="pod-seat-row" data-opponent-seat="${seat}">
-            <label class="pod-player">Player ${seat}
+            <label class="pod-player"><span class="pod-field-label">${podSlotPlayerLabel(seat, formMySeat)}</span>
               <div class="opponent-input-wrap">
                 <input type="text" class="player-input" name="player-${seat}" value="${escapeHtml(playerName(editing, seat))}" placeholder="Player name" autocomplete="off" />
                 <ul class="opponent-suggestions" hidden role="listbox"></ul>
               </div>
             </label>
-            <label class="pod-commander">Commander
+            <label class="pod-commander"><span class="pod-field-label">${podSlotCommanderLabel(seat, formMySeat)}</span>
               <div class="opponent-input-wrap">
                 <input type="text" class="opponent-input" name="opponent-${seat}" value="${escapeHtml(opponentName(editing, seat))}" placeholder="Commander name" autocomplete="off" />
                 <ul class="opponent-suggestions" hidden role="listbox"></ul>
@@ -3918,12 +3929,13 @@ function gameRow(g) {
 function parseGameForm(fd) {
   const mySeatRaw = fd.get("mySeat");
   const mySeat = mySeatRaw ? Number(mySeatRaw) : 0;
-  const opponents = [1, 2, 3, 4].flatMap((seat) => {
-    if (mySeat && seat === mySeat) return [];
-    const name = String(fd.get(`opponent-${seat}`) || "").trim();
-    const player = String(fd.get(`player-${seat}`) || "").trim();
+  const opponents = [1, 2, 3, 4].flatMap((slot) => {
+    if (mySeat && slot === mySeat) return [];
+    const name = String(fd.get(`opponent-${slot}`) || "").trim();
+    const player = String(fd.get(`player-${slot}`) || "").trim();
     if (!name && !player) return [];
-    return [{ seat, name, ...(player ? { player } : {}) }];
+    if (mySeat) return [{ seat: slot, name, ...(player ? { player } : {}) }];
+    return [{ name, ...(player ? { player } : {}) }];
   });
   const winnerSeatRaw = fd.get("winnerSeat");
   const turnRaw = fd.get("turn");
@@ -3947,10 +3959,10 @@ function parseGameForm(fd) {
 
   if (mySeatRaw) {
     game.mySeat = Number(mySeatRaw);
-    game.opponents = opponents;
     const myPlayer = String(fd.get(`player-${mySeat}`) || "").trim();
     if (myPlayer) game.myPlayer = myPlayer;
   }
+  game.opponents = opponents;
   if (winnerSeatRaw) {
     game.winnerSeat = Number(winnerSeatRaw);
     if (mySeatRaw) {
@@ -3986,9 +3998,9 @@ function buildGameRecordFromPayload(payload, gameId, existing = null) {
   if (payload.myCommander) record.myCommander = payload.myCommander;
   if (payload.mySeat) {
     record.mySeat = payload.mySeat;
-    record.opponents = payload.opponents || [];
     if (payload.myPlayer) record.myPlayer = payload.myPlayer;
   }
+  if (payload.opponents !== undefined) record.opponents = payload.opponents;
   if (payload.winnerSeat) record.winnerSeat = payload.winnerSeat;
   if (payload.turn) record.turn = payload.turn;
   if (payload.time) record.time = payload.time;
@@ -4093,12 +4105,16 @@ function syncPodFormSeats() {
   if (!form) return;
   const mySeat = Number(form.querySelector('[name="mySeat"]')?.value) || 0;
   const fieldset = form.querySelector(".pod-fieldset");
-  if (fieldset) fieldset.hidden = mySeat === 0;
+  if (fieldset) fieldset.hidden = false;
 
   form.querySelectorAll("[data-opponent-seat]").forEach((row) => {
     const seat = Number(row.dataset.opponentSeat);
     const isMySeat = mySeat > 0 && seat === mySeat;
     row.hidden = isMySeat;
+    const playerLabel = row.querySelector(".pod-player .pod-field-label");
+    const commanderLabel = row.querySelector(".pod-commander .pod-field-label");
+    if (playerLabel) playerLabel.textContent = podSlotPlayerLabel(seat, mySeat);
+    if (commanderLabel) commanderLabel.textContent = podSlotCommanderLabel(seat, mySeat);
     if (isMySeat) {
       const playerInput = row.querySelector(".player-input");
       const commanderInput = row.querySelector(".opponent-input");

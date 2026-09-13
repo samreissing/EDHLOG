@@ -1,4 +1,4 @@
-import { parseGameSeats } from "./matchups.js";
+import { gameUsesSeatNumbers, parseGameSeats, POD_SLOT_LETTERS } from "./matchups.js";
 import {
   calcMatchupImpact,
   calcNormalizedMatchupImpact,
@@ -49,7 +49,6 @@ export function normalizeEntityKey(value) {
 
 /** @param {import('./store.js').Game} game */
 export function gameHasPodDetail(game) {
-  if (!game.mySeat) return false;
   const opponents = game.opponents || [];
   if (!opponents.length) return false;
   return opponents.some(
@@ -1085,23 +1084,39 @@ export function renderGameLogPodCard(game, decks) {
 
 /** @param {import('./store.js').Game} game @param {import('./store.js').Deck[]} decks @param {ReturnType<typeof buildEntityReport>} report @param {import('./opponent-decks.js').OpponentDeck[]} [opponentDecks] */
 function renderEntityGamePodCard(game, decks, report, opponentDecks = []) {
-  const seatsByNumber = new Map(parseGameSeats(game, decks).map((seat) => [seat.seat, seat]));
-  const seatBoxes = [1, 2, 3, 4]
-    .map((seatNum) => {
-      const seat = seatsByNumber.get(seatNum);
-      const outcomeClass = seat ? (seat.didWin ? "entity-game-seat-win" : "entity-game-seat-loss") : "";
-      const playerLabel = seat?.player ? renderPlayerReportLink(seat.player) : "—";
-      const commanderLabel = seat?.commander
-        ? escapeHtml(seat.commander)
-        : "—";
-      return `
+  let seatBoxes;
+  if (gameUsesSeatNumbers(game)) {
+    const seatsByNumber = new Map(parseGameSeats(game, decks).map((seat) => [seat.seat, seat]));
+    seatBoxes = [1, 2, 3, 4]
+      .map((seatNum) => {
+        const seat = seatsByNumber.get(seatNum);
+        const outcomeClass = seat ? (seat.didWin ? "entity-game-seat-win" : "entity-game-seat-loss") : "";
+        const playerLabel = seat?.player ? renderPlayerReportLink(seat.player) : "—";
+        const commanderLabel = seat?.commander ? escapeHtml(seat.commander) : "—";
+        return `
         <div class="entity-game-seat-box ${outcomeClass}">
           <span class="entity-game-seat-num">Seat ${seatNum}</span>
           <span class="entity-game-seat-player">${playerLabel}</span>
           <span class="entity-game-seat-commander">${commanderLabel}</span>
         </div>`;
-    })
-    .join("");
+      })
+      .join("");
+  } else {
+    const opponents = game.opponents || [];
+    seatBoxes = [0, 1, 2, 3]
+      .map((index) => {
+        const opp = opponents[index];
+        const playerLabel = opp?.player ? renderPlayerReportLink(opp.player) : "—";
+        const commanderLabel = opp?.name ? escapeHtml(opp.name) : "—";
+        return `
+        <div class="entity-game-seat-box">
+          <span class="entity-game-seat-num">Player ${POD_SLOT_LETTERS[index] || index + 1}</span>
+          <span class="entity-game-seat-player">${playerLabel}</span>
+          <span class="entity-game-seat-commander">${commanderLabel}</span>
+        </div>`;
+      })
+      .join("");
+  }
 
   const deckMap = deckMapByKey(decks);
   const resultCls = entityGameResultClass(game, decks, report, opponentDecks);
