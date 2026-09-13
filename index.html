@@ -27,8 +27,15 @@
       </header>
       <main id="main"></main>
       <footer class="footer">
-        <span>Data stored locally in your browser</span>
+        <div class="footer-storage">
+          <span id="storage-status">Loading storage…</span>
+          <span id="storage-file-warning" class="storage-file-warning" hidden></span>
+        </div>
         <div class="footer-actions">
+          <button type="button" class="btn btn-ghost btn-sm" id="data-file-create-btn" hidden>Create data file…</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="data-file-open-btn" hidden>Open data file…</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="data-file-reconnect-btn" hidden>Reconnect file</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="data-file-disconnect-btn" hidden>Use browser only</button>
           <button type="button" class="btn btn-ghost" id="export-btn">Export JSON</button>
           <button type="button" class="btn btn-ghost" id="import-btn">Import JSON</button>
           <input type="file" id="import-file" accept=".json" hidden />
