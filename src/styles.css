@@ -1984,9 +1984,19 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 }
 
 .game-detail-view .pod-seat-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 0.75rem;
+  align-items: start;
   border-radius: 8px;
   padding: 0.55rem 0.65rem;
   border: 1px solid var(--border);
+}
+
+.game-detail-view .pod-player,
+.game-detail-view .pod-commander {
+  margin-bottom: 0;
+  min-width: 0;
 }
 
 .game-detail-view .game-form-row {
