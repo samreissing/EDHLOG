@@ -28,6 +28,16 @@ function isMySeat(seat) {
   return normalizeKey(seat.player) === normalizeKey(MY_PLAYER_NAME);
 }
 
+/** @param {import('./store.js').Game} game */
+export function gameUsesSeatNumbers(game) {
+  const mySeat = Number(game.mySeat);
+  if (Number.isInteger(mySeat) && mySeat >= 1 && mySeat <= 4) return true;
+  return (game.opponents || []).some((opp) => {
+    const seat = Number(opp.seat);
+    return Number.isInteger(seat) && seat >= 1 && seat <= 4;
+  });
+}
+
 /** @param {import('./store.js').Game} game @param {import('./store.js').Deck[] | null} [decks] */
 export function parseGameSeats(game, decks = null) {
   /** @type {GameSeat[]} */
