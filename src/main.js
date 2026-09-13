@@ -3876,24 +3876,30 @@ function renderPodSeatRow(seat, formMySeat, editing) {
     editing?.result === "Loss" && opponentWinnerPodSlot(editing) === slotKey;
   return `
           <div class="pod-seat-row" data-opponent-seat="${seat}">
-            <span class="pod-field-label pod-player-label" data-pod-player-label>${podSlotPlayerLabel(seat, formMySeat)}</span>
-            <label class="pod-winner-btn-wrap">
-              <input type="radio" name="winnerPodSlot" value="${escapeHtml(slotKey)}" ${selected ? "checked" : ""} />
-              <span class="btn btn-ghost btn-sm pod-winner-btn">Mark as winner</span>
-            </label>
-            <span class="pod-field-label pod-commander-label" data-pod-commander-label>${podSlotCommanderLabel(seat, formMySeat)}</span>
-            <label class="pod-player">
-              <div class="opponent-input-wrap">
-                <input type="text" class="player-input" name="player-${seat}" value="${escapeHtml(playerName(editing, seat))}" placeholder="Player name" autocomplete="off" />
-                <ul class="opponent-suggestions" hidden role="listbox"></ul>
+            <div class="pod-player-col">
+              <div class="pod-player-header">
+                <span class="pod-field-label pod-player-label" data-pod-player-label>${podSlotPlayerLabel(seat, formMySeat)}</span>
+                <label class="pod-winner-btn-wrap">
+                  <input type="radio" name="winnerPodSlot" value="${escapeHtml(slotKey)}" ${selected ? "checked" : ""} />
+                  <span class="btn btn-ghost btn-sm pod-winner-btn">Mark as winner</span>
+                </label>
               </div>
-            </label>
-            <label class="pod-commander">
-              <div class="opponent-input-wrap">
-                <input type="text" class="opponent-input" name="opponent-${seat}" value="${escapeHtml(opponentName(editing, seat))}" placeholder="Commander name" autocomplete="off" />
-                <ul class="opponent-suggestions" hidden role="listbox"></ul>
-              </div>
-            </label>
+              <label class="pod-player">
+                <div class="opponent-input-wrap">
+                  <input type="text" class="player-input" name="player-${seat}" value="${escapeHtml(playerName(editing, seat))}" placeholder="Player name" autocomplete="off" />
+                  <ul class="opponent-suggestions" hidden role="listbox"></ul>
+                </div>
+              </label>
+            </div>
+            <div class="pod-commander-col">
+              <span class="pod-field-label pod-commander-label" data-pod-commander-label>${podSlotCommanderLabel(seat, formMySeat)}</span>
+              <label class="pod-commander">
+                <div class="opponent-input-wrap">
+                  <input type="text" class="opponent-input" name="opponent-${seat}" value="${escapeHtml(opponentName(editing, seat))}" placeholder="Commander name" autocomplete="off" />
+                  <ul class="opponent-suggestions" hidden role="listbox"></ul>
+                </div>
+              </label>
+            </div>
           </div>`;
 }
 
