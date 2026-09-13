@@ -86,12 +86,13 @@ export function opponentWinnerPodSlot(game) {
 
 /** @param {import('./store.js').Game} game @param {number} slot @param {number} mySeat @param {boolean} [isMeRow] */
 export function podRowOutcomeClass(game, slot, mySeat, isMeRow = false) {
-  const rowKey = podRowWinnerKey(slot, mySeat, isMeRow);
+  const meRow = isMeRow || (gameHasMySeat(game) && slot === mySeat);
+  const rowKey = podRowWinnerKey(slot, mySeat, meRow);
   if (game.result === "Win") {
-    return isMeRow ? "pod-seat-win" : "pod-seat-loss";
+    return meRow ? "pod-seat-win" : "pod-seat-loss";
   }
   const winnerKey = opponentWinnerPodSlot(game);
-  if (!winnerKey) return isMeRow ? "pod-seat-loss" : "";
+  if (!winnerKey) return meRow ? "pod-seat-loss" : "";
   return rowKey === winnerKey ? "pod-seat-win" : "pod-seat-loss";
 }
 
