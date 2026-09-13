@@ -84,10 +84,31 @@ async function idbDelete(key) {
 }
 
 /** @param {FileSystemFileHandle} handle @param {"read" | "readwrite"} mode */
-async function ensurePermission(handle, mode) {
-  const opts = { mode };
-  if ((await handle.queryPermission(opts)) === "granted") return true;
-  return (await handle.requestPermission(opts)) === "granted";
+async function hasFilePermission(handle, mode) {
+  try {
+    return (await handle.queryPermission({ mode })) === "granted";
+  } catch {
+    return false;
+  }
+}
+
+/** @param {FileSystemFileHandle} handle @param {"read" | "readwrite"} mode */
+async function requestFilePermission(handle, mode) {
+  try {
+    if (await hasFilePermission(handle, mode)) return true;
+    return (await handle.requestPermission({ mode })) === "granted";
+  } catch (err) {
+    lastFileError = String(err?.message || err);
+    return false;
+  }
+}
+
+async function canReadFile(handle) {
+  return (await hasFilePermission(handle, "readwrite")) || (await hasFilePermission(handle, "read"));
+}
+
+async function canWriteFile(handle) {
+  return hasFilePermission(handle, "readwrite");
 }
 
 /** @param {unknown} value */
@@ -116,7 +137,8 @@ export async function restoreDataFileConnection() {
     if (!handle) return null;
 
     await activateHandle(handle);
-    permissionNeeded = !(await ensurePermission(handle, "read"));
+    permissionNeeded = !(await canReadFile(handle));
+    if (permissionNeeded) lastFileError = null;
     return { handle, permissionNeeded };
   } catch (err) {
     lastFileError = String(err?.message || err);
@@ -129,9 +151,9 @@ export async function readConnectedDataFile() {
   if (!activeHandle) return null;
 
   try {
-    if (!(await ensurePermission(activeHandle, "read"))) {
+    if (!(await canReadFile(activeHandle))) {
       permissionNeeded = true;
-      lastFileError = "File permission required — click Reconnect file";
+      lastFileError = null;
       return null;
     }
 
@@ -153,9 +175,9 @@ export async function writeConnectedDataFile(data) {
   if (!activeHandle) return false;
 
   try {
-    if (!(await ensurePermission(activeHandle, "readwrite"))) {
+    if (!(await canWriteFile(activeHandle))) {
       permissionNeeded = true;
-      lastFileError = "File permission required — click Reconnect file";
+      lastFileError = null;
       return false;
     }
 
@@ -172,11 +194,11 @@ export async function writeConnectedDataFile(data) {
   }
 }
 
+/** Call only from a click handler — requestPermission requires user activation. */
 export async function reconnectDataFile() {
   if (!activeHandle) return false;
-  const ok =
-    (await ensurePermission(activeHandle, "readwrite")) &&
-    (await ensurePermission(activeHandle, "read"));
+
+  const ok = await requestFilePermission(activeHandle, "readwrite");
   permissionNeeded = !ok;
   if (ok) lastFileError = null;
   return ok;
@@ -198,6 +220,7 @@ export async function chooseDataFile(mode) {
 
   await activateHandle(handle);
   permissionNeeded = false;
+  lastFileError = null;
   return handle;
 }
 

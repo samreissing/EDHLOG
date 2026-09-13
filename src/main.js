@@ -1452,18 +1452,30 @@ function bindEvents() {
   document.getElementById("data-file-reconnect-btn")?.addEventListener("click", async () => {
     const ok = await reconnectDataFile();
     if (!ok) {
-      toast("Could not reconnect to the data file", true);
+      toast("Click Allow when the browser asks to access your data file.", true);
       updateStorageStatus();
       return;
     }
     const imported = await readConnectedDataFile();
-    if (imported) {
+    const current = loadData();
+    if (imported && current) {
+      const fileGames = imported.games?.length || 0;
+      const localGames = current.games?.length || 0;
+      if (fileGames >= localGames) {
+        saveData(imported);
+        data = imported;
+      } else {
+        await writeConnectedDataFile(current);
+      }
+    } else if (imported) {
       saveData(imported);
       data = imported;
-      render();
+    } else if (current) {
+      await writeConnectedDataFile(current);
     }
     updateStorageStatus();
-    toast("Data file reconnected");
+    render();
+    toast("Data file reconnected — auto-saving resumed");
   });
   document.getElementById("data-file-disconnect-btn")?.addEventListener("click", async () => {
     if (
