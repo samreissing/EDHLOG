@@ -2017,7 +2017,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .pod-seat-row {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.12rem;
   margin-bottom: 0.75rem;
 }
 
@@ -2049,6 +2049,15 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   display: block;
   min-width: 0;
   margin: 0;
+}
+
+.game-form .pod-player,
+.game-form .pod-commander {
+  margin-bottom: 0;
+}
+
+.game-form .pod-seat-fields input[type="text"] {
+  margin-top: 0.08rem;
 }
 
 .pod-field-label {
