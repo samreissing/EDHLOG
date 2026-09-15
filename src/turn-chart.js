@@ -4,7 +4,11 @@ const CHART_WIDTH = 760;
 const CHART_HEIGHT = 260;
 const CHART_PAD = { top: 24, right: 24, bottom: 44, left: 44 };
 
-/** @typedef {"normalizedWr" | "winRate" | "games"} TurnChartMetric */
+/** @typedef {"normalizedWr" | "winRate" | "games" | "wins" | "losses"} TurnChartMetric */
+
+function metricUsesCountAxis(metric) {
+  return metric === "games" || metric === "wins" || metric === "losses";
+}
 
 function escAttr(str) {
   return String(str)
@@ -28,7 +32,7 @@ function niceChartMax(value) {
 
 /** @param {number} plotH @param {TurnChartMetric} metric @param {number} [maxValue] */
 function renderYGrid(plotH, metric, maxValue = 1) {
-  if (metric === "games") {
+  if (metricUsesCountAxis(metric)) {
     const max = niceChartMax(maxValue);
     const yTicks = [0, 0.25, 0.5, 0.75, 1].map((tick) => tick * max);
     return yTicks
@@ -107,15 +111,23 @@ function getTurnChartValue(row, metric, mode) {
   }
 
   const ended = mode === "distribution" ? row.games : row.wins + row.losses;
+  if (metric === "wins") {
+    return ended ? row.wins : null;
+  }
+  if (metric === "losses") {
+    return ended ? row.losses : null;
+  }
   if (!ended) return null;
   if (metric === "normalizedWr") return row.normalizedWr;
   return row.winRate;
 }
 
 /** @param {TurnChartMetric} metric @param {"player" | "distribution"} mode */
-function turnChartLabel(metric, mode) {
+export function turnChartLabel(metric, mode) {
   if (mode === "distribution") return "Share of games ending by turn";
   if (metric === "games") return "Games reached by turn";
+  if (metric === "wins") return "Wins by end turn";
+  if (metric === "losses") return "Losses by end turn";
   if (metric === "normalizedWr") return "Normalized win rate by end turn";
   return "Win rate by end turn";
 }
@@ -139,14 +151,15 @@ export function renderTurnWinRateChart(rows, options = {}) {
   const chartValues = rows
     .map((row) => getTurnChartValue(row, metric, mode))
     .filter((value) => value != null);
-  const maxChartValue =
-    metric === "games" ? Math.max(...chartValues.map((value) => Number(value) || 0), 1) : 1;
+  const maxChartValue = metricUsesCountAxis(metric)
+    ? Math.max(...chartValues.map((value) => Number(value) || 0), 1)
+    : 1;
 
   const points = rows
     .map((row) => {
       const ended = mode === "distribution" ? row.games : row.wins + row.losses;
       const value = getTurnChartValue(row, metric, mode);
-      const normalized = metric === "games" ? (value ?? 0) / maxChartValue : value;
+      const normalized = metricUsesCountAxis(metric) ? (value ?? 0) / maxChartValue : value;
       return {
         turn: row.turn,
         games: row.games,
@@ -173,7 +186,7 @@ export function renderTurnWinRateChart(rows, options = {}) {
       const ended = mode === "distribution" ? row.games : row.wins + row.losses;
       const value = getTurnChartValue(row, metric, mode);
       if (value == null) return "";
-      const normalized = metric === "games" ? value / maxChartValue : value;
+      const normalized = metricUsesCountAxis(metric) ? value / maxChartValue : value;
       const x = turnToX(row.turn, minTurn, maxTurn, plotW);
       const y = CHART_PAD.top + plotH - normalized * plotH;
       return `
@@ -235,6 +248,10 @@ export function bindTurnWinRateChart(root = document) {
         tip.innerHTML = `<strong>Turn ${escAttr(turn)}</strong><br>${escAttr(games)} ended · ${pct(Number(wr))} of games`;
       } else if (metric === "games") {
         tip.innerHTML = `<strong>Turn ${escAttr(turn)}</strong><br>${escAttr(value)} games reached`;
+      } else if (metric === "wins") {
+        tip.innerHTML = `<strong>Turn ${escAttr(turn)}</strong><br>${escAttr(value)} wins · ${escAttr(games)} reached`;
+      } else if (metric === "losses") {
+        tip.innerHTML = `<strong>Turn ${escAttr(turn)}</strong><br>${escAttr(value)} losses · ${escAttr(games)} reached`;
       } else if (metric === "normalizedWr") {
         tip.innerHTML = `<strong>Turn ${escAttr(turn)}</strong><br>${escAttr(wins)}W / ${escAttr(losses)}L · ${pct(Number(normalizedWr))} norm WR<br>${escAttr(games)} reached`;
       } else {
