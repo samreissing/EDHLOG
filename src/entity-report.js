@@ -78,6 +78,14 @@ function entityPodRowOutcomeClass(game, slot, mySeat, isMeRow = false) {
   return "";
 }
 
+/** @param {{ player?: string, didWin?: boolean } | null | undefined} seat */
+function entitySeatMyWinClass(seat) {
+  if (!seat?.didWin) return "";
+  return normalizeEntityKey(seat.player) === normalizeEntityKey(MY_PLAYER_NAME)
+    ? " entity-game-seat-my-win"
+    : "";
+}
+
 /** @param {import('./store.js').Game[]} games @param {string} playerName @param {import('./store.js').Deck[]} decks */
 export function gamesForPlayer(games, playerName, decks) {
   const key = normalizeEntityKey(playerName);
@@ -1111,7 +1119,7 @@ function renderEntityGamePodCard(game, decks, report, opponentDecks = []) {
         const playerLabel = seat?.player ? renderPlayerReportLink(seat.player) : "—";
         const commanderLabel = seat?.commander ? escapeHtml(seat.commander) : "—";
         return `
-        <div class="entity-game-seat-box ${outcomeClass}">
+        <div class="entity-game-seat-box ${outcomeClass}${entitySeatMyWinClass(seat)}">
           <span class="entity-game-seat-num">Seat ${seatNum}</span>
           <span class="entity-game-seat-player">${playerLabel}</span>
           <span class="entity-game-seat-commander">${commanderLabel}</span>
@@ -1124,7 +1132,7 @@ function renderEntityGamePodCard(game, decks, report, opponentDecks = []) {
     const myCommander = resolveMyCommander(game, decks);
     const myBox = gameHasPodDetail(game)
       ? `
-        <div class="entity-game-seat-box ${entityPodRowOutcomeClass(game, 0, mySeat, true)}">
+        <div class="entity-game-seat-box ${entityPodRowOutcomeClass(game, 0, mySeat, true)}${game.result === "Win" ? " entity-game-seat-my-win" : ""}">
           <span class="entity-game-seat-num">Player w</span>
           <span class="entity-game-seat-player">${renderPlayerReportLink(MY_PLAYER_NAME)}</span>
           <span class="entity-game-seat-commander">${escapeHtml(myCommander)}</span>
