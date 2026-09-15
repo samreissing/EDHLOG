@@ -152,7 +152,7 @@ import {
   cycleArchetypeView,
 } from "./archetype-stats.js";
 import { computeTurnGridStats, computeTurnDistributionStats } from "./turn-stats.js";
-import { renderTurnWinRateChart, bindTurnWinRateChart } from "./turn-chart.js";
+import { renderTurnWinRateChart, bindTurnWinRateChart, turnChartLabel } from "./turn-chart.js";
 import {
   computeWinRateSeries,
   computeTrendsSummary,
@@ -935,6 +935,10 @@ function bindEvents() {
       } else {
         tableSort[tableId] = toggleSort(tableSort[tableId], col);
       }
+      if (tableId === "turn-stats" && statsTab === "turns") {
+        const metric = turnChartMetricFromSortCol(tableSort[tableId]?.col);
+        if (metric) turnChartMetric = metric;
+      }
       render();
       return;
     }
@@ -969,6 +973,7 @@ function bindEvents() {
           : turnChartMetric === "winRate"
             ? "games"
             : "normalizedWr";
+      tableSort["turn-stats"] = { col: "turn", dir: "asc" };
       render();
       return;
     }
@@ -1734,11 +1739,21 @@ function statsDeckFilterLabel(filter) {
   return "All Decks";
 }
 
-/** @param {"normalizedWr" | "winRate" | "games"} metric */
+/** @param {import("./turn-chart.js").TurnChartMetric} metric */
 function turnChartMetricLabel(metric) {
   if (metric === "winRate") return "Win Rate";
   if (metric === "games") return "Games";
+  if (metric === "wins") return "Wins";
+  if (metric === "losses") return "Losses";
   return "Norm WR";
+}
+
+/** @param {string} col */
+function turnChartMetricFromSortCol(col) {
+  if (col === "winRate" || col === "normalizedWr" || col === "wins" || col === "losses") {
+    return col;
+  }
+  return null;
 }
 
 function renderTurnChartMetricToggle() {
@@ -2869,7 +2884,10 @@ function renderStats() {
       ${
         turnRows.length
           ? `${renderTurnStatsGrid(turns)}
-          <div class="turn-chart-toolbar filters inline">${renderTurnChartMetricToggle()}</div>
+          <div class="turn-chart-toolbar filters inline">
+            ${renderTurnChartMetricToggle()}
+            <span class="turn-chart-metric-caption">${escapeHtml(turnChartLabel(turnChartMetric, "player"))}</span>
+          </div>
           ${turnChart}`
           : `<p class="muted">No turn data yet — add an end turn when logging games.</p>`
       }`;
