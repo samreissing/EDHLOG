@@ -191,10 +191,28 @@ export function mergeArchetypeStatsRows(rowsA, rowsB) {
     .filter((row) => row.games > 0);
 }
 
+/**
+ * Canonical combo label for comma-separated archetype/tribe keys (order-independent).
+ * @param {string} rowKey
+ * @param {Map<string, string>} [canonicalNames]
+ */
+export function normalizeArchetypeComboKey(rowKey, canonicalNames = new Map()) {
+  const parts = String(rowKey || "")
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (!parts.length) return "";
+  return tagRowKey(parts, canonicalNames);
+}
+
 /** @param {string[]} tags @param {string} rowKey @param {ArchetypeView} view @param {Map<string, string>} canonicalNames */
 function deckMatchesTagRow(tags, rowKey, view, canonicalNames) {
-  const target = String(rowKey || "").trim().toLowerCase();
+  let target = String(rowKey || "").trim().toLowerCase();
   if (!target) return false;
+  if (view === "exact" || view === "combined") {
+    target = normalizeArchetypeComboKey(rowKey, canonicalNames).toLowerCase();
+    if (!target) return false;
+  }
   return rowKeysForDeckTags(tags, view, canonicalNames).some(
     (key) => key.toLowerCase() === target
   );

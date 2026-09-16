@@ -34,6 +34,14 @@ export function parseArchetypesFromInput(value) {
     .filter(Boolean);
 }
 
+/** @param {string[] | undefined} tags */
+export function sortArchetypeTags(tags) {
+  return [...(tags || [])]
+    .map((part) => String(part || "").trim())
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+}
+
 export const formatTribesForInput = formatArchetypesForInput;
 export const parseTribesFromInput = parseArchetypesFromInput;
 
