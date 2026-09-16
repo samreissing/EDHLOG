@@ -117,6 +117,7 @@ import {
   linkGameOpponentsToDecks,
   opponentDeckCommander,
   opponentDeckTitle,
+  syncOpponentDecksFromGames,
   updateOpponentDeckProfile,
 } from "./opponent-decks.js";
 import {
@@ -1301,6 +1302,7 @@ function bindEvents() {
       if (!editingGameId) return;
       if (!confirm("Delete this game?")) return;
       data.games = data.games.filter((g) => g.id !== editingGameId);
+      syncOpponentDecksFromGames(data);
       editingGameId = null;
       gameModalOpen = false;
       saveData(data);
@@ -1345,6 +1347,7 @@ function bindEvents() {
       if (deck) recordRemovedSeedDeck(data, deck);
       data.decks = data.decks.filter((d) => deckId(d) !== key);
       data.games = data.games.filter((g) => g.deck !== key);
+      syncOpponentDecksFromGames(data);
       if (entityReport?.deckSlotId === key || entityReport?.key === key) {
         dismissEntityReport();
       }
@@ -4133,6 +4136,8 @@ function saveGameFromForm(fd) {
     linkGameOpponentsToDecks(record, ensureOpponentDecks(data));
     data.games.push(record);
   }
+
+  syncOpponentDecksFromGames(data);
 
   if (!saveData(data)) {
     if (!gameId) data.games.pop();

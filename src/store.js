@@ -377,6 +377,7 @@ export async function initData() {
     }
   }
 
+  if (sanitizeData(data)) saveData(data);
   return data;
 }
 
