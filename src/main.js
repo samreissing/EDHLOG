@@ -95,6 +95,7 @@ import {
   formatArchetypesForInput,
   formatTribesForInput,
   parseArchetypesFromInput,
+  sortArchetypeTags,
   parseTribesFromInput,
 } from "./deck-archetype-search.js";
 import {
@@ -2196,11 +2197,10 @@ function saveOpponentDeckFromForm(formOverride = null) {
     name: String(fd.get("name") || "").trim(),
     commander,
     colors,
-    archetypes: parseArchetypesFromInput(fd.get("archetypes")),
+    archetypes: sortArchetypeTags(parseArchetypesFromInput(fd.get("archetypes"))),
     tribes: deckHasTribalArchetype(parseArchetypesFromInput(fd.get("archetypes")))
-      ? parseTribesFromInput(fd.get("tribes"))
+      ? sortArchetypeTags(parseTribesFromInput(fd.get("tribes")))
       : [],
-    retired: fd.get("retired") === "on",
     createdAt: normalizeDate(String(fd.get("createdAt") || "")) || todayISO(),
   });
 
@@ -2248,9 +2248,9 @@ function saveDeckFromForm(formOverride = null) {
     commander,
     bracket: Number(fd.get("bracket")) || 4,
     colors,
-    archetypes: parseArchetypesFromInput(fd.get("archetypes")),
+    archetypes: sortArchetypeTags(parseArchetypesFromInput(fd.get("archetypes"))),
     tribes: deckHasTribalArchetype(parseArchetypesFromInput(fd.get("archetypes")))
-      ? parseTribesFromInput(fd.get("tribes"))
+      ? sortArchetypeTags(parseTribesFromInput(fd.get("tribes")))
       : [],
     retired: fd.get("retired") === "on",
     createdAt: normalizeDate(String(fd.get("createdAt") || "")) || todayISO(),
@@ -3333,9 +3333,12 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
-function renderDecksFilterToggles() {
+function renderDecksFilterToggles(isOpponentsPage = false) {
+  const statusToggle = isOpponentsPage
+    ? ""
+    : `<button type="button" class="btn btn-ghost btn-sm stats-deck-filter-toggle" id="decks-status-filter-toggle">${statsDeckFilterLabel(decksTab)}</button>`;
   return `
-    <button type="button" class="btn btn-ghost btn-sm stats-deck-filter-toggle" id="decks-status-filter-toggle">${statsDeckFilterLabel(decksTab)}</button>
+    ${statusToggle}
     ${renderBracketFilterToggle("decks-bracket-filter-toggle", deckBracketFilter)}`;
 }
 
@@ -3369,7 +3372,7 @@ function renderDeckModal(editingDeck, editingOpponentDeck) {
   const showTribeField = deckHasTribalArchetype(archetypes);
   const bracket = editingDeck?.bracket ?? editingOpponentDeck?.bracket ?? 4;
   const colors = editingDeck?.colors || editingOpponentDeck?.colors || [];
-  const retired = editingDeck?.retired || editingOpponentDeck?.retired;
+  const retired = editingDeck?.retired;
   const commanderValue = editingDeck
     ? deckLabel(editingDeck)
     : editingOpponentDeck
@@ -3413,7 +3416,7 @@ function renderDeckModal(editingDeck, editingOpponentDeck) {
           <fieldset class="color-fieldset"><legend>Colors</legend>
             ${["W", "U", "B", "R", "G"].map((c) => `<label class="checkbox mana-check"><input type="checkbox" name="color" value="${c}" ${colors.includes(c) ? "checked" : ""} />${colorBadge([c])}</label>`).join("")}
           </fieldset>
-          <label class="checkbox"><input type="checkbox" name="retired" ${retired ? "checked" : ""} /> Retired</label>
+          ${isOpponentEdit ? "" : `<label class="checkbox"><input type="checkbox" name="retired" ${retired ? "checked" : ""} /> Retired</label>`}
           <div class="form-actions${editingDeck && !isOpponentEdit ? " form-actions--split" : ""}">
             ${editingDeck && !isOpponentEdit ? `<button type="button" class="btn btn-danger" id="delete-deck-modal">Delete</button>` : ""}
             <button type="button" class="btn btn-primary" id="save-deck-btn">${editingDeck || isOpponentEdit ? "Save" : "Add Deck"}</button>
@@ -3435,8 +3438,10 @@ function renderDecks() {
     ? computeOpponentDeckStats(data.games, ensureOpponentDecks(data), data.decks)
     : getStats().deckStats;
 
-  if (decksTab === "active") list = list.filter((d) => !d.retired);
-  else if (decksTab === "retired") list = list.filter((d) => d.retired);
+  if (!isOpponentsPage) {
+    if (decksTab === "active") list = list.filter((d) => !d.retired);
+    else if (decksTab === "retired") list = list.filter((d) => d.retired);
+  }
   if (deckBracketFilter) list = list.filter((d) => String(d.bracket) === deckBracketFilter);
 
   list = sortDeckList(list, sortState.col, sortState.dir);
@@ -3526,7 +3531,7 @@ function renderDecks() {
       <section class="section decks-page-panel">
         <div class="section-header">
           <div class="filters inline stats-range-toolbar">
-            ${renderDecksFilterToggles()}
+            ${renderDecksFilterToggles(isOpponentsPage)}
           </div>
           ${isOpponentsPage ? "" : `<button type="button" class="btn btn-primary btn-sm" id="add-deck-btn">+ Deck</button>`}
         </div>
