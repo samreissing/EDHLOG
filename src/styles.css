@@ -3256,12 +3256,27 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .entity-game-pod-header {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem 0.75rem;
   align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
   padding: 0.5rem 0.75rem;
   font-size: 0.8rem;
   border-bottom: 1px solid var(--border);
   color: var(--muted);
+}
+
+.entity-game-pod-header-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  align-items: center;
+  min-width: 0;
+  flex: 1;
+}
+
+.entity-game-pod-edit {
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .entity-game-pod-seats {

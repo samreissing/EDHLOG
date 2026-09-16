@@ -1104,11 +1104,13 @@ function entityGameResultClass(game, decks, report, opponentDecks = []) {
 /** @param {import('./store.js').Game} game @param {import('./store.js').Deck[]} decks @param {ReturnType<typeof buildEntityReport>} report @param {import('./opponent-decks.js').OpponentDeck[]} [opponentDecks] */
 /** @param {import('./store.js').Game} game @param {import('./store.js').Deck[]} decks */
 export function renderGameLogPodCard(game, decks) {
-  return renderEntityGamePodCard(game, decks, { kind: "deck", deckSlotId: game.deck });
+  return renderEntityGamePodCard(game, decks, { kind: "deck", deckSlotId: game.deck }, [], {
+    showEditGame: true,
+  });
 }
 
-/** @param {import('./store.js').Game} game @param {import('./store.js').Deck[]} decks @param {ReturnType<typeof buildEntityReport>} report @param {import('./opponent-decks.js').OpponentDeck[]} [opponentDecks] */
-function renderEntityGamePodCard(game, decks, report, opponentDecks = []) {
+/** @param {import('./store.js').Game} game @param {import('./store.js').Deck[]} decks @param {ReturnType<typeof buildEntityReport>} report @param {import('./opponent-decks.js').OpponentDeck[]} [opponentDecks] @param {{ showEditGame?: boolean }} [cardOptions] */
+function renderEntityGamePodCard(game, decks, report, opponentDecks = [], cardOptions = {}) {
   let seatBoxes;
   if (gameUsesSeatNumbers(game)) {
     const seatsByNumber = new Map(parseGameSeats(game, decks).map((seat) => [seat.seat, seat]));
@@ -1159,14 +1161,20 @@ function renderEntityGamePodCard(game, decks, report, opponentDecks = []) {
 
   const deckMap = deckMapByKey(decks);
   const resultCls = entityGameResultClass(game, decks, report, opponentDecks);
+  const editBtn = cardOptions.showEditGame
+    ? `<button type="button" class="btn-icon edit-game entity-game-pod-edit" data-id="${escapeHtml(game.id)}" title="Edit game">✎</button>`
+    : "";
 
   return `
     <article class="entity-game-pod-card">
       <div class="entity-game-pod-header">
-        <span>${formatDate(game.date)}</span>
-        <span>Turn ${game.turn || "—"}</span>
-        <span>Bracket ${gameBracket(game, deckMap)}</span>
-        <span class="result-pill ${resultCls}">${resultCls === "win" ? "Win" : "Loss"}</span>
+        <div class="entity-game-pod-header-meta">
+          <span>${formatDate(game.date)}</span>
+          <span>Turn ${game.turn || "—"}</span>
+          <span>Bracket ${gameBracket(game, deckMap)}</span>
+          <span class="result-pill ${resultCls}">${resultCls === "win" ? "Win" : "Loss"}</span>
+        </div>
+        ${editBtn}
       </div>
       <div class="entity-game-pod-seats">${seatBoxes}</div>
     </article>`;
