@@ -140,6 +140,20 @@ export function gamesForOpponentDeck(games, deck) {
 }
 
 /**
+ * Remove opponent deck records that are not referenced by any logged game.
+ * @param {import('./store.js').AppData} data
+ */
+export function pruneUnusedOpponentDecks(data) {
+  const opponentDecks = ensureOpponentDecks(data);
+  const kept = opponentDecks.filter((deck) =>
+    data.games.some((game) => gameIncludesOpponentDeck(game, deck))
+  );
+  if (kept.length === opponentDecks.length) return false;
+  data.opponentDecks = kept;
+  return true;
+}
+
+/**
  * @param {import('./store.js').Game[]} games
  * @param {OpponentDeck[]} opponentDecks
  * @param {import('./store.js').Deck[]} [decks]
@@ -239,6 +253,7 @@ export function syncOpponentDecksFromGames(data) {
     }
   }
 
+  if (pruneUnusedOpponentDecks(data)) changed = true;
   return changed;
 }
 
