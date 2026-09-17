@@ -3958,17 +3958,6 @@ function renderLogForm() {
         <label>Time<input type="time" name="time" value="${escapeHtml(timeVal)}" /></label>
       </div>
       <div class="game-form-row game-form-row-split">
-        <label>Bracket<select name="bracket"><option value="" ${!bracketVal ? "selected" : ""}>—</option>${[
-          1, 2, 3, 4, 5,
-        ]
-          .map(
-            (b) =>
-              `<option value="${b}" ${String(bracketVal) === String(b) ? "selected" : ""}>${b}</option>`
-          )
-          .join("")}</select></label>
-        <label>Turn ended<input type="number" name="turn" min="0" step="1" placeholder="Optional (blank or 0 = none)" value="${editing?.turn ?? ""}" /></label>
-      </div>
-      <div class="game-form-row game-form-row-split">
         <label class="game-form-deck-label">My deck
           <div class="game-deck-select">
             <select name="deck" class="game-deck-select-native" required><option value="">Select…</option>${decks
@@ -3983,6 +3972,17 @@ function renderLogForm() {
             <ul class="game-deck-select-menu" role="listbox" hidden></ul>
           </div>
         </label>
+        <label>Turn ended<input type="number" name="turn" min="0" step="1" placeholder="Optional (blank or 0 = none)" value="${editing?.turn ?? ""}" /></label>
+      </div>
+      <div class="game-form-row game-form-row-split">
+        <label>Bracket<select name="bracket"><option value="" ${!bracketVal ? "selected" : ""}>—</option>${[
+          1, 2, 3, 4, 5,
+        ]
+          .map(
+            (b) =>
+              `<option value="${b}" ${String(bracketVal) === String(b) ? "selected" : ""}>${b}</option>`
+          )
+          .join("")}</select></label>
         <label>My seat<select name="mySeat"><option value="">—</option>${seatOptions(editing?.mySeat)}</select></label>
       </div>
       <fieldset class="pod-fieldset">
