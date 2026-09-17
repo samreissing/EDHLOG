@@ -262,8 +262,8 @@ let entityReportScrollToTop = false;
 let entityReportTab = "games";
 /** @type {{ players: import('./table.js').SortState, decks: import('./table.js').SortState }} */
 let entityReportMatchupSort = {
-  players: { col: "normalizedMatchupImpact", dir: "desc" },
-  decks: { col: "normalizedMatchupImpact", dir: "desc" },
+  players: { col: "normalizedWinRate", dir: "desc" },
+  decks: { col: "normalizedWinRate", dir: "desc" },
 };
 let entityReportGamesSort = { col: "date", dir: "desc" };
 /** @type {'overview' | 'archetypes' | 'seats'} */
@@ -311,8 +311,8 @@ let tableSort = {
   "decks-main": { col: "name", dir: "asc" },
   "opponent-decks-main": { col: "lastPlayed", dir: "desc" },
   "game-log": { col: "date", dir: "desc" },
-  matchups: { col: "normalizedMatchupImpact", dir: "desc" },
-  "totals-matchups": { col: "normalizedMatchupImpact", dir: "desc" },
+  matchups: { col: "normalizedWinRate", dir: "desc" },
+  "totals-matchups": { col: "normalizedWinRate", dir: "desc" },
   "totals-decks": { col: "normalizedWr", dir: "desc" },
   "totals-players": { col: "normalizedWr", dir: "desc" },
   "totals-colors": { col: "normalizedWr", dir: "desc" },
@@ -368,7 +368,7 @@ function resetStatsTabState(tab) {
     matchupSplitPartners = false;
     matchupSplitPlayers = false;
     matchupCombineDecks = false;
-    tableSort.matchups = { col: "normalizedMatchupImpact", dir: "desc" };
+    tableSort.matchups = { col: "normalizedWinRate", dir: "desc" };
   }
 }
 
@@ -386,7 +386,7 @@ function resetTotalsViewState() {
   tableSort["totals-decks"] = { col: "normalizedWr", dir: "desc" };
   tableSort["totals-players"] = { col: "normalizedWr", dir: "desc" };
   tableSort["totals-colors"] = { col: "normalizedWr", dir: "desc" };
-  tableSort["totals-matchups"] = { col: "normalizedMatchupImpact", dir: "desc" };
+  tableSort["totals-matchups"] = { col: "normalizedWinRate", dir: "desc" };
   tableSort["turn-stats"] = { col: "turn", dir: "asc" };
 }
 
@@ -446,8 +446,8 @@ function resetEntityReportViewState() {
   entityReportChartRange = { start: null, end: null, customized: false };
   entityReportGameRange = { min: 1, max: null, customized: false };
   entityReportMatchupSort = {
-    players: { col: "normalizedMatchupImpact", dir: "desc" },
-    decks: { col: "normalizedMatchupImpact", dir: "desc" },
+    players: { col: "normalizedWinRate", dir: "desc" },
+    decks: { col: "normalizedWinRate", dir: "desc" },
   };
   entityReportGamesSort = { col: "date", dir: "desc" };
 }
@@ -1168,7 +1168,7 @@ function bindEvents() {
     const totalsMatchupBtn = e.target.closest("[data-totals-matchup-tab]");
     if (totalsMatchupBtn) {
       totalsMatchupTab = totalsMatchupBtn.getAttribute("data-totals-matchup-tab") || "players";
-      tableSort["totals-matchups"] = { col: "normalizedMatchupImpact", dir: "desc" };
+      tableSort["totals-matchups"] = { col: "normalizedWinRate", dir: "desc" };
       render();
       return;
     }
@@ -2455,6 +2455,21 @@ function impactCell(value, title = "") {
   return `<span class="impact-cell ${cls}"${titleAttr}>${formatMatchupImpact(value)}</span>`;
 }
 
+function matchupWrSortHeaders(tableId, sort) {
+  return `
+          ${sortHeader(tableId, "normalizedWinRate", "NWR", sort)}
+          ${sortHeader(tableId, "opponentWinRate", "OPWR", sort)}
+          ${sortHeader(tableId, "normalizedOpponentWinRate", "NOPWR", sort)}`;
+}
+
+/** @param {{ normalizedWinRate?: number, opponentWinRate?: number, normalizedOpponentWinRate?: number }} row */
+function matchupWrCells(row) {
+  return `
+              <td>${pctCell(row.normalizedWinRate)}</td>
+              <td>${pctCell(row.opponentWinRate)}</td>
+              <td>${pctCell(row.normalizedOpponentWinRate)}</td>`;
+}
+
 function renderPodium(podium, labelForDeck = deckLabel) {
   if (!podium.length) {
     return "";
@@ -2997,18 +3012,16 @@ function renderStats() {
         wins: (r) => r.wins,
         opponentCount: (r) => r.opponentCount ?? 0,
         winRate: (r) => r.winRate,
-        matchupImpact: (r) => r.matchupImpact,
-        normalizedMatchupImpact: (r) => r.normalizedMatchupImpact,
-        opponentMatchupImpact: (r) => r.opponentMatchupImpact,
-        opponentNormalizedMatchupImpact: (r) => r.opponentNormalizedMatchupImpact,
+        normalizedWinRate: (r) => r.normalizedWinRate,
+        opponentWinRate: (r) => r.opponentWinRate,
+        normalizedOpponentWinRate: (r) => r.normalizedOpponentWinRate,
         outcomeTieRank: (r) => r.sharedLosses - r.losses,
       },
       {
         ...WINS_SORT_TIE_BREAKERS,
-        matchupImpact: ["outcomeTieRank", "games"],
-        normalizedMatchupImpact: ["outcomeTieRank", "games"],
-        opponentMatchupImpact: "games",
-        opponentNormalizedMatchupImpact: "games",
+        normalizedWinRate: ["outcomeTieRank", "games"],
+        opponentWinRate: "games",
+        normalizedOpponentWinRate: "games",
       }
     );
     const ranked = sorted.map((row, index) => ({ ...row, rank: index + 1 }));
@@ -3111,10 +3124,7 @@ function renderStats() {
           ${sortHeader("matchups", "wins", "W", tableSort.matchups)}
           ${isDeckTab && !matchupSplitPlayers ? sortHeader("matchups", "opponentCount", "Pop", tableSort.matchups) : ""}
           ${sortHeader("matchups", "winRate", "WR", tableSort.matchups)}
-          ${sortHeader("matchups", "matchupImpact", "MI", tableSort.matchups)}
-          ${sortHeader("matchups", "normalizedMatchupImpact", "NMI", tableSort.matchups)}
-          ${sortHeader("matchups", "opponentMatchupImpact", "Opp MI", tableSort.matchups)}
-          ${sortHeader("matchups", "opponentNormalizedMatchupImpact", "Opp NMI", tableSort.matchups)}
+          ${matchupWrSortHeaders("matchups", tableSort.matchups)}
         </tr></thead>
         <tbody>
           ${rows
@@ -3150,10 +3160,7 @@ function renderStats() {
               <td>${row.wins}</td>
               ${isDeckTab && !matchupSplitPlayers ? `<td class="matchup-pop-col">${row.opponentCount ? `<span class="matchup-pop-trigger has-tip" data-matchup-row-index="${rowIndex}">${row.opponentCount}</span>` : "—"}</td>` : ""}
               <td>${pctCell(row.winRate)}</td>
-              <td>${impactCell(row.matchupImpact)}</td>
-              <td>${impactCell(row.normalizedMatchupImpact)}</td>
-              <td>${impactCell(row.opponentMatchupImpact)}</td>
-              <td>${impactCell(row.opponentNormalizedMatchupImpact)}</td>
+              ${matchupWrCells(row)}
             </tr>`
             )
             .join("")}
@@ -3203,18 +3210,16 @@ function renderTotals() {
         games: (r) => r.games,
         wins: (r) => r.wins,
         winRate: (r) => r.winRate,
-        matchupImpact: (r) => r.matchupImpact,
-        normalizedMatchupImpact: (r) => r.normalizedMatchupImpact,
-        opponentMatchupImpact: (r) => r.opponentMatchupImpact,
-        opponentNormalizedMatchupImpact: (r) => r.opponentNormalizedMatchupImpact,
+        normalizedWinRate: (r) => r.normalizedWinRate,
+        opponentWinRate: (r) => r.opponentWinRate,
+        normalizedOpponentWinRate: (r) => r.normalizedOpponentWinRate,
         outcomeTieRank: (r) => r.sharedLosses - r.losses,
       },
       {
         ...WINS_SORT_TIE_BREAKERS,
-        matchupImpact: ["outcomeTieRank", "games"],
-        normalizedMatchupImpact: ["outcomeTieRank", "games"],
-        opponentMatchupImpact: "games",
-        opponentNormalizedMatchupImpact: "games",
+        normalizedWinRate: ["outcomeTieRank", "games"],
+        opponentWinRate: "games",
+        normalizedOpponentWinRate: "games",
       }
     );
     const rows = sorted
@@ -3262,12 +3267,21 @@ function renderTotals() {
         <button type="button" class="btn btn-ghost btn-sm" id="totals-color-agg-toggle">${totalsColorAgg === "inclusive" ? "Inclusive" : "Exclusive"}</button>`
         : "";
 
+    const showPlayerColumns = isPodPlayerTab || isPodDeckTab;
+
     const dimensionHeaders = isPodPlayerTab
       ? ""
       : `${sortHeader("totals-matchups", "subject", subjectDimHeader, matchupSort)}`;
     const opponentDimHeaderSort = isPodPlayerTab
       ? ""
       : `${sortHeader("totals-matchups", "opponent", opponentDimHeader, matchupSort)}`;
+
+    const subjectPlayerHeader = showPlayerColumns
+      ? sortHeader("totals-matchups", "subjectPlayer", "Player", matchupSort)
+      : "";
+    const opponentPlayerHeader = showPlayerColumns
+      ? sortHeader("totals-matchups", "opponentPlayer", "Opponent", matchupSort)
+      : "";
 
     const dimensionCells = (row) => {
       if (isPodPlayerTab) return "";
@@ -3314,17 +3328,14 @@ function renderTotals() {
       <table class="table compact sortable-table matchup-table totals-matchup-table">
         <thead><tr>
           <th class="col-rank">#</th>
-          ${sortHeader("totals-matchups", "subjectPlayer", "Player", matchupSort)}
+          ${subjectPlayerHeader}
           ${dimensionHeaders}
-          ${sortHeader("totals-matchups", "opponentPlayer", "Opponent", matchupSort)}
+          ${opponentPlayerHeader}
           ${opponentDimHeaderSort}
           ${sortHeader("totals-matchups", "games", "G", matchupSort)}
           ${sortHeader("totals-matchups", "wins", "W", matchupSort)}
           ${sortHeader("totals-matchups", "winRate", "WR", matchupSort)}
-          ${sortHeader("totals-matchups", "matchupImpact", "MI", matchupSort)}
-          ${sortHeader("totals-matchups", "normalizedMatchupImpact", "NMI", matchupSort)}
-          ${sortHeader("totals-matchups", "opponentMatchupImpact", "Opp MI", matchupSort)}
-          ${sortHeader("totals-matchups", "opponentNormalizedMatchupImpact", "Opp NMI", matchupSort)}
+          ${matchupWrSortHeaders("totals-matchups", matchupSort)}
         </tr></thead>
         <tbody>
           ${rows
@@ -3332,17 +3343,14 @@ function renderTotals() {
               (row) => `
             <tr>
               <td class="col-rank">${row.rank}</td>
-              <td>${renderPlayerReportLink(row.subjectPlayer)}</td>
+              ${showPlayerColumns ? `<td>${renderPlayerReportLink(row.subjectPlayer)}</td>` : ""}
               ${dimensionCells(row)}
-              <td>${renderPlayerReportLink(row.opponentPlayer)}</td>
+              ${showPlayerColumns ? `<td>${renderPlayerReportLink(row.opponentPlayer)}</td>` : ""}
               ${opponentDimCells(row)}
               <td>${row.games}</td>
               <td>${row.wins}</td>
               <td>${pctCell(row.winRate)}</td>
-              <td>${impactCell(row.matchupImpact)}</td>
-              <td>${impactCell(row.normalizedMatchupImpact)}</td>
-              <td>${impactCell(row.opponentMatchupImpact)}</td>
-              <td>${impactCell(row.opponentNormalizedMatchupImpact)}</td>
+              ${matchupWrCells(row)}
             </tr>`
             )
             .join("")}

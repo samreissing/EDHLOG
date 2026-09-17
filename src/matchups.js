@@ -287,6 +287,7 @@ function finalizeMatchupRow(row) {
     normalizedWinRate,
     opponentWins,
     opponentWinRate,
+    normalizedOpponentWinRate,
     opponentPlayerBreakdown,
     opponentCount: opponentPlayerBreakdown.length,
     matchupImpact: calcMatchupImpact(row.wins, row.games),
@@ -679,7 +680,7 @@ export function buildPodMatchupRows(games, decks, opponentDecks, tabId, options 
                 });
                 for (const opponentKey of colorKeysForIdentity(opponentColors, view, agg)) {
                   pairs.push({
-                    mapKey: `sp:${normalizeKey(seatA.player)}__ci:${subjectKey}__op:${normalizeKey(seatB.player)}__oci:${opponentKey}`,
+                    mapKey: `ci:${subjectKey}__oci:${opponentKey}`,
                     subject: colorKeyLabel(subjectKey, view),
                     opponent: colorKeyLabel(opponentKey, view),
                     subjectColors: rowColorsFromKey(subjectKey),
@@ -694,18 +695,23 @@ export function buildPodMatchupRows(games, decks, opponentDecks, tabId, options 
           const opponentCombo = seatArchetypeCombo(seatB, game, decks, opponentDecks);
           if (!subjectCombo || !opponentCombo) continue;
           pairs.push({
-            mapKey: `sp:${normalizeKey(seatA.player)}__a:${normalizeKey(subjectCombo)}__op:${normalizeKey(seatB.player)}__oa:${normalizeKey(opponentCombo)}`,
+            mapKey: `a:${normalizeKey(subjectCombo)}__oa:${normalizeKey(opponentCombo)}`,
             subject: subjectCombo,
             opponent: opponentCombo,
           });
         }
 
         for (const pair of pairs) {
+          const trackPlayers = tabId === "players" || tabId === "decks";
           const row =
             rows.get(pair.mapKey) ??
             ({
-              subjectPlayer: seatA.player || "—",
-              opponentPlayer: seatB.player || "—",
+              ...(trackPlayers
+                ? {
+                    subjectPlayer: seatA.player || "—",
+                    opponentPlayer: seatB.player || "—",
+                  }
+                : {}),
               subject: pair.subject,
               opponent: pair.opponent,
               subjectColors: pair.subjectColors,

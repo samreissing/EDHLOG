@@ -300,13 +300,15 @@ export function getEntityChartContext(chartGames, chartRangeState, gameRangeStat
 
 function finalizeEntityMatchupRow(row) {
   const opponentWins = row.losses;
+  const normalizedWinRate = (row.wins + 25 * 0.25) / (row.games + 25);
+  const normalizedOpponentWinRate = (opponentWins + 25 * 0.25) / (row.games + 25);
   return {
     ...row,
     winRate: row.games > 0 ? winRate(row.wins, row.games) : 0,
-    normalizedWinRate:
-      (row.wins + 25 * 0.25) / (row.games + 25),
+    normalizedWinRate,
     opponentWins,
     opponentWinRate: row.games > 0 ? winRate(opponentWins, row.games) : 0,
+    normalizedOpponentWinRate,
     matchupImpact: calcMatchupImpact(row.wins, row.games),
     normalizedMatchupImpact: calcNormalizedMatchupImpact(row.wins, row.games),
     opponentMatchupImpact: calcMatchupImpact(opponentWins, row.games),
@@ -1330,8 +1332,8 @@ function renderEntityTabsSection(report, decks, activeTab = "games", matchupSort
     .join("");
 
   const gamesPanel = renderEntityGamesSection(report, decks, gamesSort, opponentDecks);
-  const playerSort = matchupSort?.players ?? { col: "normalizedMatchupImpact", dir: "desc" };
-  const deckSort = matchupSort?.decks ?? { col: "normalizedMatchupImpact", dir: "desc" };
+  const playerSort = matchupSort?.players ?? { col: "normalizedWinRate", dir: "desc" };
+  const deckSort = matchupSort?.decks ?? { col: "normalizedWinRate", dir: "desc" };
   const playerPanel = renderMatchupTableWithCells(
     report.playerMatchups,
     (row) => renderMatchupOpponentCell(row, "player", decks, report.playerScope),
@@ -1621,8 +1623,9 @@ const ENTITY_MATCHUP_SORT_GETTERS = {
   games: (row) => row.games,
   wins: (row) => row.wins,
   winRate: (row) => row.winRate,
-  matchupImpact: (row) => row.matchupImpact,
-  normalizedMatchupImpact: (row) => row.normalizedMatchupImpact,
+  normalizedWinRate: (row) => row.normalizedWinRate,
+  opponentWinRate: (row) => row.opponentWinRate,
+  normalizedOpponentWinRate: (row) => row.normalizedOpponentWinRate,
 };
 
 /** @param {ReturnType<typeof finalizeEntityMatchupRow>[]} rows @param {(row: ReturnType<typeof finalizeEntityMatchupRow>) => string} opponentCell @param {string} tableId @param {import('./table.js').SortState} sort */
@@ -1640,8 +1643,9 @@ function renderMatchupTableWithCells(rows, opponentCell, tableId, sort) {
         ${sortHeader(tableId, "games", "G", sort)}
         ${sortHeader(tableId, "wins", "W", sort)}
         ${sortHeader(tableId, "winRate", "WR", sort)}
-        ${sortHeader(tableId, "matchupImpact", "MI", sort)}
-        ${sortHeader(tableId, "normalizedMatchupImpact", "NMI", sort)}
+        ${sortHeader(tableId, "normalizedWinRate", "NWR", sort)}
+        ${sortHeader(tableId, "opponentWinRate", "OPWR", sort)}
+        ${sortHeader(tableId, "normalizedOpponentWinRate", "NOPWR", sort)}
       </tr></thead>
       <tbody>
         ${sortedRows
@@ -1652,8 +1656,9 @@ function renderMatchupTableWithCells(rows, opponentCell, tableId, sort) {
             <td>${row.games}</td>
             <td>${row.wins}</td>
             <td>${pctCell(row.winRate)}</td>
-            <td>${impactCell(row.matchupImpact)}</td>
-            <td>${impactCell(row.normalizedMatchupImpact)}</td>
+            <td>${pctCell(row.normalizedWinRate)}</td>
+            <td>${pctCell(row.opponentWinRate)}</td>
+            <td>${pctCell(row.normalizedOpponentWinRate)}</td>
           </tr>`
           )
           .join("")}
