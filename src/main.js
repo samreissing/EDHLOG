@@ -3972,7 +3972,7 @@ function renderLogForm() {
             <ul class="game-deck-select-menu" role="listbox" hidden></ul>
           </div>
         </label>
-        <label>Turn ended<input type="number" name="turn" min="0" step="1" placeholder="Optional (blank or 0 = none)" value="${editing?.turn ?? ""}" /></label>
+        <label>My seat<select name="mySeat"><option value="">—</option>${seatOptions(editing?.mySeat)}</select></label>
       </div>
       <div class="game-form-row game-form-row-split">
         <label>Bracket<select name="bracket"><option value="" ${!bracketVal ? "selected" : ""}>—</option>${[
@@ -3983,7 +3983,7 @@ function renderLogForm() {
               `<option value="${b}" ${String(bracketVal) === String(b) ? "selected" : ""}>${b}</option>`
           )
           .join("")}</select></label>
-        <label>My seat<select name="mySeat"><option value="">—</option>${seatOptions(editing?.mySeat)}</select></label>
+        <label>Turn ended<input type="number" name="turn" min="0" step="1" placeholder="Optional (blank or 0 = none)" value="${editing?.turn ?? ""}" /></label>
       </div>
       <fieldset class="pod-fieldset">
         <legend>Pod</legend>
