@@ -32,6 +32,15 @@ function tagRowKey(tags, canonicalNames) {
     .join(", ");
 }
 
+/** @param {string[]} tags */
+export function exactArchetypeComboLabel(tags) {
+  const list = normalizeTags(tags);
+  if (!list.length) return null;
+  /** @type {Map<string, string>} */
+  const canonicalNames = new Map();
+  return tagRowKey(list, canonicalNames);
+}
+
 /**
  * @param {string[]} tags
  * @param {ArchetypeView} view

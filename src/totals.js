@@ -1,4 +1,4 @@
-import { parseGameSeats } from "./matchups.js";
+import { parseGameSeats, computePodAllMatchups } from "./matchups.js";
 import { MY_PLAYER_NAME } from "./opponent-search.js";
 import { getCommanderInfo, getCommanderMatchupIdentities } from "./commander-names.js";
 import { resolveCommanderColors } from "./commander-colors.js";
@@ -15,6 +15,7 @@ export const TOTALS_TABS = [
   { id: "players", label: "Players" },
   { id: "colors", label: "Colors" },
   { id: "archetypes", label: "Archetypes" },
+  { id: "matchups", label: "Matchups" },
   { id: "seats", label: "Seats" },
   { id: "turns", label: "Turns" },
 ];
@@ -296,12 +297,13 @@ export function buildPodColorRankings(games, decks, options = {}) {
  * @param {object} [options]
  */
 export function computeAllTotals(games, decks, options = {}) {
-  const { bracketFilter = "", ...rankingOptions } = options;
+  const { bracketFilter = "", opponentDecks = [], ...rankingOptions } = options;
   const filteredGames = filterGamesByBracket(games, decks, bracketFilter);
 
   return {
     decks: buildPodDeckRankings(filteredGames, decks, rankingOptions),
     players: buildPodPlayerRankings(filteredGames, decks, rankingOptions),
     colors: buildPodColorRankings(filteredGames, decks, rankingOptions),
+    matchups: computePodAllMatchups(filteredGames, decks, opponentDecks, rankingOptions),
   };
 }

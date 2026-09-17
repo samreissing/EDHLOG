@@ -133,6 +133,7 @@ import {
   formatMatchupImpact,
   matchupImpactClass,
   MATCHUP_TABS,
+  POD_MATCHUP_TABS,
   collectAllPodCommanderNames,
   gameHasMySeat,
   nonMySeatNumbers,
@@ -192,7 +193,8 @@ import {
 } from "./seats.js";
 
 const VIEWS = [
-  { id: "stats", label: "Stats" },
+  { id: "stats", label: "My Stats" },
+  { id: "totals", label: "Total Stats" },
   { id: "decks", label: "Decks" },
   { id: "games", label: "Games" },
 ];
@@ -206,7 +208,6 @@ const STATS_TABS = [
   { id: "turns", label: "Turns" },
   { id: "trends", label: "Trends" },
   { id: "matchups", label: "Matchups" },
-  { id: "totals", label: "Totals" },
 ];
 
 const DECKS_PAGE_TABS = [
@@ -228,7 +229,9 @@ let matchupSplitPartners = false;
 let matchupSplitPlayers = false;
 let matchupCombineDecks = false;
 let totalsTab = "decks";
+let totalsMatchupTab = "players";
 let totalsSearch = "";
+let totalsMatchupSearch = "";
 let totalsSplitPartners = false;
 let totalsExcludeMe = false;
 let totalsBracketFilter = "";
@@ -309,6 +312,7 @@ let tableSort = {
   "opponent-decks-main": { col: "lastPlayed", dir: "desc" },
   "game-log": { col: "date", dir: "desc" },
   matchups: { col: "normalizedMatchupImpact", dir: "desc" },
+  "totals-matchups": { col: "normalizedMatchupImpact", dir: "desc" },
   "totals-decks": { col: "normalizedWr", dir: "desc" },
   "totals-players": { col: "normalizedWr", dir: "desc" },
   "totals-colors": { col: "normalizedWr", dir: "desc" },
@@ -365,20 +369,25 @@ function resetStatsTabState(tab) {
     matchupSplitPlayers = false;
     matchupCombineDecks = false;
     tableSort.matchups = { col: "normalizedMatchupImpact", dir: "desc" };
-  } else if (tab === "totals") {
-    totalsTab = "decks";
-    totalsSearch = "";
-    totalsSplitPartners = false;
-    totalsExcludeMe = false;
-    totalsSelectedSeats = [];
-    totalsBracketFilter = "";
-    totalsColorView = "exact";
-    totalsColorAgg = "exclusive";
-    tableSort["totals-decks"] = { col: "normalizedWr", dir: "desc" };
-    tableSort["totals-players"] = { col: "normalizedWr", dir: "desc" };
-    tableSort["totals-colors"] = { col: "normalizedWr", dir: "desc" };
-    tableSort["turn-stats"] = { col: "turn", dir: "asc" };
   }
+}
+
+function resetTotalsViewState() {
+  totalsTab = "decks";
+  totalsMatchupTab = "players";
+  totalsSearch = "";
+  totalsMatchupSearch = "";
+  totalsSplitPartners = false;
+  totalsExcludeMe = false;
+  totalsSelectedSeats = [];
+  totalsBracketFilter = "";
+  totalsColorView = "exact";
+  totalsColorAgg = "exclusive";
+  tableSort["totals-decks"] = { col: "normalizedWr", dir: "desc" };
+  tableSort["totals-players"] = { col: "normalizedWr", dir: "desc" };
+  tableSort["totals-colors"] = { col: "normalizedWr", dir: "desc" };
+  tableSort["totals-matchups"] = { col: "normalizedMatchupImpact", dir: "desc" };
+  tableSort["turn-stats"] = { col: "turn", dir: "asc" };
 }
 
 function resetAllStatsTabStates() {
@@ -845,6 +854,9 @@ function bindEvents() {
     if (prevView === "stats" && currentView !== "stats") {
       resetAllStatsTabStates();
     }
+    if (prevView === "totals" && currentView !== "totals") {
+      resetTotalsViewState();
+    }
     if (prevView === "decks" && currentView !== "decks") {
       resetDecksViewState();
     }
@@ -854,6 +866,9 @@ function bindEvents() {
     if (currentView === "stats") {
       statsTab = "overview";
       resetAllStatsTabStates();
+    }
+    if (currentView === "totals") {
+      resetTotalsViewState();
     }
     if (currentView === "decks") {
       resetDecksViewState();
@@ -875,6 +890,9 @@ function bindEvents() {
       render();
     } else if (e.target.id === "totals-search") {
       totalsSearch = e.target.value;
+      render();
+    } else if (e.target.id === "totals-matchup-search") {
+      totalsMatchupSearch = e.target.value;
       render();
     } else if (e.target.id === "seats-range-start" || e.target.id === "seats-range-end") {
       seatRange.customized = true;
@@ -1139,8 +1157,18 @@ function bindEvents() {
     const totalsBtn = e.target.closest("[data-totals-tab]");
     if (totalsBtn) {
       const nextTotalsTab = totalsBtn.getAttribute("data-totals-tab");
-      if (nextTotalsTab !== totalsTab) resetStatsTabState("totals");
-      totalsTab = nextTotalsTab;
+      if (nextTotalsTab !== totalsTab) {
+        if (nextTotalsTab === "matchups") totalsMatchupTab = "players";
+        totalsTab = nextTotalsTab;
+      }
+      render();
+      return;
+    }
+
+    const totalsMatchupBtn = e.target.closest("[data-totals-matchup-tab]");
+    if (totalsMatchupBtn) {
+      totalsMatchupTab = totalsMatchupBtn.getAttribute("data-totals-matchup-tab") || "players";
+      tableSort["totals-matchups"] = { col: "normalizedMatchupImpact", dir: "desc" };
       render();
       return;
     }
@@ -1893,6 +1921,7 @@ function getStats() {
       splitPartners: matchupSplitPartners,
       splitPlayers: matchupSplitPlayers,
       combineDecks: matchupCombineDecks,
+      opponentDecks: ensureOpponentDecks(data),
       colorOptions: {
         decks: data.decks,
         deckFilter: statsDeckFilter,
@@ -1907,6 +1936,7 @@ function getStats() {
       view: totalsColorView,
       agg: totalsColorAgg,
       bracketFilter: totalsBracketFilter,
+      opponentDecks: ensureOpponentDecks(data),
     }),
   };
 }
@@ -2339,11 +2369,18 @@ function render() {
 
   const main = document.getElementById("main");
   if (currentView === "stats") main.innerHTML = renderStats();
+  else if (currentView === "totals") main.innerHTML = renderTotals();
   else if (currentView === "decks") main.innerHTML = renderDecks();
   else main.innerHTML = renderGames();
 
   bindPieCharts();
-  if (currentView === "stats" && (statsTab === "trends" || statsTab === "seats" || statsTab === "colors" || statsTab === "brackets" || (statsTab === "totals" && totalsTab === "seats"))) {
+  if (
+    currentView === "stats" &&
+    (statsTab === "trends" ||
+      statsTab === "seats" ||
+      statsTab === "colors" ||
+      statsTab === "brackets")
+  ) {
     bindWinRateLineCharts();
     if (statsTab === "trends") {
       const { statsGames } = getStatsScope();
@@ -2354,7 +2391,13 @@ function render() {
       });
     }
   }
-  if (currentView === "stats" && (statsTab === "turns" || (statsTab === "totals" && totalsTab === "turns"))) {
+  if (currentView === "totals" && totalsTab === "seats") {
+    bindWinRateLineCharts();
+  }
+  if (currentView === "stats" && statsTab === "turns") {
+    bindTurnWinRateChart();
+  }
+  if (currentView === "totals" && totalsTab === "turns") {
     bindTurnWinRateChart();
   }
   if (currentView === "stats" && statsTab === "matchups" && matchupTab === "decks") {
@@ -2942,6 +2985,7 @@ function renderStats() {
   } else if (statsTab === "matchups") {
     const isDeckTab = matchupTab === "decks";
     const isColorTab = matchupTab === "colors";
+    const isArchetypeTab = matchupTab === "archetypes";
     const query = matchupSearch.trim().toLowerCase();
     const sorted = applySort(
       s.matchups[matchupTab] || [],
@@ -2986,6 +3030,11 @@ function renderStats() {
       if (isColorTab) {
         return colorMatchupRowMatchesSearch(row, query);
       }
+      if (isArchetypeTab) {
+        return (
+          row.subject.toLowerCase().includes(query) || row.opponent.toLowerCase().includes(query)
+        );
+      }
       return row.opponent.toLowerCase().includes(query);
     });
     lastMatchupDeckRows = isDeckTab ? rows : [];
@@ -2996,7 +3045,9 @@ function renderStats() {
         : "Search my or opponent decks"
       : isColorTab
         ? 'Search Color: "WUB"'
-        : "Search opponents";
+        : isArchetypeTab
+          ? "Search archetypes"
+          : "Search opponents";
 
     const colorToolbarControls = isColorTab
       ? `<button type="button" class="btn btn-ghost btn-sm" id="matchup-color-view-toggle">${colorViewLabel(matchupColorView)}</button>
@@ -3026,11 +3077,19 @@ function renderStats() {
       ? sortHeader("matchups", "subject", "Deck", tableSort.matchups)
       : isColorTab
         ? sortHeader("matchups", "subject", "My Colors", tableSort.matchups)
-        : "";
+        : isArchetypeTab
+          ? sortHeader("matchups", "subject", "My Archetypes", tableSort.matchups)
+          : "";
     const opponentHeader = sortHeader(
       "matchups",
       "opponent",
-      isDeckTab ? "Opponent Deck" : isColorTab ? "Opponent Colors" : "Opponent",
+      isDeckTab
+        ? "Opponent Deck"
+        : isColorTab
+          ? "Opponent Colors"
+          : isArchetypeTab
+            ? "Opponent Archetypes"
+            : "Opponent",
       tableSort.matchups
     );
 
@@ -3068,14 +3127,24 @@ function renderStats() {
                   ? `<td class="matchup-deck-col">${renderMatchupDeckCell(row.subject, data.decks)}</td>`
                   : isColorTab
                     ? `<td class="matchup-color-col"><span class="color-label">${colorBadge(row.subjectColors || [])}</span></td>`
-                    : ""
+                    : isArchetypeTab
+                      ? `<td>${renderArchetypeReportLink(row.subject, row.subject, {
+                          view: "exact",
+                          scope: "mine",
+                        })}</td>`
+                      : ""
               }
               ${
                 isDeckTab
                   ? `<td class="matchup-deck-col">${renderMatchupOpponentDeckCell(row, data.decks)}</td>`
                   : isColorTab
                     ? `<td class="matchup-color-col"><span class="color-label">${colorBadge(row.opponentColors || [])}</span></td>`
-                    : `<td>${renderPlayerReportLink(row.opponent)}</td>`
+                    : isArchetypeTab
+                      ? `<td>${renderArchetypeReportLink(row.opponent, row.opponent, {
+                          view: "exact",
+                          scope: "opponents",
+                        })}</td>`
+                      : `<td>${renderPlayerReportLink(row.opponent)}</td>`
               }
               <td>${row.games}</td>
               <td>${row.wins}</td>
@@ -3091,24 +3160,195 @@ function renderStats() {
         </tbody>
       </table>
       ${isDeckTab && !matchupSplitPlayers ? `<div id="matchup-deck-tip" class="deck-opponent-tip" hidden></div>` : ""}`;
-  } else if (statsTab === "totals") {
-    const isDeckTab = totalsTab === "decks";
-    const isPlayerTab = totalsTab === "players";
-    const isColorTab = totalsTab === "colors";
-    const isArchetypeTab = totalsTab === "archetypes";
-    const isSeatsTab = totalsTab === "seats";
-    const isTurnsTab = totalsTab === "turns";
-    const totalsGames = getTotalsScopeGames();
-    const bracketFilterControl = renderBracketFilterToggle(
-      "totals-bracket-filter-toggle",
-      totalsBracketFilter
-    );
-    const excludeMeControl = `<label class="checkbox totals-exclude-me">
+  }
+
+  return `<section class="section">${subTabs(STATS_TABS, statsTab, "stats-tab")}${body}</section>`;
+}
+
+function renderTotals() {
+  const s = getStats();
+  let body = "";
+  const isDeckTab = totalsTab === "decks";
+  const isPlayerTab = totalsTab === "players";
+  const isColorTab = totalsTab === "colors";
+  const isArchetypeTab = totalsTab === "archetypes";
+  const isMatchupsTab = totalsTab === "matchups";
+  const isSeatsTab = totalsTab === "seats";
+  const isTurnsTab = totalsTab === "turns";
+  const totalsGames = getTotalsScopeGames();
+  const bracketFilterControl = renderBracketFilterToggle(
+    "totals-bracket-filter-toggle",
+    totalsBracketFilter
+  );
+  const excludeMeControl = `<label class="checkbox totals-exclude-me">
       <input type="checkbox" id="totals-exclude-me" ${totalsExcludeMe ? "checked" : ""} />
       Exclude my data
     </label>`;
 
-    if (isArchetypeTab) {
+  if (isMatchupsTab) {
+    const isPodDeckTab = totalsMatchupTab === "decks";
+    const isPodColorTab = totalsMatchupTab === "colors";
+    const isPodArchetypeTab = totalsMatchupTab === "archetypes";
+    const isPodPlayerTab = totalsMatchupTab === "players";
+    const query = totalsMatchupSearch.trim().toLowerCase();
+    const matchupSort = tableSort["totals-matchups"];
+    const sorted = applySort(
+      s.totals.matchups?.[totalsMatchupTab] || [],
+      matchupSort,
+      {
+        subjectPlayer: (r) => r.subjectPlayer,
+        opponentPlayer: (r) => r.opponentPlayer,
+        subject: (r) => r.subject,
+        opponent: (r) => r.opponent,
+        games: (r) => r.games,
+        wins: (r) => r.wins,
+        winRate: (r) => r.winRate,
+        matchupImpact: (r) => r.matchupImpact,
+        normalizedMatchupImpact: (r) => r.normalizedMatchupImpact,
+        opponentMatchupImpact: (r) => r.opponentMatchupImpact,
+        opponentNormalizedMatchupImpact: (r) => r.opponentNormalizedMatchupImpact,
+        outcomeTieRank: (r) => r.sharedLosses - r.losses,
+      },
+      {
+        ...WINS_SORT_TIE_BREAKERS,
+        matchupImpact: ["outcomeTieRank", "games"],
+        normalizedMatchupImpact: ["outcomeTieRank", "games"],
+        opponentMatchupImpact: "games",
+        opponentNormalizedMatchupImpact: "games",
+      }
+    );
+    const rows = sorted
+      .map((row, index) => ({ ...row, rank: index + 1 }))
+      .filter((row) => {
+        if (!query) return true;
+        const haystack = [
+          row.subjectPlayer,
+          row.opponentPlayer,
+          row.subject,
+          row.opponent,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        return haystack.includes(query);
+      });
+
+    const subjectDimHeader = isPodDeckTab
+      ? "Deck"
+      : isPodColorTab
+        ? "Colors"
+        : isPodArchetypeTab
+          ? "Archetype"
+          : "";
+    const opponentDimHeader = isPodDeckTab
+      ? "Opponent Deck"
+      : isPodColorTab
+        ? "Opponent Colors"
+        : isPodArchetypeTab
+          ? "Opponent Archetype"
+          : "";
+
+    const splitPartnersControl =
+      isPodDeckTab || isPodColorTab
+        ? `<label class="checkbox totals-split-partners">
+          <input type="checkbox" id="totals-split-partners" ${totalsSplitPartners ? "checked" : ""} />
+          Split partners
+        </label>`
+        : "";
+
+    const colorToolbar =
+      isPodColorTab
+        ? `<button type="button" class="btn btn-ghost btn-sm" id="totals-color-view-toggle">${colorViewLabel(totalsColorView)}</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="totals-color-agg-toggle">${totalsColorAgg === "inclusive" ? "Inclusive" : "Exclusive"}</button>`
+        : "";
+
+    const dimensionHeaders = isPodPlayerTab
+      ? ""
+      : `${sortHeader("totals-matchups", "subject", subjectDimHeader, matchupSort)}`;
+    const opponentDimHeaderSort = isPodPlayerTab
+      ? ""
+      : `${sortHeader("totals-matchups", "opponent", opponentDimHeader, matchupSort)}`;
+
+    const dimensionCells = (row) => {
+      if (isPodPlayerTab) return "";
+      if (isPodDeckTab) {
+        return `<td class="matchup-deck-col">${renderDeckReportLink(row.subject, data.decks, {
+          label: row.subject,
+        })}</td>`;
+      }
+      if (isPodColorTab) {
+        return `<td class="matchup-color-col"><span class="color-label">${colorBadge(row.subjectColors || [])}</span></td>`;
+      }
+      return `<td>${renderArchetypeReportLink(row.subject, row.subject, {
+        view: "exact",
+        scope: "all",
+      })}</td>`;
+    };
+
+    const opponentDimCells = (row) => {
+      if (isPodPlayerTab) return "";
+      if (isPodDeckTab) {
+        return `<td class="matchup-deck-col">${renderDeckReportLink(row.opponent, data.decks, {
+          label: row.opponent,
+        })}</td>`;
+      }
+      if (isPodColorTab) {
+        return `<td class="matchup-color-col"><span class="color-label">${colorBadge(row.opponentColors || [])}</span></td>`;
+      }
+      return `<td>${renderArchetypeReportLink(row.opponent, row.opponent, {
+        view: "exact",
+        scope: "all",
+      })}</td>`;
+    };
+
+    body = `
+      ${subTabs(TOTALS_TABS, totalsTab, "totals-tab")}
+      ${subTabs(POD_MATCHUP_TABS, totalsMatchupTab, "totals-matchup-tab")}
+      <div class="filters inline totals-filters matchup-filters">
+        ${bracketFilterControl}
+        ${colorToolbar}
+        ${splitPartnersControl}
+        ${excludeMeControl}
+        <input type="search" id="totals-matchup-search" class="input matchup-search" placeholder="Search matchups" value="${escapeHtml(totalsMatchupSearch)}" />
+      </div>
+      <table class="table compact sortable-table matchup-table totals-matchup-table">
+        <thead><tr>
+          <th class="col-rank">#</th>
+          ${sortHeader("totals-matchups", "subjectPlayer", "Player", matchupSort)}
+          ${dimensionHeaders}
+          ${sortHeader("totals-matchups", "opponentPlayer", "Opponent", matchupSort)}
+          ${opponentDimHeaderSort}
+          ${sortHeader("totals-matchups", "games", "G", matchupSort)}
+          ${sortHeader("totals-matchups", "wins", "W", matchupSort)}
+          ${sortHeader("totals-matchups", "winRate", "WR", matchupSort)}
+          ${sortHeader("totals-matchups", "matchupImpact", "MI", matchupSort)}
+          ${sortHeader("totals-matchups", "normalizedMatchupImpact", "NMI", matchupSort)}
+          ${sortHeader("totals-matchups", "opponentMatchupImpact", "Opp MI", matchupSort)}
+          ${sortHeader("totals-matchups", "opponentNormalizedMatchupImpact", "Opp NMI", matchupSort)}
+        </tr></thead>
+        <tbody>
+          ${rows
+            .map(
+              (row) => `
+            <tr>
+              <td class="col-rank">${row.rank}</td>
+              <td>${renderPlayerReportLink(row.subjectPlayer)}</td>
+              ${dimensionCells(row)}
+              <td>${renderPlayerReportLink(row.opponentPlayer)}</td>
+              ${opponentDimCells(row)}
+              <td>${row.games}</td>
+              <td>${row.wins}</td>
+              <td>${pctCell(row.winRate)}</td>
+              <td>${impactCell(row.matchupImpact)}</td>
+              <td>${impactCell(row.normalizedMatchupImpact)}</td>
+              <td>${impactCell(row.opponentMatchupImpact)}</td>
+              <td>${impactCell(row.opponentNormalizedMatchupImpact)}</td>
+            </tr>`
+            )
+            .join("")}
+        </tbody>
+      </table>`;
+  } else if (isArchetypeTab) {
       const tagKind = getArchetypeTagKind();
       const archetypes = applySort(
         computeArchetypeTableRows(totalsGames, {
@@ -3320,9 +3560,8 @@ function renderStats() {
         </tbody>
       </table>`;
     }
-  }
 
-  return `<section class="section">${subTabs(STATS_TABS, statsTab, "stats-tab")}${body}</section>`;
+  return `<section class="section totals-page">${body}</section>`;
 }
 
 function escapeHtml(str) {
