@@ -145,6 +145,11 @@ function accumulateTagRows(rows, keys, deckKey, didWin) {
   }
 }
 
+/** @param {string[]} tags @param {ArchetypeView} view @param {Map<string, string>} [canonicalNames] @param {Map<string, string[]>} [cache] */
+export function archetypeRowKeysForTags(tags, view, canonicalNames = new Map(), cache = new Map()) {
+  return cachedRowKeys(tags, view, canonicalNames, cache);
+}
+
 /** @param {ArchetypeView} view */
 export function archetypeViewLabel(view) {
   if (view === "combined") return "Combined";

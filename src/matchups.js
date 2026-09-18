@@ -4,7 +4,7 @@ import { getCommanderMatchupIdentities } from "./commander-names.js";
 import { resolveCommanderColors } from "./commander-colors.js";
 import { colorKeyLabel, colorKeysForIdentity, rowColorsFromKey } from "./color-stats.js";
 import { deckMapByKey, resolveMyCommander, findDeck } from "./deck-identity.js";
-import { exactArchetypeComboLabel } from "./archetype-stats.js";
+import { archetypeRowKeysForTags } from "./archetype-stats.js";
 import {
   findOpponentDeck,
   findOpponentDeckByPair,
@@ -499,28 +499,53 @@ export function buildColorMatchupRows(games, options) {
   });
 }
 
-/**
- * @param {import('./matchups.js').GameSeat} seat
- * @param {import('./store.js').Game} game
- * @param {import('./store.js').Deck[]} decks
- * @param {import('./opponent-decks.js').OpponentDeck[]} opponentDecks
- */
-function seatArchetypeCombo(seat, game, decks, opponentDecks) {
+function seatArchetypeTags(seat, game, decks, opponentDecks) {
   if (isMySeat(seat)) {
     const owned = findDeck(decks, game.deck);
-    return exactArchetypeComboLabel(owned?.archetypes);
+    return owned?.archetypes || [];
   }
 
   const opp = (game.opponents || []).find((entry) => Number(entry.seat) === Number(seat.seat));
   if (opp?.opponentDeckId) {
     const byId = findOpponentDeck(opponentDecks, opp.opponentDeckId);
     if (byId && opponentEntryMatchesDeck(game, opp, byId)) {
-      return exactArchetypeComboLabel(byId.archetypes);
+      return byId.archetypes || [];
     }
   }
 
   const byPair = findOpponentDeckByPair(opponentDecks, seat.player || "", seat.commander);
-  return exactArchetypeComboLabel(byPair?.archetypes);
+  return byPair?.archetypes || [];
+}
+
+/** @param {Map<string, { subjectKey: string, opponentKey: string, subject: string, opponent: string, games: number, wins: number, losses: number, sharedLosses: number, subjectPlayer?: string, opponentPlayer?: string }>} rows @param {string} subject @param {string} opponent @param {import('./matchups.js').GameSeat} seatA @param {import('./matchups.js').GameSeat} seatB @param {{ trackPlayers?: boolean }} [options] */
+function accumulateArchetypeMatchupRow(rows, subject, opponent, seatA, seatB, options = {}) {
+  const { trackPlayers = false } = options;
+  const mapKey = `a:${normalizeKey(subject)}__oa:${normalizeKey(opponent)}`;
+  const row =
+    rows.get(mapKey) ??
+    ({
+      subjectKey: `a:${normalizeKey(subject)}`,
+      opponentKey: `oa:${normalizeKey(opponent)}`,
+      subject,
+      opponent,
+      games: 0,
+      wins: 0,
+      losses: 0,
+      sharedLosses: 0,
+      ...(trackPlayers
+        ? {
+            subjectPlayer: seatA.player || "—",
+            opponentPlayer: seatB.player || "—",
+          }
+        : {}),
+    });
+
+  row.games += 1;
+  if (seatA.didWin) row.wins += 1;
+  else if (seatB.didWin) row.losses += 1;
+  else row.sharedLosses += 1;
+
+  rows.set(mapKey, row);
 }
 
 function sortMatchupRows(finalized, tabId, combineDecks = false) {
@@ -568,7 +593,11 @@ function sortMatchupRows(finalized, tabId, combineDecks = false) {
  * @param {{ splitPartners?: boolean }} [options]
  */
 export function buildMyArchetypeMatchupRows(games, decks, opponentDecks, options = {}) {
+  const { splitPartners = false, archetypeView = "unique" } = options;
   const rows = new Map();
+  /** @type {Map<string, string>} */
+  const canonicalNames = new Map();
+  const keyCache = new Map();
 
   for (const game of games) {
     const seats = parseGameSeats(game, decks);
@@ -577,34 +606,29 @@ export function buildMyArchetypeMatchupRows(games, decks, opponentDecks, options
     const mySeat = seats.find(isMySeat);
     if (!mySeat) continue;
 
-    const myCombo = seatArchetypeCombo(mySeat, game, decks, opponentDecks);
-    if (!myCombo) continue;
+    const myKeys = archetypeRowKeysForTags(
+      seatArchetypeTags(mySeat, game, decks, opponentDecks),
+      archetypeView,
+      canonicalNames,
+      keyCache
+    );
+    if (!myKeys.length) continue;
 
     for (const opponentSeat of seats) {
       if (opponentSeat === mySeat) continue;
-      const oppCombo = seatArchetypeCombo(opponentSeat, game, decks, opponentDecks);
-      if (!oppCombo) continue;
+      const oppKeys = archetypeRowKeysForTags(
+        seatArchetypeTags(opponentSeat, game, decks, opponentDecks),
+        archetypeView,
+        canonicalNames,
+        keyCache
+      );
+      if (!oppKeys.length) continue;
 
-      const mapKey = `a:${normalizeKey(myCombo)}__oa:${normalizeKey(oppCombo)}`;
-      const row =
-        rows.get(mapKey) ??
-        ({
-          subjectKey: `a:${normalizeKey(myCombo)}`,
-          opponentKey: `oa:${normalizeKey(oppCombo)}`,
-          subject: myCombo,
-          opponent: oppCombo,
-          games: 0,
-          wins: 0,
-          losses: 0,
-          sharedLosses: 0,
-        });
-
-      row.games += 1;
-      if (mySeat.didWin) row.wins += 1;
-      else if (opponentSeat.didWin) row.losses += 1;
-      else row.sharedLosses += 1;
-
-      rows.set(mapKey, row);
+      for (const myCombo of myKeys) {
+        for (const oppCombo of oppKeys) {
+          accumulateArchetypeMatchupRow(rows, myCombo, oppCombo, mySeat, opponentSeat);
+        }
+      }
     }
   }
 
@@ -625,8 +649,12 @@ export function buildPodMatchupRows(games, decks, opponentDecks, tabId, options 
     excludeMyPlayer = false,
     view = "exact",
     agg = "exclusive",
+    archetypeView = "unique",
   } = options;
   const rows = new Map();
+  /** @type {Map<string, string>} */
+  const archetypeCanonicalNames = new Map();
+  const archetypeKeyCache = new Map();
 
   for (const game of games) {
     const seats = parseGameSeats(game, decks);
@@ -691,14 +719,28 @@ export function buildPodMatchupRows(games, decks, opponentDecks, tabId, options 
             }
           }
         } else if (tabId === "archetypes") {
-          const subjectCombo = seatArchetypeCombo(seatA, game, decks, opponentDecks);
-          const opponentCombo = seatArchetypeCombo(seatB, game, decks, opponentDecks);
-          if (!subjectCombo || !opponentCombo) continue;
-          pairs.push({
-            mapKey: `a:${normalizeKey(subjectCombo)}__oa:${normalizeKey(opponentCombo)}`,
-            subject: subjectCombo,
-            opponent: opponentCombo,
-          });
+          const subjectKeys = archetypeRowKeysForTags(
+            seatArchetypeTags(seatA, game, decks, opponentDecks),
+            archetypeView,
+            archetypeCanonicalNames,
+            archetypeKeyCache
+          );
+          const opponentKeys = archetypeRowKeysForTags(
+            seatArchetypeTags(seatB, game, decks, opponentDecks),
+            archetypeView,
+            archetypeCanonicalNames,
+            archetypeKeyCache
+          );
+          if (!subjectKeys.length || !opponentKeys.length) continue;
+          for (const subject of subjectKeys) {
+            for (const opponent of opponentKeys) {
+              pairs.push({
+                mapKey: `a:${normalizeKey(subject)}__oa:${normalizeKey(opponent)}`,
+                subject,
+                opponent,
+              });
+            }
+          }
         }
 
         for (const pair of pairs) {
@@ -743,6 +785,7 @@ export function computeAllMatchups(games, options = {}) {
   const combineDecks = options.combineDecks ?? false;
   const decks = options.colorOptions?.decks ?? [];
   const opponentDecks = options.opponentDecks ?? [];
+  const archetypeView = options.archetypeView ?? "unique";
   return {
     players: buildMyMatchupRows(games, "players", { splitPartners, decks }),
     decks: buildMyMatchupRows(games, "decks", {
@@ -754,7 +797,10 @@ export function computeAllMatchups(games, options = {}) {
     colors: options.colorOptions
       ? buildColorMatchupRows(games, { ...options.colorOptions, splitPartners })
       : [],
-    archetypes: buildMyArchetypeMatchupRows(games, decks, opponentDecks, { splitPartners }),
+    archetypes: buildMyArchetypeMatchupRows(games, decks, opponentDecks, {
+      splitPartners,
+      archetypeView,
+    }),
   };
 }
 
@@ -769,7 +815,8 @@ export function computePodAllMatchups(games, decks, opponentDecks, options = {})
   const excludeMyPlayer = options.excludeMyPlayer ?? false;
   const view = options.view ?? "exact";
   const agg = options.agg ?? "exclusive";
-  const podOptions = { splitPartners, excludeMyPlayer, view, agg };
+  const archetypeView = options.archetypeView ?? "unique";
+  const podOptions = { splitPartners, excludeMyPlayer, view, agg, archetypeView };
   return {
     players: buildPodMatchupRows(games, decks, opponentDecks, "players", podOptions),
     decks: buildPodMatchupRows(games, decks, opponentDecks, "decks", podOptions),
