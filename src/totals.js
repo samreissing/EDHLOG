@@ -297,13 +297,21 @@ export function buildPodColorRankings(games, decks, options = {}) {
  * @param {object} [options]
  */
 export function computeAllTotals(games, decks, options = {}) {
-  const { bracketFilter = "", opponentDecks = [], ...rankingOptions } = options;
+  const {
+    bracketFilter = "",
+    opponentDecks = [],
+    skipMatchups = false,
+    matchupTab = null,
+    ...rankingOptions
+  } = options;
   const filteredGames = filterGamesByBracket(games, decks, bracketFilter);
 
   return {
     decks: buildPodDeckRankings(filteredGames, decks, rankingOptions),
     players: buildPodPlayerRankings(filteredGames, decks, rankingOptions),
     colors: buildPodColorRankings(filteredGames, decks, rankingOptions),
-    matchups: computePodAllMatchups(filteredGames, decks, opponentDecks, rankingOptions),
+    matchups: skipMatchups
+      ? { players: [], decks: [], colors: [], archetypes: [] }
+      : computePodAllMatchups(filteredGames, decks, opponentDecks, rankingOptions, matchupTab),
   };
 }
