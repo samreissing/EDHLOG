@@ -145,9 +145,20 @@ function accumulateTagRows(rows, keys, deckKey, didWin) {
   }
 }
 
+/** Max archetype tags expanded in Combined mode for matchup tables (2^n subsets). */
+export const MATCHUP_COMBINED_TAG_CAP = 8;
+
+/** Max my×opp key pairs accumulated per game/opponent in Combined mode before falling back to Unique. */
+export const MATCHUP_COMBINED_CROSS_CAP = 64;
+
 /** @param {string[]} tags @param {ArchetypeView} view @param {Map<string, string>} [canonicalNames] @param {Map<string, string[]>} [cache] */
 export function archetypeRowKeysForTags(tags, view, canonicalNames = new Map(), cache = new Map()) {
-  return cachedRowKeys(tags, view, canonicalNames, cache);
+  const list = normalizeTags(tags);
+  let effectiveView = view;
+  if (view === "combined" && list.length > MATCHUP_COMBINED_TAG_CAP) {
+    effectiveView = "unique";
+  }
+  return cachedRowKeys(tags, effectiveView, canonicalNames, cache);
 }
 
 /** @param {ArchetypeView} view */

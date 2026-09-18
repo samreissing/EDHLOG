@@ -130,7 +130,9 @@ import {
 } from "./recovery.js";
 import {
   computeAllMatchups,
+  computePodAllMatchups,
   formatMatchupImpact,
+  invalidateMatchupCache,
   matchupImpactClass,
   MATCHUP_TABS,
   POD_MATCHUP_TABS,
@@ -230,6 +232,11 @@ let matchupSplitPlayers = false;
 let matchupCombineDecks = false;
 /** @type {import('./archetype-stats.js').ArchetypeView} */
 let matchupArchetypeView = "unique";
+const MATCHUP_TABLE_ROW_CAP = 3500;
+/** @type {string | null} */
+let statsMemoKey = null;
+/** @type {ReturnType<typeof computeStatsPayload> | null} */
+let statsMemo = null;
 let totalsTab = "decks";
 let totalsMatchupTab = "players";
 let totalsSearch = "";
@@ -1046,7 +1053,8 @@ function bindEvents() {
 
     if (e.target.id === "matchup-archetype-view-toggle") {
       matchupArchetypeView = cycleArchetypeView(matchupArchetypeView);
-      render();
+      invalidateMatchupCache();
+      requestAnimationFrame(() => render());
       return;
     }
     if (e.target.id === "matchup-color-view-toggle") {
@@ -1898,14 +1906,121 @@ function renderArchetypeStatsTable(rows, emptyMessage, linkOptions = {}) {
       </table>`;
 }
 
-function getStats() {
-  const deckStats = computeDeckStats(data.decks, data.games);
-  const statsDecks = filterDecksForStats(data.decks, statsDeckFilter);
-  const statsGames = filterGamesByBracket(
+function emptyTotalsSnapshot() {
+  return {
+    decks: [],
+    players: [],
+    colors: [],
+    matchups: { players: [], decks: [], colors: [], archetypes: [] },
+  };
+}
+
+function buildStatsMemoKey() {
+  return JSON.stringify({
+    games: data.games.length,
+    lastGameId: data.games[data.games.length - 1]?.id,
+    decks: data.decks.length,
+    view: currentView,
+    statsTab,
+    totalsTab,
+    matchupTab,
+    totalsMatchupTab,
+    statsBracketFilter,
+    statsDeckFilter,
+    matchupSplitPartners,
+    matchupSplitPlayers,
+    matchupCombineDecks,
+    matchupColorView,
+    matchupColorAgg,
+    totalsSplitPartners,
+    totalsExcludeMe,
+    totalsBracketFilter,
+    totalsColorView,
+    totalsColorAgg,
+    colorView,
+    colorAgg,
+    colorSortOrder,
+    archetypeView,
+  });
+}
+
+/** @param {ReturnType<typeof buildMyMatchupRows> extends infer _U ? any[] : never} rows */
+function capMatchupTableRows(rows) {
+  if (rows.length <= MATCHUP_TABLE_ROW_CAP) {
+    return { rows, capped: false };
+  }
+  return { rows: rows.slice(0, MATCHUP_TABLE_ROW_CAP), capped: true };
+}
+
+function getStatsScopeGames() {
+  return filterGamesByBracket(
     filterGamesForStats(data.games, data.decks, statsDeckFilter),
     data.decks,
     statsBracketFilter
   );
+}
+
+function myStatsMatchupOptions() {
+  return {
+    splitPartners: matchupSplitPartners,
+    splitPlayers: matchupSplitPlayers,
+    combineDecks: matchupCombineDecks,
+    opponentDecks: ensureOpponentDecks(data),
+    colorOptions: {
+      decks: data.decks,
+      deckFilter: statsDeckFilter,
+      bracketFilter: statsBracketFilter,
+      view: matchupColorView,
+      agg: matchupColorAgg,
+    },
+    archetypeView: matchupArchetypeView,
+  };
+}
+
+function totalsMatchupOptions() {
+  return {
+    splitPartners: totalsSplitPartners,
+    excludeMyPlayer: totalsExcludeMe,
+    view: totalsColorView,
+    agg: totalsColorAgg,
+    bracketFilter: totalsBracketFilter,
+    opponentDecks: ensureOpponentDecks(data),
+    archetypeView: matchupArchetypeView,
+  };
+}
+
+/** @param {ReturnType<typeof computeStatsPayload>} payload */
+function refreshMatchupStatsInMemo(payload) {
+  const statsGames = getStatsScopeGames();
+  const myMatchupTab =
+    currentView === "stats" && statsTab === "matchups" ? matchupTab : null;
+  const totalsMatchupOnly =
+    currentView === "totals" && totalsTab === "matchups" ? totalsMatchupTab : null;
+
+  if (myMatchupTab) {
+    const fresh = computeAllMatchups(statsGames, myStatsMatchupOptions(), myMatchupTab);
+    payload.matchups[myMatchupTab] = fresh[myMatchupTab];
+  }
+
+  if (currentView === "totals" && totalsTab === "matchups" && totalsMatchupOnly) {
+    const freshPod = computePodAllMatchups(
+      filterGamesByBracket(data.games, data.decks, totalsBracketFilter),
+      data.decks,
+      ensureOpponentDecks(data),
+      totalsMatchupOptions(),
+      totalsMatchupOnly
+    );
+    payload.totals.matchups[totalsMatchupOnly] = freshPod[totalsMatchupOnly];
+  }
+
+  payload._matchupArchetypeView = matchupArchetypeView;
+  return payload;
+}
+
+function computeStatsPayload() {
+  const deckStats = computeDeckStats(data.decks, data.games);
+  const statsDecks = filterDecksForStats(data.decks, statsDeckFilter);
+  const statsGames = getStatsScopeGames();
   const filteredDeckStats = computeDeckStats(
     statsDeckFilter === "all" ? data.decks : statsDecks,
     statsGames
@@ -1914,6 +2029,11 @@ function getStats() {
     colors: getDeckColors(deck),
   }));
   const overview = computeOverview(statsGames);
+  const myMatchupTab =
+    currentView === "stats" && statsTab === "matchups" ? matchupTab : null;
+  const totalsMatchupOnly =
+    currentView === "totals" && totalsTab === "matchups" ? totalsMatchupTab : null;
+
   return {
     deckStats,
     overview,
@@ -1926,30 +2046,30 @@ function getStats() {
     bracketStats: computeBracketStats(statsGames, filteredDeckStats),
     yearStats: computeYearStats(statsGames),
     rolling: computeRolling100Stats(statsGames),
-    matchups: computeAllMatchups(statsGames, {
-      splitPartners: matchupSplitPartners,
-      splitPlayers: matchupSplitPlayers,
-      combineDecks: matchupCombineDecks,
-      opponentDecks: ensureOpponentDecks(data),
-      colorOptions: {
-        decks: data.decks,
-        deckFilter: statsDeckFilter,
-        bracketFilter: statsBracketFilter,
-        view: matchupColorView,
-        agg: matchupColorAgg,
-      },
-      archetypeView: matchupArchetypeView,
-    }),
-    totals: computeAllTotals(data.games, data.decks, {
-      splitPartners: totalsSplitPartners,
-      excludeMyPlayer: totalsExcludeMe,
-      view: totalsColorView,
-      agg: totalsColorAgg,
-      bracketFilter: totalsBracketFilter,
-      opponentDecks: ensureOpponentDecks(data),
-      archetypeView: matchupArchetypeView,
-    }),
+    matchups: computeAllMatchups(statsGames, myStatsMatchupOptions(), myMatchupTab),
+    totals:
+      currentView === "totals"
+        ? computeAllTotals(data.games, data.decks, {
+            ...totalsMatchupOptions(),
+            matchupTab: totalsMatchupOnly,
+            skipMatchups: totalsTab !== "matchups",
+          })
+        : emptyTotalsSnapshot(),
   };
+}
+
+function getStats() {
+  const key = buildStatsMemoKey();
+  if (statsMemo && statsMemoKey === key) {
+    if (statsMemo._matchupArchetypeView !== matchupArchetypeView) {
+      refreshMatchupStatsInMemo(statsMemo);
+    }
+    return statsMemo;
+  }
+  statsMemo = computeStatsPayload();
+  statsMemo._matchupArchetypeView = matchupArchetypeView;
+  statsMemoKey = key;
+  return statsMemo;
 }
 
 function handleEntityReportModalClick(e) {
@@ -3041,7 +3161,7 @@ function renderStats() {
       }
     );
     const ranked = sorted.map((row, index) => ({ ...row, rank: index + 1 }));
-    const rows = ranked.filter((row) => {
+    let rows = ranked.filter((row) => {
       if (!query) return true;
       if (isDeckTab) {
         if (matchupCombineDecks) {
@@ -3066,6 +3186,12 @@ function renderStats() {
       }
       return row.opponent.toLowerCase().includes(query);
     });
+    let matchupRowsCapped = false;
+    if (isArchetypeTab) {
+      const capped = capMatchupTableRows(rows);
+      rows = capped.rows;
+      matchupRowsCapped = capped.capped;
+    }
     lastMatchupDeckRows = isDeckTab ? rows : [];
 
     const searchPlaceholder = isDeckTab
@@ -3188,6 +3314,11 @@ function renderStats() {
             .join("")}
         </tbody>
       </table>
+      ${
+        matchupRowsCapped
+          ? `<p class="muted matchup-row-cap-note">Showing the first ${MATCHUP_TABLE_ROW_CAP} rows (sorted). Use search or Unique view for narrower results.</p>`
+          : ""
+      }
       ${isDeckTab && !matchupSplitPlayers ? `<div id="matchup-deck-tip" class="deck-opponent-tip" hidden></div>` : ""}`;
   }
 
@@ -3244,7 +3375,7 @@ function renderTotals() {
         normalizedOpponentWinRate: "games",
       }
     );
-    const rows = sorted
+    let rows = sorted
       .map((row, index) => ({ ...row, rank: index + 1 }))
       .filter((row) => {
         if (!query) return true;
@@ -3259,6 +3390,12 @@ function renderTotals() {
           .toLowerCase();
         return haystack.includes(query);
       });
+    let totalsMatchupRowsCapped = false;
+    if (isPodArchetypeTab) {
+      const capped = capMatchupTableRows(rows);
+      rows = capped.rows;
+      totalsMatchupRowsCapped = capped.capped;
+    }
 
     const subjectDimHeader = isPodDeckTab
       ? "Deck"
@@ -3395,7 +3532,12 @@ function renderTotals() {
             )
             .join("")}
         </tbody>
-      </table>`;
+      </table>
+      ${
+        totalsMatchupRowsCapped
+          ? `<p class="muted matchup-row-cap-note">Showing the first ${MATCHUP_TABLE_ROW_CAP} rows (sorted). Use search or Unique view for narrower results.</p>`
+          : ""
+      }`;
   } else if (isArchetypeTab) {
       const tagKind = getArchetypeTagKind();
       const archetypes = applySort(

@@ -73,6 +73,13 @@ export function findOpponentDeckByPair(decks, player, commander) {
   );
 }
 
+/** @param {OpponentDeck[]} decks @param {string} commander */
+export function findOpponentDeckByCommander(decks, commander) {
+  const trimmed = String(commander || "").trim();
+  if (!trimmed) return null;
+  return decks.find((deck) => opponentDeckCommanderMatches(deck, trimmed)) || null;
+}
+
 /** @param {OpponentDeck[]} decks @param {string} id */
 export function findOpponentDeck(decks, id) {
   const trimmed = String(id || "").trim();
