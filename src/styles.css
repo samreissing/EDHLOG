@@ -1584,6 +1584,28 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   margin-right: 0.35rem;
 }
 
+.matchup-table-archetypes {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.matchup-archetype-col {
+  max-width: 11rem;
+  width: 26%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  vertical-align: top;
+  line-height: 1.35;
+}
+
+.matchup-archetype-col .link-btn {
+  white-space: normal;
+  text-align: left;
+  display: inline;
+  line-height: inherit;
+}
+
 .matchup-split-partners {
   margin-right: 0.75rem;
   white-space: nowrap;
