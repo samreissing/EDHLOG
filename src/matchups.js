@@ -3,7 +3,13 @@ import { winRate } from "./stats.js";
 import { getCommanderMatchupIdentities } from "./commander-names.js";
 import { resolveCommanderColors } from "./commander-colors.js";
 import { colorKeyLabel, colorKeysForIdentity, rowColorsFromKey } from "./color-stats.js";
-import { deckMapByKey, resolveMyCommander } from "./deck-identity.js";
+import { deckMapByKey, resolveMyCommander, findDeck } from "./deck-identity.js";
+import { exactArchetypeComboLabel } from "./archetype-stats.js";
+import {
+  findOpponentDeck,
+  findOpponentDeckByPair,
+  opponentEntryMatchesDeck,
+} from "./opponent-decks.js";
 
 /** Commander pod baseline (30CCSTAT). */
 export const MATCHUP_BASELINE = 0.25;
@@ -14,7 +20,99 @@ export const MATCHUP_TABS = [
   { id: "players", label: "Player Matchups" },
   { id: "decks", label: "Deck Matchups" },
   { id: "colors", label: "Color Matchups" },
+  { id: "archetypes", label: "Archetype Matchups" },
 ];
+
+export const POD_MATCHUP_TABS = MATCHUP_TABS;
+
+export const POD_SLOT_LETTERS = ["x", "y", "z"];
+
+/** @param {number} mySeat */
+export function podFormSlots(mySeat) {
+  return mySeat >= 1 && mySeat <= 4 ? [1, 2, 3, 4] : [1, 2, 3];
+}
+
+/** @param {number} mySeat */
+export function nonMySeatNumbers(mySeat) {
+  return [1, 2, 3, 4].filter((seat) => seat !== mySeat);
+}
+
+/** @param {import('./store.js').Game | null | undefined} game */
+export function gameHasMySeat(game) {
+  const mySeat = Number(game?.mySeat);
+  return Number.isInteger(mySeat) && mySeat >= 1 && mySeat <= 4;
+}
+
+/** @param {import('./store.js').Game} game @param {number} slot */
+export function opponentEntryForPodSlot(game, slot) {
+  if (!gameHasMySeat(game)) {
+    return game.opponents?.[slot - 1] || null;
+  }
+
+  const mySeat = Number(game.mySeat);
+  if (slot === mySeat) return null;
+
+  const bySeat = (game.opponents || []).find((opp) => Number(opp.seat) === slot);
+  if (bySeat) return bySeat;
+
+  const unseated = (game.opponents || []).filter((opp) => {
+    const seat = Number(opp.seat);
+    return !(Number.isInteger(seat) && seat >= 1 && seat <= 4);
+  });
+  const targets = nonMySeatNumbers(mySeat);
+  const index = targets.indexOf(slot);
+  return index >= 0 ? unseated[index] || null : null;
+}
+
+/** @param {number} slot @param {number} mySeat */
+export function podSlotPlayerLabel(slot, mySeat) {
+  if (mySeat >= 1 && mySeat <= 4) return `Player ${slot}`;
+  return `Player ${POD_SLOT_LETTERS[slot - 1] || slot}`;
+}
+
+/** @param {number} slot @param {number} mySeat */
+export function podSlotCommanderLabel(slot, mySeat) {
+  if (mySeat >= 1 && mySeat <= 4) return "Commander";
+  return `Commander ${POD_SLOT_LETTERS[slot - 1] || slot}`;
+}
+
+/** @param {number} slot @param {number} mySeat @param {boolean} [isMeRow] */
+export function podRowWinnerKey(slot, mySeat, isMeRow = false) {
+  if (isMeRow) return "w";
+  if (mySeat >= 1 && mySeat <= 4) return String(slot);
+  return POD_SLOT_LETTERS[slot - 1] || String(slot);
+}
+
+/** @param {import('./store.js').Game} game */
+export function opponentWinnerPodSlot(game) {
+  if (game.result === "Win") return null;
+  if (game.winnerPodSlot) return String(game.winnerPodSlot);
+  if (!game.winnerSeat) return null;
+  if (gameHasMySeat(game)) return String(Number(game.winnerSeat));
+  const index = Number(game.winnerSeat) - 1;
+  return POD_SLOT_LETTERS[index] || String(game.winnerSeat);
+}
+
+/** @param {import('./store.js').Game} game @param {number} slot @param {number} mySeat @param {boolean} [isMeRow] */
+export function podRowOutcomeClass(game, slot, mySeat, isMeRow = false) {
+  const meRow = isMeRow || (gameHasMySeat(game) && slot === mySeat);
+  const rowKey = podRowWinnerKey(slot, mySeat, meRow);
+  if (game.result === "Win") {
+    return meRow ? "pod-seat-win" : "pod-seat-loss";
+  }
+  const winnerKey = opponentWinnerPodSlot(game);
+  if (!winnerKey) return meRow ? "pod-seat-loss" : "";
+  return rowKey === winnerKey ? "pod-seat-win" : "pod-seat-loss";
+}
+
+/** @param {import('./store.js').Game} game @param {number} opponentIndex @param {import('./store.js').Game['opponents'][number]} opp */
+function opponentDidWin(game, opponentIndex, opp) {
+  if (game.result === "Win") return false;
+  const winnerKey = opponentWinnerPodSlot(game);
+  if (!winnerKey) return false;
+  if (gameHasMySeat(game)) return winnerKey === String(Number(opp.seat));
+  return winnerKey === (POD_SLOT_LETTERS[opponentIndex] || "");
+}
 
 /** @typedef {{ seat: number, player: string, deck: string, commander: string, deckSlotId?: string, didWin: boolean }} GameSeat */
 
@@ -26,6 +124,11 @@ function normalizeKey(value) {
 
 function isMySeat(seat) {
   return normalizeKey(seat.player) === normalizeKey(MY_PLAYER_NAME);
+}
+
+/** @param {import('./store.js').Game} game */
+export function gameUsesSeatNumbers(game) {
+  return gameHasMySeat(game);
 }
 
 /** @param {import('./store.js').Game} game @param {import('./store.js').Deck[] | null} [decks] */
@@ -40,29 +143,27 @@ export function parseGameSeats(game, decks = null) {
       ? resolveMyCommander(game, decks)
       : String(game.myCommander || "").trim() || deckSlotId;
     const seat = Number(game.mySeat) || 0;
-    const winnerSeat = winnerSeatForGame(game);
     seats.push({
       seat,
       player,
       deck: commander,
       deckSlotId,
       commander,
-      didWin: winnerSeat ? winnerSeat === seat : game.result === "Win",
+      didWin: game.result === "Win",
     });
   }
 
-  for (const opp of game.opponents || []) {
+  for (const [index, opp] of (game.opponents || []).entries()) {
     const commander = String(opp.name || "").trim();
     if (!commander) continue;
     const player = String(opp.player || "").trim();
     const seat = Number(opp.seat) || 0;
-    const winnerSeat = winnerSeatForGame(game);
     seats.push({
       seat,
       player,
       deck: commander,
       commander,
-      didWin: winnerSeat ? winnerSeat === seat : false,
+      didWin: opponentDidWin(game, index, opp),
     });
   }
 
@@ -83,8 +184,14 @@ export function collectAllPodCommanderNames(games) {
 
 /** @param {import('./store.js').Game} game */
 function winnerSeatForGame(game) {
-  if (game.winnerSeat) return Number(game.winnerSeat);
-  if (game.mySeat && game.result === "Win") return Number(game.mySeat);
+  if (game.result === "Win" && gameHasMySeat(game)) return Number(game.mySeat);
+  if (game.result === "Loss" && gameHasMySeat(game)) {
+    const winnerKey = opponentWinnerPodSlot(game);
+    if (winnerKey) return Number(winnerKey);
+  }
+  if (game.result === "Loss" && game.winnerSeat && gameHasMySeat(game)) {
+    return Number(game.winnerSeat);
+  }
   return 0;
 }
 
@@ -180,6 +287,7 @@ function finalizeMatchupRow(row) {
     normalizedWinRate,
     opponentWins,
     opponentWinRate,
+    normalizedOpponentWinRate,
     opponentPlayerBreakdown,
     opponentCount: opponentPlayerBreakdown.length,
     matchupImpact: calcMatchupImpact(row.wins, row.games),
@@ -391,12 +499,250 @@ export function buildColorMatchupRows(games, options) {
   });
 }
 
-/** @param {import('./store.js').Game[]} games @param {{ splitPartners?: boolean, splitPlayers?: boolean, combineDecks?: boolean, colorOptions?: object }} [options] */
+/**
+ * @param {import('./matchups.js').GameSeat} seat
+ * @param {import('./store.js').Game} game
+ * @param {import('./store.js').Deck[]} decks
+ * @param {import('./opponent-decks.js').OpponentDeck[]} opponentDecks
+ */
+function seatArchetypeCombo(seat, game, decks, opponentDecks) {
+  if (isMySeat(seat)) {
+    const owned = findDeck(decks, game.deck);
+    return exactArchetypeComboLabel(owned?.archetypes);
+  }
+
+  const opp = (game.opponents || []).find((entry) => Number(entry.seat) === Number(seat.seat));
+  if (opp?.opponentDeckId) {
+    const byId = findOpponentDeck(opponentDecks, opp.opponentDeckId);
+    if (byId && opponentEntryMatchesDeck(game, opp, byId)) {
+      return exactArchetypeComboLabel(byId.archetypes);
+    }
+  }
+
+  const byPair = findOpponentDeckByPair(opponentDecks, seat.player || "", seat.commander);
+  return exactArchetypeComboLabel(byPair?.archetypes);
+}
+
+function sortMatchupRows(finalized, tabId, combineDecks = false) {
+  return finalized.sort((a, b) => {
+    if (b.normalizedMatchupImpact !== a.normalizedMatchupImpact) {
+      return b.normalizedMatchupImpact - a.normalizedMatchupImpact;
+    }
+    const outcomeA = matchupOutcomeTieRank(a);
+    const outcomeB = matchupOutcomeTieRank(b);
+    if (outcomeB !== outcomeA) {
+      return outcomeB - outcomeA;
+    }
+    if (b.games !== a.games) {
+      return b.games - a.games;
+    }
+    if (b.matchupImpact !== a.matchupImpact) {
+      return b.matchupImpact - a.matchupImpact;
+    }
+    if (tabId === "decks" && !combineDecks && a.subject !== b.subject) {
+      return a.subject.localeCompare(b.subject, undefined, { numeric: true });
+    }
+    const playerCmp = String(a.subjectPlayer || "").localeCompare(
+      String(b.subjectPlayer || ""),
+      undefined,
+      { numeric: true }
+    );
+    if (playerCmp) return playerCmp;
+    if (a.subject !== b.subject) {
+      return a.subject.localeCompare(b.subject, undefined, { numeric: true });
+    }
+    const oppPlayerCmp = String(a.opponentPlayer || "").localeCompare(
+      String(b.opponentPlayer || ""),
+      undefined,
+      { numeric: true }
+    );
+    if (oppPlayerCmp) return oppPlayerCmp;
+    return a.opponent.localeCompare(b.opponent, undefined, { numeric: true });
+  });
+}
+
+/**
+ * @param {import('./store.js').Game[]} games
+ * @param {import('./store.js').Deck[]} decks
+ * @param {import('./opponent-decks.js').OpponentDeck[]} opponentDecks
+ * @param {{ splitPartners?: boolean }} [options]
+ */
+export function buildMyArchetypeMatchupRows(games, decks, opponentDecks, options = {}) {
+  const rows = new Map();
+
+  for (const game of games) {
+    const seats = parseGameSeats(game, decks);
+    if (seats.length < 2) continue;
+
+    const mySeat = seats.find(isMySeat);
+    if (!mySeat) continue;
+
+    const myCombo = seatArchetypeCombo(mySeat, game, decks, opponentDecks);
+    if (!myCombo) continue;
+
+    for (const opponentSeat of seats) {
+      if (opponentSeat === mySeat) continue;
+      const oppCombo = seatArchetypeCombo(opponentSeat, game, decks, opponentDecks);
+      if (!oppCombo) continue;
+
+      const mapKey = `a:${normalizeKey(myCombo)}__oa:${normalizeKey(oppCombo)}`;
+      const row =
+        rows.get(mapKey) ??
+        ({
+          subjectKey: `a:${normalizeKey(myCombo)}`,
+          opponentKey: `oa:${normalizeKey(oppCombo)}`,
+          subject: myCombo,
+          opponent: oppCombo,
+          games: 0,
+          wins: 0,
+          losses: 0,
+          sharedLosses: 0,
+        });
+
+      row.games += 1;
+      if (mySeat.didWin) row.wins += 1;
+      else if (opponentSeat.didWin) row.losses += 1;
+      else row.sharedLosses += 1;
+
+      rows.set(mapKey, row);
+    }
+  }
+
+  return sortMatchupRows([...rows.values()].map(finalizeMatchupRow), "archetypes");
+}
+
+/**
+ * Pod matchups: every seat vs every other seat (subject perspective).
+ * @param {import('./store.js').Game[]} games
+ * @param {import('./store.js').Deck[]} decks
+ * @param {import('./opponent-decks.js').OpponentDeck[]} opponentDecks
+ * @param {'players' | 'decks' | 'colors' | 'archetypes'} tabId
+ * @param {{ splitPartners?: boolean, excludeMyPlayer?: boolean, view?: 'wubrgc'|'all'|'exact', agg?: 'inclusive'|'exclusive' }} [options]
+ */
+export function buildPodMatchupRows(games, decks, opponentDecks, tabId, options = {}) {
+  const {
+    splitPartners = false,
+    excludeMyPlayer = false,
+    view = "exact",
+    agg = "exclusive",
+  } = options;
+  const rows = new Map();
+
+  for (const game of games) {
+    const seats = parseGameSeats(game, decks);
+    if (seats.length < 2) continue;
+
+    for (const seatA of seats) {
+      if (excludeMyPlayer && isMySeat(seatA)) continue;
+      if (tabId === "players" && !seatA.player) continue;
+
+      for (const seatB of seats) {
+        if (seatB === seatA) continue;
+        if (excludeMyPlayer && isMySeat(seatB)) continue;
+        if (tabId === "players" && !seatB.player) continue;
+
+        /** @type {Array<{ mapKey: string, subject: string, opponent: string, subjectColors?: string[], opponentColors?: string[] }>} */
+        let pairs = [];
+
+        if (tabId === "players") {
+          pairs.push({
+            mapKey: `sp:${normalizeKey(seatA.player)}__op:${normalizeKey(seatB.player)}`,
+            subject: seatA.player,
+            opponent: seatB.player,
+          });
+        } else if (tabId === "decks") {
+          for (const subject of getCommanderMatchupIdentities(seatA.commander, { splitPartners })) {
+            for (const opponent of getCommanderMatchupIdentities(seatB.commander, { splitPartners })) {
+              pairs.push({
+                mapKey: `sp:${normalizeKey(seatA.player)}__d:${normalizeKey(subject)}__op:${normalizeKey(seatB.player)}__dc:${normalizeKey(opponent)}`,
+                subject,
+                opponent,
+              });
+            }
+          }
+        } else if (tabId === "colors") {
+          const ownedA = isMySeat(seatA) ? findDeck(decks, game.deck) : null;
+          const ownedB = isMySeat(seatB) ? findDeck(decks, game.deck) : null;
+          for (const subjectIdentity of getCommanderMatchupIdentities(seatA.commander, {
+            splitPartners,
+          })) {
+            const subjectColors = resolveCommanderColors(subjectIdentity, {
+              splitPartners,
+              ownedDeck: ownedA,
+            });
+            for (const subjectKey of colorKeysForIdentity(subjectColors, view, agg)) {
+              for (const opponentIdentity of getCommanderMatchupIdentities(seatB.commander, {
+                splitPartners,
+              })) {
+                const opponentColors = resolveCommanderColors(opponentIdentity, {
+                  splitPartners,
+                  ownedDeck: ownedB,
+                });
+                for (const opponentKey of colorKeysForIdentity(opponentColors, view, agg)) {
+                  pairs.push({
+                    mapKey: `ci:${subjectKey}__oci:${opponentKey}`,
+                    subject: colorKeyLabel(subjectKey, view),
+                    opponent: colorKeyLabel(opponentKey, view),
+                    subjectColors: rowColorsFromKey(subjectKey),
+                    opponentColors: rowColorsFromKey(opponentKey),
+                  });
+                }
+              }
+            }
+          }
+        } else if (tabId === "archetypes") {
+          const subjectCombo = seatArchetypeCombo(seatA, game, decks, opponentDecks);
+          const opponentCombo = seatArchetypeCombo(seatB, game, decks, opponentDecks);
+          if (!subjectCombo || !opponentCombo) continue;
+          pairs.push({
+            mapKey: `a:${normalizeKey(subjectCombo)}__oa:${normalizeKey(opponentCombo)}`,
+            subject: subjectCombo,
+            opponent: opponentCombo,
+          });
+        }
+
+        for (const pair of pairs) {
+          const trackPlayers = tabId === "players" || tabId === "decks";
+          const row =
+            rows.get(pair.mapKey) ??
+            ({
+              ...(trackPlayers
+                ? {
+                    subjectPlayer: seatA.player || "—",
+                    opponentPlayer: seatB.player || "—",
+                  }
+                : {}),
+              subject: pair.subject,
+              opponent: pair.opponent,
+              subjectColors: pair.subjectColors,
+              opponentColors: pair.opponentColors,
+              games: 0,
+              wins: 0,
+              losses: 0,
+              sharedLosses: 0,
+            });
+
+          row.games += 1;
+          if (seatA.didWin) row.wins += 1;
+          else if (seatB.didWin) row.losses += 1;
+          else row.sharedLosses += 1;
+
+          rows.set(pair.mapKey, row);
+        }
+      }
+    }
+  }
+
+  return sortMatchupRows([...rows.values()].map(finalizeMatchupRow), tabId);
+}
+
+/** @param {import('./store.js').Game[]} games @param {{ splitPartners?: boolean, splitPlayers?: boolean, combineDecks?: boolean, colorOptions?: object, opponentDecks?: import('./opponent-decks.js').OpponentDeck[] }} [options] */
 export function computeAllMatchups(games, options = {}) {
   const splitPartners = options.splitPartners ?? false;
   const splitPlayers = options.splitPlayers ?? false;
   const combineDecks = options.combineDecks ?? false;
   const decks = options.colorOptions?.decks ?? [];
+  const opponentDecks = options.opponentDecks ?? [];
   return {
     players: buildMyMatchupRows(games, "players", { splitPartners, decks }),
     decks: buildMyMatchupRows(games, "decks", {
@@ -408,5 +754,26 @@ export function computeAllMatchups(games, options = {}) {
     colors: options.colorOptions
       ? buildColorMatchupRows(games, { ...options.colorOptions, splitPartners })
       : [],
+    archetypes: buildMyArchetypeMatchupRows(games, decks, opponentDecks, { splitPartners }),
+  };
+}
+
+/**
+ * @param {import('./store.js').Game[]} games
+ * @param {import('./store.js').Deck[]} decks
+ * @param {import('./opponent-decks.js').OpponentDeck[]} opponentDecks
+ * @param {object} [options]
+ */
+export function computePodAllMatchups(games, decks, opponentDecks, options = {}) {
+  const splitPartners = options.splitPartners ?? false;
+  const excludeMyPlayer = options.excludeMyPlayer ?? false;
+  const view = options.view ?? "exact";
+  const agg = options.agg ?? "exclusive";
+  const podOptions = { splitPartners, excludeMyPlayer, view, agg };
+  return {
+    players: buildPodMatchupRows(games, decks, opponentDecks, "players", podOptions),
+    decks: buildPodMatchupRows(games, decks, opponentDecks, "decks", podOptions),
+    colors: buildPodMatchupRows(games, decks, opponentDecks, "colors", podOptions),
+    archetypes: buildPodMatchupRows(games, decks, opponentDecks, "archetypes", podOptions),
   };
 }

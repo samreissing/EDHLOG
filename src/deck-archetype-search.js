@@ -19,9 +19,11 @@ export function parseArchetypeSegments(value) {
   return { committed, query };
 }
 
-/** @param {string[] | undefined} archetypes */
-export function formatArchetypesForInput(archetypes) {
-  return (archetypes || []).filter(Boolean).join(", ");
+/** @param {string[] | undefined} values */
+export function formatArchetypesForInput(values) {
+  const list = (values || []).filter(Boolean);
+  if (!list.length) return "";
+  return `${list.join(", ")}, `;
 }
 
 /** @param {string} value */
@@ -32,13 +34,44 @@ export function parseArchetypesFromInput(value) {
     .filter(Boolean);
 }
 
-/** @param {import('./store.js').Deck[]} decks */
-export function collectArchetypeHistory(decks) {
+/** @param {string[] | undefined} tags */
+export function sortArchetypeTags(tags) {
+  return [...(tags || [])]
+    .map((part) => String(part || "").trim())
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+}
+
+export const formatTribesForInput = formatArchetypesForInput;
+export const parseTribesFromInput = parseArchetypesFromInput;
+
+/** @param {string[] | undefined} archetypes */
+export function deckHasTribalArchetype(archetypes) {
+  return (archetypes || []).some((value) => {
+    const key = String(value || "").trim().toLowerCase();
+    return key === "tribal" || key === "kindred";
+  });
+}
+
+/**
+ * @param {import('./store.js').Deck[]} decks
+ * @param {(deck: import('./store.js').Deck) => string[] | undefined} getDeckValues
+ * @param {{ includeRetired?: boolean }} [options]
+ * @param {string[]} [extraValues]
+ */
+function collectTagHistory(decks, getDeckValues, { includeRetired = true } = {}, extraValues = []) {
   /** @type {Map<string, string>} */
   const map = new Map();
+  for (const value of extraValues) {
+    const trimmed = String(value || "").trim();
+    if (!trimmed) continue;
+    const key = trimmed.toLowerCase();
+    if (!map.has(key)) map.set(key, trimmed);
+  }
   for (const deck of decks) {
-    for (const archetype of deck.archetypes || []) {
-      const trimmed = String(archetype || "").trim();
+    if (!includeRetired && deck.retired) continue;
+    for (const value of getDeckValues(deck) || []) {
+      const trimmed = String(value || "").trim();
       if (!trimmed) continue;
       const key = trimmed.toLowerCase();
       if (!map.has(key)) map.set(key, trimmed);
@@ -47,19 +80,49 @@ export function collectArchetypeHistory(decks) {
   return [...map.values()].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
 }
 
-/** @param {string} query @param {string[]} allArchetypes @param {string[]} committed */
-export function searchArchetypeHistory(query, allArchetypes, committed, limit = 8) {
+/**
+ * @param {Array<{ archetypes?: string[] }>} decks
+ * @param {{ includeRetired?: boolean }} [options]
+ * @param {string[]} [extraValues]
+ * @param {Array<{ archetypes?: string[] }>} [opponentDecks]
+ */
+export function collectArchetypeHistory(decks, options = {}, extraValues = [], opponentDecks = []) {
+  return collectTagHistory(
+    [...decks, ...opponentDecks],
+    (deck) => deck.archetypes,
+    options,
+    extraValues
+  );
+}
+
+/**
+ * @param {Array<{ tribes?: string[] }>} decks
+ * @param {{ includeRetired?: boolean }} [options]
+ * @param {string[]} [extraValues]
+ * @param {Array<{ tribes?: string[] }>} [opponentDecks]
+ */
+export function collectTribeHistory(decks, options = {}, extraValues = [], opponentDecks = []) {
+  return collectTagHistory(
+    [...decks, ...opponentDecks],
+    (deck) => deck.tribes,
+    options,
+    extraValues
+  );
+}
+
+/** @param {string} query @param {string[]} allValues @param {string[]} committed */
+function searchTagHistory(query, allValues, committed) {
   const committedKeys = new Set(committed.map((value) => value.toLowerCase()));
-  const pool = allArchetypes.filter((name) => !committedKeys.has(name.toLowerCase()));
+  const pool = allValues.filter((name) => !committedKeys.has(name.toLowerCase()));
   const q = query.trim().toLowerCase();
 
-  if (!q) {
-    return pool.slice(0, limit);
-  }
+  if (!q) return pool;
 
-  return pool
-    .filter((name) => name.toLowerCase().startsWith(q))
-    .slice(0, limit);
+  return pool.filter((name) => name.toLowerCase().startsWith(q));
+}
+
+export function searchArchetypeHistory(query, allArchetypes, committed) {
+  return searchTagHistory(query, allArchetypes, committed);
 }
 
 /** @param {HTMLInputElement | HTMLTextAreaElement} input @param {string} selected */
@@ -79,16 +142,27 @@ export function resizeArchetypeInput(input) {
   input.style.height = `${Math.max(input.scrollHeight, 36)}px`;
 }
 
-/** @param {HTMLFormElement | null} form @param {import('./store.js').Deck[]} decks */
-export function bindArchetypeAutocomplete(form, decks) {
+/**
+ * @param {HTMLFormElement | null} form
+ * @param {{
+ *   inputSelector: string,
+ *   listSelector: string,
+ *   wrapSelector?: string,
+ *   getAllValues: () => string[],
+ *   onInput?: (input: HTMLTextAreaElement) => void,
+ *   onSelect?: (input: HTMLTextAreaElement) => void,
+ * }} config
+ */
+function bindCommaSeparatedTagAutocomplete(form, config) {
   if (!form) return;
 
-  const input = form.querySelector(".deck-archetype-input");
-  const list = form.querySelector(".deck-archetype-suggestions");
+  const input = form.querySelector(config.inputSelector);
+  const list = form.querySelector(config.listSelector);
   if (!(input instanceof HTMLTextAreaElement) || !list) return;
 
   let activeIndex = -1;
-  const allArchetypes = () => collectArchetypeHistory(decks);
+  let suppressFocusOutUntil = 0;
+  let clickOpensList = true;
 
   const hideList = () => {
     list.hidden = true;
@@ -98,7 +172,7 @@ export function bindArchetypeAutocomplete(form, decks) {
 
   const renderList = () => {
     const { committed, query } = parseArchetypeSegments(input.value);
-    const results = searchArchetypeHistory(query, allArchetypes(), committed);
+    const results = searchTagHistory(query, config.getAllValues(), committed);
     activeIndex = -1;
 
     if (!results.length) {
@@ -112,9 +186,15 @@ export function bindArchetypeAutocomplete(form, decks) {
     list.hidden = false;
   };
 
+  const openList = () => {
+    renderList();
+  };
+
   const selectValue = (value) => {
     appendArchetypeSelection(input, value);
-    renderList();
+    suppressFocusOutUntil = Date.now() + 200;
+    config.onSelect?.(input);
+    openList();
   };
 
   const setActiveOption = (index) => {
@@ -127,16 +207,43 @@ export function bindArchetypeAutocomplete(form, decks) {
 
   resizeArchetypeInput(input);
 
-  input.addEventListener("input", () => {
-    resizeArchetypeInput(input);
-    renderList();
+  const wrap = config.wrapSelector
+    ? form.querySelector(config.wrapSelector)
+    : input.closest(".opponent-input-wrap");
+  const dismissRoot = form.closest(".modal-content") || form;
+
+  const onDismissPointerDown = (e) => {
+    if (!document.body.contains(input)) {
+      dismissRoot.removeEventListener("mousedown", onDismissPointerDown, true);
+      return;
+    }
+    if (wrap?.contains(e.target)) return;
+    if (list.hidden) return;
+    hideList();
+    clickOpensList = false;
+  };
+  dismissRoot.addEventListener("mousedown", onDismissPointerDown, true);
+
+  input.addEventListener("mousedown", () => {
+    clickOpensList = true;
   });
 
-  input.addEventListener("focus", renderList);
+  input.addEventListener("click", () => {
+    if (!clickOpensList) {
+      clickOpensList = true;
+      return;
+    }
+    openList();
+  });
+
+  input.addEventListener("input", () => {
+    config.onInput?.(input);
+    openList();
+  });
 
   input.addEventListener("focusout", () => {
     setTimeout(() => {
-      const wrap = input.closest(".deck-archetype-wrap");
+      if (Date.now() < suppressFocusOutUntil) return;
       if (wrap && !wrap.contains(document.activeElement)) hideList();
     }, 150);
   });
@@ -157,6 +264,7 @@ export function bindArchetypeAutocomplete(form, decks) {
       selectValue(items[activeIndex].dataset.value || "");
     } else if (e.key === "Escape") {
       hideList();
+      clickOpensList = false;
     }
   });
 
@@ -166,4 +274,72 @@ export function bindArchetypeAutocomplete(form, decks) {
     e.preventDefault();
     selectValue(option.dataset.value || "");
   });
+}
+
+/** @param {HTMLFormElement | null} form */
+export function syncDeckTribeFieldVisibility(form) {
+  if (!form) return;
+  const block = form.querySelector(".deck-tribe-field");
+  const input = form.querySelector(".deck-archetype-input");
+  if (!(block instanceof HTMLElement) || !(input instanceof HTMLTextAreaElement)) return;
+
+  const show = deckHasTribalArchetype(parseArchetypesFromInput(input.value));
+  block.hidden = !show;
+
+  if (show) {
+    const tribeInput = form.querySelector(".deck-tribe-input");
+    if (tribeInput instanceof HTMLTextAreaElement) resizeArchetypeInput(tribeInput);
+  }
+}
+
+/**
+ * @param {HTMLFormElement | null} form
+ * @param {import('./store.js').Deck[]} decks
+ * @param {{ includeRetired?: boolean, opponentDecks?: import('./opponent-decks.js').OpponentDeck[] }} [options]
+ */
+export function bindArchetypeAutocomplete(form, decks, options = {}) {
+  const { opponentDecks = [], ...historyOptions } = options;
+  bindCommaSeparatedTagAutocomplete(form, {
+    inputSelector: ".deck-archetype-input",
+    listSelector: ".deck-archetype-suggestions",
+    wrapSelector: ".deck-archetype-wrap",
+    getAllValues: () => {
+      const input = form.querySelector(".deck-archetype-input");
+      const extra =
+        input instanceof HTMLTextAreaElement ? parseArchetypesFromInput(input.value) : [];
+      return collectArchetypeHistory(decks, historyOptions, extra, opponentDecks);
+    },
+    onInput: (input) => {
+      resizeArchetypeInput(input);
+      syncDeckTribeFieldVisibility(form);
+    },
+    onSelect: () => syncDeckTribeFieldVisibility(form),
+  });
+  syncDeckTribeFieldVisibility(form);
+}
+
+/**
+ * @param {HTMLFormElement | null} form
+ * @param {import('./store.js').Deck[]} decks
+ * @param {{ includeRetired?: boolean, opponentDecks?: import('./opponent-decks.js').OpponentDeck[] }} [options]
+ */
+export function bindTribeAutocomplete(form, decks, options = {}) {
+  const { opponentDecks = [], ...historyOptions } = options;
+  bindCommaSeparatedTagAutocomplete(form, {
+    inputSelector: ".deck-tribe-input",
+    listSelector: ".deck-tribe-suggestions",
+    wrapSelector: ".deck-tribe-wrap",
+    getAllValues: () => {
+      const input = form.querySelector(".deck-tribe-input");
+      const extra = input instanceof HTMLTextAreaElement ? parseTribesFromInput(input.value) : [];
+      return collectTribeHistory(decks, historyOptions, extra, opponentDecks);
+    },
+    onInput: (input) => resizeArchetypeInput(input),
+  });
+}
+
+/** @param {HTMLFormElement | null} form @param {import('./store.js').Deck[]} decks @param {import('./opponent-decks.js').OpponentDeck[]} [opponentDecks] */
+export function bindDeckTagAutocompletes(form, decks, opponentDecks = []) {
+  bindArchetypeAutocomplete(form, decks, { opponentDecks });
+  bindTribeAutocomplete(form, decks, { opponentDecks });
 }

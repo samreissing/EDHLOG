@@ -291,7 +291,9 @@ export function renderTrendsChartHeader(options) {
   const titleText =
     gameCount == null
       ? `${title} ${winRateLabel}`.trim()
-      : `${title}: ${gameLabel} - ${winRateLabel}`;
+      : title
+        ? `${title}: ${gameLabel} - ${winRateLabel}`
+        : `${gameLabel} - ${winRateLabel}`;
   const titleBlock = showTitle
     ? `<div class="trends-chart-header-title">
         <span class="trends-chart-title">${escAttr(titleText)}</span>

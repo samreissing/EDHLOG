@@ -124,7 +124,7 @@ export function collectPlayerCommanderLinks(games) {
   }
 
   for (const game of games) {
-    if (game.mySeat && game.deck) {
+    if (game.deck) {
       link(MY_PLAYER_NAME, game.myCommander || game.deck, gameSortKey(game));
     }
     for (const opp of game.opponents || []) {
@@ -142,7 +142,7 @@ export function collectPlayerHistory(games) {
   const map = new Map();
 
   for (const game of games) {
-    if (game.mySeat && game.deck) {
+    if (game.deck) {
       trackName(map, MY_PLAYER_NAME, gameSortKey(game));
     }
     for (const opp of game.opponents || []) {

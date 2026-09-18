@@ -1,15 +1,22 @@
 import { appBaseUrl } from "./base-url.js";
 import { normalizeDate, todayISO, backupFileStamp } from "./dates.js";
 import { deckKey, deckCommander, findDeck, resolveDeckCommanderOnDate } from "./deck-identity.js";
+import {
+  readConnectedDataFile,
+  restoreDataFileConnection,
+  writeConnectedDataFile,
+} from "./file-storage.js";
+import { syncOpponentDecksFromGames } from "./opponent-decks.js";
 
 const STORAGE_KEY = "edhlog-data-v1";
 
 /** @typedef {{ name: string, qty: number, board: string }} DeckCard */
 /** @typedef {{ commander: string, name?: string, bracket: number, colors?: string[], changedAt: string }} DeckHistoryEntry */
-/** @typedef {{ id?: string, name: string, commander: string, bracket: number, colors: string[], retired: boolean, archetypes?: string[], createdAt?: string, history?: DeckHistoryEntry[], listUrl?: string, listSource?: 'moxfield' | 'deckstats', listSyncedAt?: string, cards?: DeckCard[] }} Deck */
-/** @typedef {{ id: string, date: string, time?: string, deck: string, myCommander?: string, result: 'Win' | 'Loss', source?: 'local', bracket?: number, mySeat?: number, myPlayer?: string, winnerSeat?: number, turn?: number, opponents?: { seat: number, name: string, player?: string }[] }} Game */
-/** @typedef {{ seedHash?: string, seedGames?: number }} DataMeta */
-/** @typedef {{ meta?: DataMeta, decks: Deck[], games: Game[] }} AppData */
+/** @typedef {{ id?: string, name: string, commander: string, bracket: number, colors: string[], retired: boolean, archetypes?: string[], tribes?: string[], createdAt?: string, history?: DeckHistoryEntry[], listUrl?: string, listSource?: 'moxfield' | 'deckstats', listSyncedAt?: string, cards?: DeckCard[] }} Deck */
+/** @typedef {{ id: string, player: string, commander: string, name?: string, bracket?: number, colors?: string[], archetypes?: string[], tribes?: string[], retired?: boolean, createdAt?: string, commanderAliases?: string[] }} OpponentDeck */
+/** @typedef {{ id: string, date: string, time?: string, deck: string, myCommander?: string, result: 'Win' | 'Loss', source?: 'local', bracket?: number, mySeat?: number, myPlayer?: string, winnerSeat?: number, winnerPodSlot?: string, turn?: number, opponents?: { seat?: number, name: string, player?: string, opponentDeckId?: string }[] }} Game */
+/** @typedef {{ seedHash?: string, seedGames?: number, removedSeedDeckKeys?: string[], deckSeedKeyById?: Record<string, string> }} DataMeta */
+/** @typedef {{ meta?: DataMeta, decks: Deck[], opponentDecks?: OpponentDeck[], games: Game[] }} AppData */
 
 /** @type {AppData | null} */
 let cache = null;
@@ -74,6 +81,8 @@ function migrateDeckIds(data) {
     refToId.set(deckCommander(deck), id);
     const name = String(deck.name || "").trim();
     if (name) refToId.set(name, id);
+    const seedKey = data.meta?.deckSeedKeyById?.[id];
+    if (seedKey) refToId.set(seedKey, id);
   }
 
   for (const game of data.games) {
@@ -132,6 +141,88 @@ function migrateGameCommanderSnapshots(data) {
   return changed;
 }
 
+/** @param {Deck} deck */
+function deckMergeKey(deck) {
+  return String(deck.commander || deck.name || "").trim();
+}
+
+/** @param {AppData} data @param {string} deckId @param {string} seedKey */
+export function linkDeckSeedKey(data, deckId, seedKey) {
+  if (!deckId || !seedKey) return;
+  if (!data.meta) data.meta = {};
+  if (!data.meta.deckSeedKeyById) data.meta.deckSeedKeyById = {};
+  data.meta.deckSeedKeyById[deckId] = seedKey;
+}
+
+/** @param {AppData} data @param {string} deckId @param {string} seedKey */
+function trackDeckSeedKey(data, deckId, seedKey) {
+  linkDeckSeedKey(data, deckId, seedKey);
+}
+
+/** @param {AppData} data @param {Deck} deck */
+export function recordRemovedSeedDeck(data, deck) {
+  const key = deckMergeKey(deck);
+  if (!key) return;
+  if (!data.meta) data.meta = {};
+  if (!data.meta.removedSeedDeckKeys) data.meta.removedSeedDeckKeys = [];
+  if (!data.meta.removedSeedDeckKeys.includes(key)) {
+    data.meta.removedSeedDeckKeys.push(key);
+  }
+}
+
+function purgeRemovedSeedDecks(data) {
+  const removed = new Set(data.meta?.removedSeedDeckKeys || []);
+  if (!removed.size) return false;
+  const before = data.decks.length;
+  data.decks = data.decks.filter((deck) => !removed.has(deckMergeKey(deck)));
+  return data.decks.length !== before;
+}
+
+function collapseRenamedSeedDeckDuplicates(data) {
+  let changed = false;
+  /** @type {Set<Deck>} */
+  const toRemove = new Set();
+
+  for (const deck of data.decks) {
+    for (const entry of deck.history || []) {
+      const oldKey = String(entry.commander || "").trim();
+      if (!oldKey) continue;
+      for (const other of data.decks) {
+        if (other === deck || toRemove.has(other)) continue;
+        if (deckMergeKey(other) !== oldKey) continue;
+        toRemove.add(other);
+        recordRemovedSeedDeck(data, other);
+        if (deck.id) trackDeckSeedKey(data, deck.id, oldKey);
+        changed = true;
+      }
+    }
+  }
+
+  if (!toRemove.size) return changed;
+  data.decks = data.decks.filter((deck) => !toRemove.has(deck));
+  return true;
+}
+
+function mergeSeedDeck(local, seedDeck, localDeck) {
+  return {
+    ...seedDeck,
+    id: localDeck.id,
+    name: localDeck.name ?? seedDeck.name ?? "",
+    commander: localDeck.commander || seedDeck.commander || seedDeck.name || "",
+    bracket: localDeck.bracket ?? seedDeck.bracket ?? 4,
+    colors: [...(localDeck.colors?.length ? localDeck.colors : seedDeck.colors || [])],
+    retired: localDeck.retired ?? seedDeck.retired ?? false,
+    createdAt: localDeck.createdAt ?? seedDeck.createdAt,
+    history: localDeck.history ?? seedDeck.history,
+    listUrl: localDeck.listUrl ?? seedDeck.listUrl,
+    listSource: localDeck.listSource ?? seedDeck.listSource,
+    listSyncedAt: localDeck.listSyncedAt ?? seedDeck.listSyncedAt,
+    cards: localDeck.cards ?? seedDeck.cards,
+    archetypes: localDeck.archetypes ?? seedDeck.archetypes,
+    tribes: localDeck.tribes ?? seedDeck.tribes,
+  };
+}
+
 function sanitizeData(data) {
   let changed = false;
   for (const game of data.games) {
@@ -141,7 +232,10 @@ function sanitizeData(data) {
       changed = true;
     }
   }
+  if (purgeRemovedSeedDecks(data)) changed = true;
+  if (collapseRenamedSeedDeckDuplicates(data)) changed = true;
   if (migrateDecks(data)) changed = true;
+  if (syncOpponentDecksFromGames(data)) changed = true;
   return changed;
 }
 
@@ -152,15 +246,13 @@ export function syncFromSeed(local, seed) {
 
   const localEditsById = new Map();
   for (const game of local.games) {
-    if (game.source === "local" && seedIds.has(game.id)) {
+    if (seedIds.has(game.id)) {
       localEditsById.set(game.id, game);
     }
   }
 
   // Games logged in the app that are not in the seed spreadsheet.
-  const localOnlyGames = local.games.filter(
-    (game) => game.source === "local" && !seedIds.has(game.id)
-  );
+  const localOnlyGames = local.games.filter((game) => !seedIds.has(game.id));
 
   local.games = seed.games.map((game) => {
     const edit = localEditsById.get(game.id);
@@ -171,47 +263,50 @@ export function syncFromSeed(local, seed) {
     local.games.push({ ...game, id: `game-${nextNum++}`, source: "local" });
   }
 
-  /** @param {Deck} deck */
-  const deckMergeKey = (deck) => String(deck.commander || deck.name || "").trim();
-
   /** @type {Map<string, Deck>} */
   const localDeckByKey = new Map();
+  /** @type {Map<string, Deck>} */
+  const localDeckByTrackedSeedKey = new Map();
   for (const deck of local.decks) {
     const key = deckMergeKey(deck);
     if (key) localDeckByKey.set(key, deck);
+    const id = deck.id;
+    const tracked = id && local.meta?.deckSeedKeyById?.[id];
+    if (tracked) localDeckByTrackedSeedKey.set(tracked, deck);
   }
 
-  const seedDeckKeys = new Set(seed.decks.map((deck) => deckMergeKey(deck)));
-  const localOnlyDecks = local.decks.filter((deck) => !seedDeckKeys.has(deckMergeKey(deck)));
+  const removedSeedDeckKeys = new Set(local.meta?.removedSeedDeckKeys || []);
+  /** @type {Set<string>} */
+  const matchedLocalIds = new Set();
+  /** @type {Deck[]} */
+  const mergedDecks = [];
 
-  local.decks = seed.decks.map((seedDeck) => {
+  for (const seedDeck of seed.decks) {
     const key = deckMergeKey(seedDeck);
-    const localDeck = localDeckByKey.get(key);
-    if (!localDeck) {
-      return { ...seedDeck, colors: [...(seedDeck.colors || [])] };
-    }
-    return {
-      ...seedDeck,
-      id: localDeck.id,
-      name: localDeck.name ?? seedDeck.name ?? "",
-      commander: seedDeck.commander || localDeck.commander,
-      bracket: localDeck.bracket ?? seedDeck.bracket ?? 4,
-      colors: [...(localDeck.colors?.length ? localDeck.colors : seedDeck.colors || [])],
-      retired: localDeck.retired ?? seedDeck.retired ?? false,
-      createdAt: localDeck.createdAt ?? seedDeck.createdAt,
-      history: localDeck.history ?? seedDeck.history,
-      listUrl: localDeck.listUrl ?? seedDeck.listUrl,
-      listSource: localDeck.listSource ?? seedDeck.listSource,
-      listSyncedAt: localDeck.listSyncedAt ?? seedDeck.listSyncedAt,
-      cards: localDeck.cards ?? seedDeck.cards,
-      archetypes: localDeck.archetypes ?? seedDeck.archetypes,
-    };
-  });
-  for (const deck of localOnlyDecks) {
-    local.decks.push({ ...deck, colors: [...(deck.colors || [])] });
+    if (!key || removedSeedDeckKeys.has(key)) continue;
+
+    const localDeck = localDeckByKey.get(key) || localDeckByTrackedSeedKey.get(key);
+    if (localDeck?.id) matchedLocalIds.add(localDeck.id);
+
+    const merged = localDeck
+      ? mergeSeedDeck(local, seedDeck, localDeck)
+      : { ...seedDeck, colors: [...(seedDeck.colors || [])] };
+
+    if (localDeck?.id) trackDeckSeedKey(local, localDeck.id, key);
+    mergedDecks.push(merged);
   }
+
+  for (const deck of local.decks) {
+    if (deck.id && matchedLocalIds.has(deck.id)) continue;
+    const key = deckMergeKey(deck);
+    if (key && removedSeedDeckKeys.has(key)) continue;
+    mergedDecks.push({ ...deck, colors: [...(deck.colors || [])] });
+  }
+
+  local.decks = mergedDecks;
 
   local.meta = {
+    ...local.meta,
     seedHash: seed.meta?.seedHash,
     seedGames: seed.meta?.seedGames ?? seed.games.length,
   };
@@ -234,14 +329,36 @@ export function loadData() {
   return null;
 }
 
+/** @param {AppData} data */
+function appDataScore(data) {
+  return (data.games?.length || 0) * 1000 + (data.decks?.length || 0);
+}
+
+/** @param {AppData | null | undefined} local @param {AppData | null | undefined} fileData */
+function preferAppDataSource(local, fileData) {
+  if (!fileData) return local;
+  if (!local) return fileData;
+  return appDataScore(fileData) >= appDataScore(local) ? fileData : local;
+}
+
 export async function initData() {
   lastSeedSync = null;
+  await restoreDataFileConnection();
   const seed = await loadSeed();
-  let data = loadData();
+  const localData = loadData();
+  const fileData = await readConnectedDataFile();
+  let data = preferAppDataSource(localData, fileData);
 
   if (!data) {
     saveData(seed);
     return seed;
+  }
+
+  if (fileData && data === fileData && localData && data !== localData) {
+    cache = data;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } else if (localData && data === localData && fileData && appDataScore(localData) > appDataScore(fileData)) {
+    void writeConnectedDataFile(localData);
   }
 
   const seedHash = seed.meta?.seedHash;
@@ -260,6 +377,7 @@ export async function initData() {
     }
   }
 
+  if (sanitizeData(data)) saveData(data);
   return data;
 }
 
@@ -268,6 +386,7 @@ export function saveData(data) {
   try {
     cache = data;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    void writeConnectedDataFile(data);
     return true;
   } catch (err) {
     console.error("EDHLOG save failed", err);

@@ -46,6 +46,7 @@ export function computeDeckStats(decks, games) {
       wins: 0,
       losses: 0,
       lastPlayed: null,
+      lastPlayedSortKey: "",
     });
   }
   for (const game of games) {
@@ -64,13 +65,18 @@ export function computeDeckStats(decks, games) {
         wins: 0,
         losses: 0,
         lastPlayed: null,
+        lastPlayedSortKey: "",
       });
     }
     const d = map.get(key);
     d.games += 1;
     if (game.result === "Win") d.wins += 1;
     else d.losses += 1;
-    if (!d.lastPlayed || game.date > d.lastPlayed) d.lastPlayed = game.date;
+    const playedKey = gameSortKey(game);
+    if (!d.lastPlayedSortKey || playedKey.localeCompare(d.lastPlayedSortKey) > 0) {
+      d.lastPlayed = game.date;
+      d.lastPlayedSortKey = playedKey;
+    }
   }
   return [...map.values()].map((d) => ({
     ...d,
@@ -200,7 +206,7 @@ export function computeBracketStats(games, deckStats) {
   }));
 }
 
-import { compareGamesChronologically, gameYear } from "./dates.js";
+import { compareGamesChronologically, gameSortKey, gameYear } from "./dates.js";
 import { canonicalizeColors, colorIdentitySortIndex } from "./color-identity.js";
 import { deckId, deckKey, deckMapByKey, deckTitle, findDeck } from "./deck-identity.js";
 
@@ -339,8 +345,8 @@ export function sortDeckList(list, sortKey, dir) {
       return mul * ad.localeCompare(bd) || deckTitle(a).localeCompare(deckTitle(b));
     }
     if (sortKey === "recent" || sortKey === "lastPlayed") {
-      const ad = a.lastPlayed || "";
-      const bd = b.lastPlayed || "";
+      const ad = a.lastPlayedSortKey || a.lastPlayed || "";
+      const bd = b.lastPlayedSortKey || b.lastPlayed || "";
       return mul * ad.localeCompare(bd) || deckTitle(a).localeCompare(deckTitle(b));
     }
     if (sortKey === "colors" || sortKey === "colorIdentity") {

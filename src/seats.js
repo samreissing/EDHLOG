@@ -18,6 +18,10 @@ export const SEAT_VIEW_LABELS = {
 
 /** @param {import('./store.js').Game} game */
 export function explicitWinnerSeat(game) {
+  if (game.result === "Win" && mySeatForGame(game)) return mySeatForGame(game);
+  if (game.result === "Loss" && game.winnerPodSlot && mySeatForGame(game)) {
+    return Number(game.winnerPodSlot);
+  }
   if (game.winnerSeat) return Number(game.winnerSeat);
   if (game.mySeat && game.result === "Win") return Number(game.mySeat);
   return 0;
@@ -63,17 +67,19 @@ export function seatOutcomeForSeat(game, seat) {
   return null;
 }
 
-/** @param {import('./store.js').Game} game @param {number} seat @param {'mine' | 'opponents' | 'total'} mode */
-function seatAppliesToMode(game, seat, mode) {
+/** @param {import('./store.js').Game} game @param {number} seat @param {'mine' | 'opponents' | 'total'} mode @param {{ excludeMySeat?: boolean }} [options] */
+function seatAppliesToMode(game, seat, mode, options = {}) {
+  const { excludeMySeat = false } = options;
+  if (excludeMySeat && mySeatForGame(game) === seat) return false;
   if (mode === "mine") return mySeatForGame(game) === seat;
   if (mode === "opponents") return opponentOccupiedSeat(game, seat);
   return anyOccupiedSeat(game, seat);
 }
 
-/** @param {import('./store.js').Game[]} games @param {'mine' | 'opponents' | 'total'} mode */
-export function getSeatDateBounds(games, mode = "mine") {
+/** @param {import('./store.js').Game[]} games @param {'mine' | 'opponents' | 'total'} mode @param {{ excludeMySeat?: boolean }} [options] */
+export function getSeatDateBounds(games, mode = "mine", options = {}) {
   const sorted = [...games]
-    .filter((game) => gameHasSeatData(game, mode))
+    .filter((game) => gameHasSeatData(game, mode, options))
     .sort(compareGamesChronologically);
   const dates = sorted
     .map((g) => normalizeDate(g.date) || g.date)
@@ -85,8 +91,9 @@ export function getSeatDateBounds(games, mode = "mine") {
   return { min: dates[0], max: dates[dates.length - 1] };
 }
 
-/** @param {import('./store.js').Game} game @param {'mine' | 'opponents' | 'total'} mode */
-function gameHasSeatData(game, mode) {
+/** @param {import('./store.js').Game} game @param {'mine' | 'opponents' | 'total'} mode @param {{ excludeMySeat?: boolean }} [options] */
+function gameHasSeatData(game, mode, options = {}) {
+  const { excludeMySeat = false } = options;
   if (mode === "mine") return Boolean(mySeatForGame(game));
   if (mode === "opponents") {
     return (game.opponents || []).some((opp) => {
@@ -94,39 +101,66 @@ function gameHasSeatData(game, mode) {
       return seat >= 1 && seat <= 4 && mySeatForGame(game) !== seat;
     });
   }
+  if (excludeMySeat) {
+    return (game.opponents || []).some((opp) => Number(opp.seat) >= 1 && Number(opp.seat) <= 4);
+  }
   if (mySeatForGame(game)) return true;
   return (game.opponents || []).some((opp) => Number(opp.seat) >= 1 && Number(opp.seat) <= 4);
 }
 
 /** @param {number} count */
-export function formatSeatLongestStreak(count) {
-  const n = count || 0;
-  return `Longest Streak: ${n}`;
+export function formatSeatBestWinStreak(count) {
+  return `Best Win Streak: ${count || 0}`;
 }
 
-/** @param {import('./store.js').Game[]} games @param {'mine' | 'opponents' | 'total'} mode */
-export function computeSeatStats(games, mode = "mine") {
+/** @param {number} count */
+export function formatSeatSitStreak(count) {
+  return `Longest Streak: ${count || 0}`;
+}
+
+/** @param {import('./store.js').Game[]} games @param {'mine' | 'opponents' | 'total'} mode @param {{ excludeMySeat?: boolean }} [options] */
+export function computeSeatStats(games, mode = "mine", options = {}) {
   const seats = [1, 2, 3, 4].map((seat) => ({ seat, games: 0, wins: 0 }));
   /** @type {Map<number, { running: number, longest: number }>} */
-  const streaks = new Map(
+  const winStreaks = new Map(
+    [1, 2, 3, 4].map((seat) => [seat, { running: 0, longest: 0 }])
+  );
+  /** @type {Map<number, { running: number, longest: number }>} */
+  const sitStreaks = new Map(
     [1, 2, 3, 4].map((seat) => [seat, { running: 0, longest: 0 }])
   );
 
-  for (const game of [...games].sort(compareGamesChronologically)) {
+  const sorted = [...games].sort(compareGamesChronologically);
+
+  for (const game of sorted) {
     for (let seat = 1; seat <= 4; seat += 1) {
-      if (!seatAppliesToMode(game, seat, mode)) continue;
+      if (!seatAppliesToMode(game, seat, mode, options)) continue;
       const result = seatOutcomeForSeat(game, seat);
       if (!result) continue;
       const slot = seats[seat - 1];
       slot.games += 1;
       if (result === "win") slot.wins += 1;
 
-      const streak = streaks.get(seat);
+      const streak = winStreaks.get(seat);
       if (result === "win") {
         streak.running += 1;
         streak.longest = Math.max(streak.longest, streak.running);
       } else {
         streak.running = 0;
+      }
+    }
+
+    if (mode === "mine") {
+      const mySeat = mySeatForGame(game);
+      if (!mySeat) continue;
+      for (let seat = 1; seat <= 4; seat += 1) {
+        const sit = sitStreaks.get(seat);
+        if (mySeat === seat) {
+          sit.running += 1;
+          sit.longest = Math.max(sit.longest, sit.running);
+        } else {
+          sit.running = 0;
+        }
       }
     }
   }
@@ -135,7 +169,8 @@ export function computeSeatStats(games, mode = "mine") {
     ...s,
     label: `Seat ${s.seat}`,
     winRate: winRate(s.wins, s.games),
-    longestWinStreak: streaks.get(s.seat)?.longest ?? 0,
+    longestWinStreak: winStreaks.get(s.seat)?.longest ?? 0,
+    longestSitStreak: sitStreaks.get(s.seat)?.longest ?? 0,
   }));
 }
 
@@ -145,15 +180,16 @@ export function computeSeatStats(games, mode = "mine") {
  * @param {string} startDate
  * @param {string} endDate
  * @param {'mine' | 'opponents' | 'total'} mode
+ * @param {{ excludeMySeat?: boolean }} [options]
  */
-export function gamesForSeatSeries(games, seat, startDate, endDate, mode = "mine") {
+export function gamesForSeatSeries(games, seat, startDate, endDate, mode = "mine", options = {}) {
   const start = normalizeDate(startDate) || startDate;
   const end = normalizeDate(endDate) || endDate;
 
   return [...games]
     .sort(compareGamesChronologically)
     .filter((game) => {
-      if (!seatAppliesToMode(game, seat, mode)) return false;
+      if (!seatAppliesToMode(game, seat, mode, options)) return false;
       const date = normalizeDate(game.date) || game.date;
       if (date < start || date > end) return false;
       return seatOutcomeForSeat(game, seat) !== null;
