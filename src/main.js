@@ -292,8 +292,8 @@ let archetypeView = "unique";
 let archetypeShowTribes = false;
 /** @type {"all" | "active" | "retired"} */
 let statsDeckFilter = "all";
-/** @type {"normalizedWr" | "winRate" | "games"} */
-let turnChartMetric = "normalizedWr";
+/** @type {"normalizedWr" | "winRate" | "games" | "wins" | "losses"} */
+let turnChartMetric = "games";
 /** @type {Map<string, string>} */
 let colorsChartSelection = new Set();
 let colorsChartRange = { start: null, end: null, customized: false };
@@ -958,6 +958,7 @@ function bindEvents() {
       const col = sortTh.getAttribute("data-sort-col");
       if (tableId === "turn-stats" && col === "turn" && tableSort[tableId]?.col !== col) {
         tableSort[tableId] = { col: "turn", dir: "asc" };
+        turnChartMetric = "games";
       } else if (
         (tableId === "decks-main" || tableId === "opponent-decks-main") &&
         col === "date"
@@ -1799,6 +1800,9 @@ function turnChartMetricLabel(metric) {
 
 /** @param {string} col */
 function turnChartMetricFromSortCol(col) {
+  if (col === "turn" || col === "games") {
+    return "games";
+  }
   if (col === "winRate" || col === "normalizedWr" || col === "wins" || col === "losses") {
     return col;
   }
