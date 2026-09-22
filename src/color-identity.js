@@ -77,3 +77,54 @@ export function canonicalColorKey(colors) {
   const canon = canonicalizeColors(colors);
   return canon.length ? canon.join("") : "C";
 }
+
+/** Normalized identity key (WUBRG sort) for search matching. */
+export function identityKeyFromCombo(colors) {
+  if (!colors?.length) return "C";
+  return [...colors]
+    .filter((c) => COLOR_ORDER.includes(c))
+    .sort((a, b) => COLOR_ORDER.indexOf(a) - COLOR_ORDER.indexOf(b))
+    .join("");
+}
+
+/**
+ * Young Mage / community nicknames for color identities (search terms → normalized key).
+ * @type {Array<{ key: string, names: string[] }>}
+ */
+export const COLOR_IDENTITY_SEARCH_ALIASES = [
+  { key: "C", names: ["colorless"] },
+  { key: "W", names: ["white"] },
+  { key: "U", names: ["blue"] },
+  { key: "B", names: ["black"] },
+  { key: "R", names: ["red"] },
+  { key: "G", names: ["green"] },
+  { key: "WU", names: ["azorius"] },
+  { key: "RW", names: ["boros"] },
+  { key: "UB", names: ["dimir"] },
+  { key: "BG", names: ["golgari"] },
+  { key: "RG", names: ["gruul"] },
+  { key: "UR", names: ["izzet"] },
+  { key: "WB", names: ["orzhov"] },
+  { key: "BR", names: ["rakdos"] },
+  { key: "WG", names: ["selesnya"] },
+  { key: "UG", names: ["simic"] },
+  { key: "WBG", names: ["abzan"] },
+  { key: "WUG", names: ["bant"] },
+  { key: "WUB", names: ["esper"] },
+  { key: "UBR", names: ["grixis"] },
+  { key: "WUR", names: ["jeskai"] },
+  { key: "BRG", names: ["jund"] },
+  { key: "WBR", names: ["mardu"] },
+  { key: "WRG", names: ["naya"] },
+  { key: "UBG", names: ["sultai"] },
+  { key: "URG", names: ["temur"] },
+  { key: "UBRG", names: ["glint"] },
+  { key: "WBRG", names: ["dune"] },
+  { key: "WURG", names: ["ink"] },
+  { key: "WUBG", names: ["witch"] },
+  { key: "WUBR", names: ["yore"] },
+  {
+    key: "WUBRG",
+    names: ["wubrg", "five color", "five-color", "fivecolor", "5 color", "5-color", "5c"],
+  },
+];
