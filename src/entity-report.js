@@ -717,64 +717,75 @@ function gamesForArchetypeSeatFilter(games, seatFilter, decks) {
  * @param {'mine' | 'all' | 'opponents'} archetypeScope
  */
 function buildArchetypeDeckList(games, decks, opponentDecks, archetypeKey, archetypeView, tagKind, archetypeScope) {
-  /** @type {{ key: string, name: string, commander: string, games: number, wins: number, winRate: number, owned: boolean, deckSlotId?: string | null, opponentDeckId?: string | null, playerScope?: string | null }[]} */
-  const deckList = [];
+  const includeMine = archetypeScope !== "opponents";
+  const includeOpponents = archetypeScope !== "mine";
 
-  if (archetypeScope !== "opponents") {
-    for (const deck of decks) {
-      if (!deckMatchesArchetypeKey(entityDeckTags(deck, tagKind), archetypeKey, archetypeView)) continue;
-      const slotId = deckId(deck);
-      const deckGames = games.filter((game) => game.deck === slotId);
-      const wins = deckGames.filter((game) => game.result === "Win").length;
-      const gamesCount = deckGames.length;
-      deckList.push({
-        key: slotId,
-        name: deckTitle(deck),
-        commander: deckCommander(deck),
-        deckSlotId: slotId,
-        games: gamesCount,
-        wins,
-        winRate: winRate(wins, gamesCount),
-        owned: true,
-      });
-    }
-  }
+  /** @type {Map<string, { key: string, name: string, commander: string, games: number, wins: number, owned: boolean, deckSlotId?: string | null, opponentDeckId?: string | null, playerScope?: string | null }>} */
+  const rows = new Map();
 
-  if (archetypeScope !== "mine") {
-    for (const oppDeck of opponentDecks) {
-      if (!deckMatchesArchetypeKey(entityDeckTags(oppDeck, tagKind), archetypeKey, archetypeView)) {
+  for (const game of games) {
+    const seats = parseGameSeats(game, decks);
+    for (const seat of seats) {
+      if (
+        !seatMatchesArchetype(
+          seat,
+          seats,
+          game,
+          archetypeKey,
+          archetypeView,
+          tagKind,
+          archetypeScope,
+          decks,
+          opponentDecks
+        )
+      ) {
         continue;
       }
 
-      let gamesCount = 0;
-      let wins = 0;
-      for (const game of games) {
-        const seats = parseGameSeats(game, decks);
-        for (const seat of seats) {
-          if (normalizeEntityKey(seat.player) === normalizeEntityKey(MY_PLAYER_NAME)) continue;
-          const opp = (game.opponents || []).find((entry) => Number(entry.seat) === Number(seat.seat));
-          if (!opp || !opponentEntryMatchesDeck(game, opp, oppDeck)) continue;
-          if (normalizeEntityKey(seat.player) !== normalizeEntityKey(oppDeck.player)) continue;
-          gamesCount += 1;
-          if (seat.didWin) wins += 1;
-        }
+      const isMe = normalizeEntityKey(seat.player) === normalizeEntityKey(MY_PLAYER_NAME);
+      if (isMe && !includeMine) continue;
+      if (!isMe && !includeOpponents) continue;
+
+      const commander = String(seat.commander || "").trim();
+      if (!commander) continue;
+
+      const canonical = getCommanderInfo(commander).canonicalName;
+      const mapKey = archetypeScope === "all" ? `${isMe ? "mine" : "opp"}:${canonical}` : canonical;
+
+      let row = rows.get(mapKey);
+      if (!row) {
+        row = {
+          key: mapKey,
+          name: commander,
+          commander,
+          games: 0,
+          wins: 0,
+          owned: isMe,
+          deckSlotId: isMe ? game.deck || findOwnedDeckKey(commander, decks) : null,
+          opponentDeckId: null,
+          playerScope: null,
+        };
+        rows.set(mapKey, row);
       }
 
-      deckList.push({
-        key: oppDeck.id,
-        name: opponentDeckTitle(oppDeck),
-        commander: opponentDeckCommander(oppDeck),
-        opponentDeckId: oppDeck.id,
-        playerScope: oppDeck.player || null,
-        games: gamesCount,
-        wins,
-        winRate: winRate(wins, gamesCount),
-        owned: false,
-      });
+      row.games += 1;
+      if (seat.didWin) row.wins += 1;
+      if (!row.name || commander.length >= row.name.length) {
+        row.name = commander;
+        row.commander = commander;
+      }
+      if (isMe) {
+        row.deckSlotId = game.deck || row.deckSlotId || findOwnedDeckKey(commander, decks);
+      }
     }
   }
 
-  return deckList.sort((a, b) => b.games - a.games || a.name.localeCompare(b.name));
+  return [...rows.values()]
+    .map((row) => ({
+      ...row,
+      winRate: winRate(row.wins, row.games),
+    }))
+    .sort((a, b) => b.games - a.games || a.name.localeCompare(b.name));
 }
 
 /**
