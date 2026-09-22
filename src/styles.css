@@ -931,6 +931,23 @@ th.sortable.sorted {
   width: 100%;
 }
 
+.matchup-filters .matchup-search-group {
+  margin-left: auto;
+}
+
+.matchup-search-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.matchup-search-group .matchup-search {
+  margin-left: 0;
+  min-width: min(220px, 100%);
+  flex: 1 1 200px;
+}
+
 .matchup-filters .matchup-search {
   margin-left: auto;
 }

@@ -62,7 +62,7 @@ import {
   colorColumnSortLabel,
   colorViewLabel,
   cycleColorView,
-  colorMatchupRowMatchesSearch,
+  colorMatchupSideMatchesSearch,
 } from "./color-stats.js";
 import {
   deckKey,
@@ -224,7 +224,8 @@ let statsBracketFilter = "";
 /** @type {"filter"|"table"|null} */
 let bracketsChartMode = null;
 let matchupTab = "players";
-let matchupSearch = "";
+let matchupSubjectSearch = "";
+let matchupOpponentSearch = "";
 let matchupColorView = "wubrgc";
 let matchupColorAgg = "inclusive";
 let matchupSplitPartners = false;
@@ -240,7 +241,8 @@ let statsMemo = null;
 let totalsTab = "decks";
 let totalsMatchupTab = "players";
 let totalsSearch = "";
-let totalsMatchupSearch = "";
+let totalsMatchupSubjectSearch = "";
+let totalsMatchupOpponentSearch = "";
 let totalsSplitPartners = false;
 let totalsExcludeMe = false;
 let totalsBracketFilter = "";
@@ -371,7 +373,8 @@ function resetStatsTabState(tab) {
     seatRange = { start: null, end: null, customized: false };
   } else if (tab === "matchups") {
     matchupTab = "players";
-    matchupSearch = "";
+    matchupSubjectSearch = "";
+    matchupOpponentSearch = "";
     matchupColorView = "wubrgc";
     matchupColorAgg = "inclusive";
     matchupSplitPartners = false;
@@ -386,7 +389,8 @@ function resetTotalsViewState() {
   totalsTab = "decks";
   totalsMatchupTab = "players";
   totalsSearch = "";
-  totalsMatchupSearch = "";
+  totalsMatchupSubjectSearch = "";
+  totalsMatchupOpponentSearch = "";
   totalsSplitPartners = false;
   totalsExcludeMe = false;
   totalsSelectedSeats = [];
@@ -896,14 +900,20 @@ function bindEvents() {
   });
 
   document.getElementById("main").addEventListener("input", (e) => {
-    if (e.target.id === "matchup-search") {
-      matchupSearch = e.target.value;
+    if (e.target.id === "matchup-subject-search") {
+      matchupSubjectSearch = e.target.value;
+      render();
+    } else if (e.target.id === "matchup-opponent-search") {
+      matchupOpponentSearch = e.target.value;
+      render();
+    } else if (e.target.id === "totals-matchup-subject-search") {
+      totalsMatchupSubjectSearch = e.target.value;
+      render();
+    } else if (e.target.id === "totals-matchup-opponent-search") {
+      totalsMatchupOpponentSearch = e.target.value;
       render();
     } else if (e.target.id === "totals-search") {
       totalsSearch = e.target.value;
-      render();
-    } else if (e.target.id === "totals-matchup-search") {
-      totalsMatchupSearch = e.target.value;
       render();
     } else if (e.target.id === "seats-range-start" || e.target.id === "seats-range-end") {
       seatRange.customized = true;
@@ -1956,6 +1966,42 @@ function capMatchupTableRows(rows) {
   return { rows: rows.slice(0, MATCHUP_TABLE_ROW_CAP), capped: true };
 }
 
+function matchupTextIncludes(value, query) {
+  if (!query) return true;
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .includes(query);
+}
+
+function renderMatchupSearchInputs({
+  subjectId,
+  opponentId,
+  subjectValue,
+  opponentValue,
+  subjectPlaceholder,
+  opponentPlaceholder,
+  showSubject = true,
+}) {
+  if (!showSubject) {
+    return `<input type="search" id="${opponentId}" class="input matchup-search" placeholder="${escapeHtml(opponentPlaceholder)}" value="${escapeHtml(opponentValue)}" />`;
+  }
+  return `<div class="matchup-search-group">
+        <input type="search" id="${subjectId}" class="input matchup-search" placeholder="${escapeHtml(subjectPlaceholder)}" value="${escapeHtml(subjectValue)}" />
+        <input type="search" id="${opponentId}" class="input matchup-search" placeholder="${escapeHtml(opponentPlaceholder)}" value="${escapeHtml(opponentValue)}" />
+      </div>`;
+}
+
+/** @param {string} id @param {number | null} pos */
+function restoreSearchInputFocus(id, pos) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.focus();
+  if (pos != null && el instanceof HTMLInputElement) {
+    el.setSelectionRange(pos, pos);
+  }
+}
+
 function getStatsScopeGames() {
   return filterGamesByBracket(
     filterGamesForStats(data.games, data.decks, statsDeckFilter),
@@ -2497,8 +2543,16 @@ function saveDeckFromForm(formOverride = null) {
 }
 
 function render() {
-  const matchupSearchFocused = document.activeElement?.id === "matchup-search";
-  const matchupSearchPos = matchupSearchFocused ? document.activeElement.selectionStart : null;
+  const matchupSearchFocusId = [
+    "matchup-subject-search",
+    "matchup-opponent-search",
+    "totals-matchup-subject-search",
+    "totals-matchup-opponent-search",
+  ].find((id) => document.activeElement?.id === id);
+  const matchupSearchPos =
+    matchupSearchFocusId && document.activeElement instanceof HTMLInputElement
+      ? document.activeElement.selectionStart
+      : null;
   const totalsSearchFocused = document.activeElement?.id === "totals-search";
   const totalsSearchPos = totalsSearchFocused ? document.activeElement.selectionStart : null;
 
@@ -2551,12 +2605,8 @@ function render() {
   }
   syncEntityReportModal();
 
-  if (matchupSearchFocused) {
-    const el = document.getElementById("matchup-search");
-    if (el) {
-      el.focus();
-      if (matchupSearchPos != null) el.setSelectionRange(matchupSearchPos, matchupSearchPos);
-    }
+  if (matchupSearchFocusId) {
+    restoreSearchInputFocus(matchupSearchFocusId, matchupSearchPos);
   }
 
   if (totalsSearchFocused) {
@@ -3141,7 +3191,9 @@ function renderStats() {
     const isDeckTab = matchupTab === "decks";
     const isColorTab = matchupTab === "colors";
     const isArchetypeTab = matchupTab === "archetypes";
-    const query = matchupSearch.trim().toLowerCase();
+    const isPlayerTab = matchupTab === "players";
+    const subjectQuery = matchupSubjectSearch.trim().toLowerCase();
+    const opponentQuery = matchupOpponentSearch.trim().toLowerCase();
     const sorted = applySort(
       s.matchups[matchupTab] || [],
       tableSort.matchups,
@@ -3166,29 +3218,37 @@ function renderStats() {
     );
     const ranked = sorted.map((row, index) => ({ ...row, rank: index + 1 }));
     let rows = ranked.filter((row) => {
-      if (!query) return true;
-      if (isDeckTab) {
-        if (matchupCombineDecks) {
-          return (
-            row.opponent.toLowerCase().includes(query) ||
-            (row.opponentPlayer && row.opponentPlayer.toLowerCase().includes(query))
-          );
-        }
-        return (
-          row.opponent.toLowerCase().includes(query) ||
-          row.subject.toLowerCase().includes(query) ||
-          (row.opponentPlayer && row.opponentPlayer.toLowerCase().includes(query))
-        );
-      }
       if (isColorTab) {
-        return colorMatchupRowMatchesSearch(row, query);
+        if (!colorMatchupSideMatchesSearch(row, "subject", subjectQuery)) return false;
+        if (!colorMatchupSideMatchesSearch(row, "opponent", opponentQuery)) return false;
+        return true;
       }
       if (isArchetypeTab) {
+        if (!matchupTextIncludes(row.subject, subjectQuery)) return false;
+        if (!matchupTextIncludes(row.opponent, opponentQuery)) return false;
+        return true;
+      }
+      if (isDeckTab) {
+        if (matchupCombineDecks) {
+          if (subjectQuery) return false;
+          if (!opponentQuery) return true;
+          return (
+            matchupTextIncludes(row.opponent, opponentQuery) ||
+            matchupTextIncludes(row.opponentPlayer, opponentQuery)
+          );
+        }
+        if (!matchupTextIncludes(row.subject, subjectQuery)) return false;
+        if (!opponentQuery) return true;
         return (
-          row.subject.toLowerCase().includes(query) || row.opponent.toLowerCase().includes(query)
+          matchupTextIncludes(row.opponent, opponentQuery) ||
+          matchupTextIncludes(row.opponentPlayer, opponentQuery)
         );
       }
-      return row.opponent.toLowerCase().includes(query);
+      if (isPlayerTab) {
+        if (subjectQuery) return false;
+        return matchupTextIncludes(row.opponent, opponentQuery);
+      }
+      return matchupTextIncludes(row.opponent, opponentQuery);
     });
     let matchupRowsCapped = false;
     if (isArchetypeTab) {
@@ -3198,15 +3258,23 @@ function renderStats() {
     }
     lastMatchupDeckRows = isDeckTab ? rows : [];
 
-    const searchPlaceholder = isDeckTab
+    const subjectSearchPlaceholder = isDeckTab
+      ? "Search my decks"
+      : isColorTab
+        ? 'Search my colors (WUB, Green, Simic…)'
+        : isArchetypeTab
+          ? "Search my archetypes"
+          : "";
+    const opponentSearchPlaceholder = isDeckTab
       ? matchupCombineDecks
         ? "Search opponent decks"
-        : "Search my or opponent decks"
+        : "Search opponent decks"
       : isColorTab
-        ? 'Search Color: "WUB"'
+        ? 'Search opp. colors (WUB, Green, Simic…)'
         : isArchetypeTab
-          ? "Search archetypes"
+          ? "Search opponent archetypes"
           : "Search opponents";
+    const showSubjectSearch = !isPlayerTab && !(isDeckTab && matchupCombineDecks);
 
     const archetypeToolbarControls = isArchetypeTab
       ? `<button type="button" class="btn btn-ghost btn-sm" id="matchup-archetype-view-toggle">${archetypeViewLabel(matchupArchetypeView)}</button>`
@@ -3265,7 +3333,15 @@ function renderStats() {
         ${colorToolbarControls}
         ${archetypeToolbarControls}
         ${deckToolbarControls}
-        <input type="search" id="matchup-search" class="input matchup-search" placeholder="${searchPlaceholder}" value="${escapeHtml(matchupSearch)}" />
+        ${renderMatchupSearchInputs({
+          subjectId: "matchup-subject-search",
+          opponentId: "matchup-opponent-search",
+          subjectValue: matchupSubjectSearch,
+          opponentValue: matchupOpponentSearch,
+          subjectPlaceholder: subjectSearchPlaceholder,
+          opponentPlaceholder: opponentSearchPlaceholder,
+          showSubject: showSubjectSearch,
+        })}
       </div>
       <table class="table compact sortable-table matchup-table ${isArchetypeTab ? "matchup-table-archetypes" : ""}">
         <thead><tr>
@@ -3354,7 +3430,8 @@ function renderTotals() {
     const isPodColorTab = totalsMatchupTab === "colors";
     const isPodArchetypeTab = totalsMatchupTab === "archetypes";
     const isPodPlayerTab = totalsMatchupTab === "players";
-    const query = totalsMatchupSearch.trim().toLowerCase();
+    const subjectQuery = totalsMatchupSubjectSearch.trim().toLowerCase();
+    const opponentQuery = totalsMatchupOpponentSearch.trim().toLowerCase();
     const matchupSort = tableSort["totals-matchups"];
     const sorted = applySort(
       s.totals.matchups?.[totalsMatchupTab] || [],
@@ -3382,17 +3459,34 @@ function renderTotals() {
     let rows = sorted
       .map((row, index) => ({ ...row, rank: index + 1 }))
       .filter((row) => {
-        if (!query) return true;
-        const haystack = [
-          row.subjectPlayer,
-          row.opponentPlayer,
-          row.subject,
-          row.opponent,
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
-        return haystack.includes(query);
+        if (isPodColorTab) {
+          if (!colorMatchupSideMatchesSearch(row, "subject", subjectQuery)) return false;
+          if (!colorMatchupSideMatchesSearch(row, "opponent", opponentQuery)) return false;
+          return true;
+        }
+
+        const subjectParts =
+          isPodPlayerTab || isPodDeckTab
+            ? [row.subjectPlayer, row.subject]
+            : [row.subject];
+        const opponentParts =
+          isPodPlayerTab || isPodDeckTab
+            ? [row.opponentPlayer, row.opponent]
+            : [row.opponent];
+
+        if (
+          subjectQuery &&
+          !subjectParts.filter(Boolean).some((part) => matchupTextIncludes(part, subjectQuery))
+        ) {
+          return false;
+        }
+        if (
+          opponentQuery &&
+          !opponentParts.filter(Boolean).some((part) => matchupTextIncludes(part, opponentQuery))
+        ) {
+          return false;
+        }
+        return true;
       });
     let totalsMatchupRowsCapped = false;
     if (isPodArchetypeTab) {
@@ -3504,7 +3598,27 @@ function renderTotals() {
         ${archetypeToolbar}
         ${splitPartnersControl}
         ${excludeMeControl}
-        <input type="search" id="totals-matchup-search" class="input matchup-search" placeholder="Search matchups" value="${escapeHtml(totalsMatchupSearch)}" />
+        ${renderMatchupSearchInputs({
+          subjectId: "totals-matchup-subject-search",
+          opponentId: "totals-matchup-opponent-search",
+          subjectValue: totalsMatchupSubjectSearch,
+          opponentValue: totalsMatchupOpponentSearch,
+          subjectPlaceholder: isPodPlayerTab
+            ? "Search player"
+            : isPodDeckTab
+              ? "Search player or deck"
+              : isPodColorTab
+                ? "Search colors (WUB, Green, Simic…)"
+                : "Search archetypes",
+          opponentPlaceholder: isPodPlayerTab
+            ? "Search opponent"
+            : isPodDeckTab
+              ? "Search opponent or deck"
+              : isPodColorTab
+                ? "Search opp. colors (WUB, Green, Simic…)"
+                : "Search opponent archetypes",
+          showSubject: true,
+        })}
       </div>
       <table class="table compact sortable-table matchup-table totals-matchup-table ${isPodArchetypeTab ? "matchup-table-archetypes" : ""}">
         <thead><tr>
