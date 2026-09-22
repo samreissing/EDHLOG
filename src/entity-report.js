@@ -40,7 +40,7 @@ import {
   opponentDeckTitle,
   opponentEntryMatchesDeck,
 } from "./opponent-decks.js";
-import { deckMatchesArchetypeKey } from "./archetype-stats.js";
+import { deckMatchesArchetypeKey, exactArchetypeComboLabel } from "./archetype-stats.js";
 import { sortHeader, applySort, WINS_SORT_TIE_BREAKERS } from "./table.js";
 
 function escapeHtml(str) {
@@ -699,6 +699,19 @@ function seatMatchesArchetype(
   return deckMatchesArchetypeKey(entityDeckTags(oppDeck, tagKind), archetypeKey, archetypeView);
 }
 
+/** @param {import('./matchups.js').GameSeat} seat @param {import('./store.js').Game} game @param {import('./store.js').Deck[]} decks @param {import('./opponent-decks.js').OpponentDeck[]} opponentDecks @param {boolean} isMe @param {'archetype' | 'tribe'} tagKind */
+function archetypeTagsForSeatDeck(seat, game, decks, opponentDecks, isMe, tagKind) {
+  if (isMe) {
+    return entityDeckTags(findDeck(decks, game.deck), tagKind);
+  }
+  return entityDeckTags(resolveOpponentDeckForEntitySeat(opponentDecks, game, seat), tagKind);
+}
+
+/** @param {string[]} tags */
+function archetypeDeckBuildKey(tags) {
+  return exactArchetypeComboLabel(tags) || "";
+}
+
 /** @param {import('./store.js').Game[]} games @param {(seat: import('./matchups.js').GameSeat, seats: import('./matchups.js').GameSeat[], game: import('./store.js').Game) => boolean} seatFilter @param {import('./store.js').Deck[]} decks */
 function gamesForArchetypeSeatFilter(games, seatFilter, decks) {
   return games.filter((game) => {
@@ -750,7 +763,13 @@ function buildArchetypeDeckList(games, decks, opponentDecks, archetypeKey, arche
       if (!commander) continue;
 
       const canonical = getCommanderInfo(commander).canonicalName;
-      const mapKey = archetypeScope === "all" ? `${isMe ? "mine" : "opp"}:${canonical}` : canonical;
+      const buildKey = archetypeDeckBuildKey(
+        archetypeTagsForSeatDeck(seat, game, decks, opponentDecks, isMe, tagKind)
+      );
+      const mapKey =
+        archetypeScope === "all"
+          ? `${isMe ? "mine" : "opp"}:${canonical}:${buildKey}`
+          : `${canonical}:${buildKey}`;
 
       let row = rows.get(mapKey);
       if (!row) {
