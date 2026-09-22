@@ -78,11 +78,70 @@ function entityPodRowOutcomeClass(game, slot, mySeat, isMeRow = false) {
   return "";
 }
 
-/** @param {{ player?: string, didWin?: boolean } | null | undefined} seat */
-function entitySeatMyWinClass(seat) {
-  if (!seat?.didWin) return "";
-  return normalizeEntityKey(seat.player) === normalizeEntityKey(MY_PLAYER_NAME)
-    ? " entity-game-seat-my-win"
+/** @param {{ player?: string, didWin?: boolean } | null | undefined} seat @param {import('./store.js').Game} game @param {import('./matchups.js').GameSeat[]} seats @param {{ kind: string, title?: string, deckSlotId?: string | null, opponentDeckId?: string | null, playerScope?: string | null, displayCommander?: string, archetypeKey?: string, archetypeView?: 'unique' | 'combined' | 'exact', tagKind?: 'archetype' | 'tribe', archetypeScope?: 'mine' | 'all' | 'opponents' }} report @param {import('./store.js').Deck[]} decks @param {import('./opponent-decks.js').OpponentDeck[]} opponentDecks */
+function entityGameSeatIsFocus(seat, game, seats, report, decks, opponentDecks) {
+  if (!seat) return false;
+
+  if (report.kind === "games-log") {
+    return normalizeEntityKey(seat.player) === normalizeEntityKey(MY_PLAYER_NAME);
+  }
+
+  if (report.kind === "player") {
+    return normalizeEntityKey(seat.player) === normalizeEntityKey(report.title || "");
+  }
+
+  if (report.kind === "archetype") {
+    return seatMatchesArchetype(
+      seat,
+      seats,
+      game,
+      report.archetypeKey || report.title || "",
+      report.archetypeView || "unique",
+      report.tagKind || "archetype",
+      report.archetypeScope || "mine",
+      decks,
+      opponentDecks
+    );
+  }
+
+  if (report.kind === "deck") {
+    const commanderName = report.displayCommander || report.title || "";
+    if (report.deckSlotId) {
+      if (report.playerScope) {
+        return (
+          game.deck === report.deckSlotId &&
+          normalizeEntityKey(seat.player) === normalizeEntityKey(report.playerScope)
+        );
+      }
+      return (
+        game.deck === report.deckSlotId &&
+        normalizeEntityKey(seat.player) === normalizeEntityKey(MY_PLAYER_NAME)
+      );
+    }
+    if (report.opponentDeckId) {
+      const oppDeck = findOpponentDeck(opponentDecks, report.opponentDeckId);
+      const scope = report.playerScope || oppDeck?.player || null;
+      if (scope && normalizeEntityKey(seat.player) !== normalizeEntityKey(scope)) return false;
+      const opp = (game.opponents || []).find((entry) => Number(entry.seat) === Number(seat.seat));
+      if (oppDeck && opp) return opponentEntryMatchesDeck(game, opp, oppDeck);
+      return commanderMatchesTarget(seat.commander, commanderName, { splitPartners: false });
+    }
+    if (report.playerScope) {
+      return (
+        normalizeEntityKey(seat.player) === normalizeEntityKey(report.playerScope) &&
+        commanderMatchesTarget(seat.commander, commanderName, { splitPartners: false })
+      );
+    }
+    return commanderMatchesTarget(seat.commander, commanderName, { splitPartners: false });
+  }
+
+  return false;
+}
+
+/** @param {import('./matchups.js').GameSeat | null | undefined} seat @param {import('./store.js').Game} game @param {import('./matchups.js').GameSeat[]} seats @param {Parameters<typeof entityGameSeatIsFocus>[3]} report @param {import('./store.js').Deck[]} decks @param {import('./opponent-decks.js').OpponentDeck[]} opponentDecks */
+function entityGameSeatFocusClass(seat, game, seats, report, decks, opponentDecks) {
+  return entityGameSeatIsFocus(seat, game, seats, report, decks, opponentDecks)
+    ? " entity-game-seat-focus"
     : "";
 }
 
@@ -1136,16 +1195,17 @@ function entityGameResultClass(game, decks, report, opponentDecks = []) {
 /** @param {import('./store.js').Game} game @param {import('./store.js').Deck[]} decks @param {ReturnType<typeof buildEntityReport>} report @param {import('./opponent-decks.js').OpponentDeck[]} [opponentDecks] */
 /** @param {import('./store.js').Game} game @param {import('./store.js').Deck[]} decks */
 export function renderGameLogPodCard(game, decks) {
-  return renderEntityGamePodCard(game, decks, { kind: "deck", deckSlotId: game.deck }, [], {
+  return renderEntityGamePodCard(game, decks, { kind: "games-log" }, [], {
     showEditGame: true,
   });
 }
 
 /** @param {import('./store.js').Game} game @param {import('./store.js').Deck[]} decks @param {ReturnType<typeof buildEntityReport>} report @param {import('./opponent-decks.js').OpponentDeck[]} [opponentDecks] @param {{ showEditGame?: boolean }} [cardOptions] */
 function renderEntityGamePodCard(game, decks, report, opponentDecks = [], cardOptions = {}) {
+  const allSeats = parseGameSeats(game, decks);
   let seatBoxes;
   if (gameUsesSeatNumbers(game)) {
-    const seatsByNumber = new Map(parseGameSeats(game, decks).map((seat) => [seat.seat, seat]));
+    const seatsByNumber = new Map(allSeats.map((seat) => [seat.seat, seat]));
     seatBoxes = [1, 2, 3, 4]
       .map((seatNum) => {
         const seat = seatsByNumber.get(seatNum);
@@ -1153,7 +1213,7 @@ function renderEntityGamePodCard(game, decks, report, opponentDecks = [], cardOp
         const playerLabel = seat?.player ? renderPlayerReportLink(seat.player) : "—";
         const commanderLabel = seat?.commander ? escapeHtml(seat.commander) : "—";
         return `
-        <div class="entity-game-seat-box ${outcomeClass}${entitySeatMyWinClass(seat)}">
+        <div class="entity-game-seat-box ${outcomeClass}${entityGameSeatFocusClass(seat, game, allSeats, report, decks, opponentDecks)}">
           <span class="entity-game-seat-num">Seat ${seatNum}</span>
           <span class="entity-game-seat-player">${playerLabel}</span>
           <span class="entity-game-seat-commander">${commanderLabel}</span>
@@ -1164,9 +1224,15 @@ function renderEntityGamePodCard(game, decks, report, opponentDecks = [], cardOp
     const opponents = game.opponents || [];
     const mySeat = 0;
     const myCommander = resolveMyCommander(game, decks);
+    const mySeatEntry = allSeats.find(
+      (seat) => normalizeEntityKey(seat.player) === normalizeEntityKey(MY_PLAYER_NAME)
+    );
+    const opponentSeats = allSeats.filter(
+      (seat) => normalizeEntityKey(seat.player) !== normalizeEntityKey(MY_PLAYER_NAME)
+    );
     const myBox = gameHasPodDetail(game)
       ? `
-        <div class="entity-game-seat-box ${entityPodRowOutcomeClass(game, 0, mySeat, true)}${game.result === "Win" ? " entity-game-seat-my-win" : ""}">
+        <div class="entity-game-seat-box ${entityPodRowOutcomeClass(game, 0, mySeat, true)}${entityGameSeatFocusClass(mySeatEntry, game, allSeats, report, decks, opponentDecks)}">
           <span class="entity-game-seat-num">Player w</span>
           <span class="entity-game-seat-player">${renderPlayerReportLink(MY_PLAYER_NAME)}</span>
           <span class="entity-game-seat-commander">${escapeHtml(myCommander)}</span>
@@ -1178,11 +1244,12 @@ function renderEntityGamePodCard(game, decks, report, opponentDecks = [], cardOp
         .map((index) => {
           const opp = opponents[index];
           const slot = index + 1;
+          const seat = opponentSeats[index];
           const playerLabel = opp?.player ? renderPlayerReportLink(opp.player) : "—";
           const commanderLabel = opp?.name ? escapeHtml(opp.name) : "—";
           const outcomeClass = opp ? entityPodRowOutcomeClass(game, slot, mySeat, false) : "";
           return `
-        <div class="entity-game-seat-box ${outcomeClass}">
+        <div class="entity-game-seat-box ${outcomeClass}${entityGameSeatFocusClass(seat, game, allSeats, report, decks, opponentDecks)}">
           <span class="entity-game-seat-num">Player ${POD_SLOT_LETTERS[index] || index + 1}</span>
           <span class="entity-game-seat-player">${playerLabel}</span>
           <span class="entity-game-seat-commander">${commanderLabel}</span>

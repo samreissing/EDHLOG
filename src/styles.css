@@ -3373,11 +3373,24 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   background: color-mix(in srgb, var(--win, #22c55e) 12%, var(--surface));
 }
 
-.entity-game-seat-box.entity-game-seat-win.entity-game-seat-my-win {
-  border-color: color-mix(in srgb, #d4af37 42%, var(--win, #22c55e) 58%);
+.entity-game-seat-box.entity-game-seat-focus {
+  border-color: color-mix(in srgb, #d4af37 52%, var(--border));
   box-shadow:
-    0 0 0 1px rgba(212, 175, 55, 0.55),
-    0 0 14px rgba(212, 175, 55, 0.24);
+    0 0 0 1px rgba(212, 175, 55, 0.52),
+    0 0 12px rgba(212, 175, 55, 0.22);
+}
+
+.entity-game-seat-box.entity-game-seat-focus.entity-game-seat-win {
+  border-color: color-mix(in srgb, #d4af37 38%, var(--win, #22c55e) 62%);
+}
+
+.entity-game-seat-box.entity-game-seat-focus.entity-game-seat-loss {
+  border-color: color-mix(in srgb, #d4af37 38%, var(--loss, #ef4444) 62%);
+}
+
+.entity-game-seat-box.entity-game-seat-focus .entity-game-seat-player,
+.entity-game-seat-box.entity-game-seat-focus .entity-game-seat-player .link-btn {
+  color: #e6c65c;
 }
 
 .entity-game-seat-box.entity-game-seat-loss {
