@@ -38,6 +38,47 @@ const COLOR_SEARCH_ALIASES = {
   colorless: "C",
 };
 
+/** Two- and three-color guild/shard names → identity key (sorted WUBRG). */
+const GUILD_SEARCH_ALIASES = {
+  azorius: "WU",
+  boros: "RW",
+  dimir: "UB",
+  golgari: "BG",
+  gruul: "RG",
+  izzet: "UR",
+  orzhov: "WB",
+  rakdos: "BR",
+  selesnya: "GW",
+  simic: "UG",
+  abzan: "WBG",
+  bant: "WUG",
+  esper: "WUB",
+  grixis: "UBR",
+  jeskai: "WUR",
+  jund: "BRG",
+  mardu: "WBR",
+  naya: "WRG",
+  sultai: "UBG",
+  temur: "URG",
+  glint: "UBRG",
+  dune: "WBRG",
+  ink: "WURG",
+  witch: "WUBG",
+  yore: "WUBR",
+};
+
+function guildKeyFromSearchText(text) {
+  const lowered = String(text || "").trim().toLowerCase();
+  if (!lowered) return null;
+  const compact = lowered.replace(/[^a-z]/g, "");
+  for (const [name, key] of Object.entries(GUILD_SEARCH_ALIASES)) {
+    if (lowered.includes(name) || compact.includes(name)) {
+      return normalizeColorIdentityKey(key);
+    }
+  }
+  return null;
+}
+
 function normalizeColorIdentityKey(key) {
   if (!key || key === "C") return "C";
   return [...key.toUpperCase().replace(/[^WUBRGC]/g, "")]
@@ -75,6 +116,8 @@ export function colorIdentityKeyMatchesSearch(identityKey, query) {
   }
 
   if (text) {
+    const guildKey = guildKeyFromSearchText(text);
+    if (guildKey && key === guildKey) return true;
     const label = rowLabel(key).toLowerCase();
     if (label.includes(text)) return true;
     if (key === "C" && text.includes("colorless")) return true;
@@ -83,14 +126,20 @@ export function colorIdentityKeyMatchesSearch(identityKey, query) {
   return false;
 }
 
+/** @param {{ subjectKey?: string, opponentKey?: string }} row @param {"subject" | "opponent"} side @param {string} query */
+export function colorMatchupSideMatchesSearch(row, side, query) {
+  if (!String(query || "").trim()) return true;
+  const rawKey = side === "subject" ? row.subjectKey : row.opponentKey;
+  const identityKey = String(rawKey || "").replace(/^(ci|oci):/, "");
+  return colorIdentityKeyMatchesSearch(identityKey, query);
+}
+
 /** @param {{ subjectKey?: string, opponentKey?: string }} row @param {string} query */
 export function colorMatchupRowMatchesSearch(row, query) {
   if (!String(query || "").trim()) return true;
-  const subjectKey = String(row.subjectKey || "").replace(/^ci:/, "");
-  const opponentKey = String(row.opponentKey || "").replace(/^oci:/, "");
   return (
-    colorIdentityKeyMatchesSearch(subjectKey, query) ||
-    colorIdentityKeyMatchesSearch(opponentKey, query)
+    colorMatchupSideMatchesSearch(row, "subject", query) ||
+    colorMatchupSideMatchesSearch(row, "opponent", query)
   );
 }
 
