@@ -1,5 +1,10 @@
 import { compareGamesChronologically, normalizeDate } from "./dates.js";
 import { winRate } from "./stats.js";
+import {
+  applySeatRecordingNormalization,
+  countGamesMissingSeatRecording,
+  recordingBaselineWinRate,
+} from "./recording-normalize.js";
 
 export const SEAT_COLORS = {
   1: "#e6a756",
@@ -92,7 +97,7 @@ export function getSeatDateBounds(games, mode = "mine", options = {}) {
 }
 
 /** @param {import('./store.js').Game} game @param {'mine' | 'opponents' | 'total'} mode @param {{ excludeMySeat?: boolean }} [options] */
-function gameHasSeatData(game, mode, options = {}) {
+export function gameHasSeatData(game, mode, options = {}) {
   const { excludeMySeat = false } = options;
   if (mode === "mine") return Boolean(mySeatForGame(game));
   if (mode === "opponents") {
@@ -165,13 +170,17 @@ export function computeSeatStats(games, mode = "mine", options = {}) {
     }
   }
 
-  return seats.map((s) => ({
-    ...s,
-    label: `Seat ${s.seat}`,
-    winRate: winRate(s.wins, s.games),
-    longestWinStreak: winStreaks.get(s.seat)?.longest ?? 0,
-    longestSitStreak: sitStreaks.get(s.seat)?.longest ?? 0,
-  }));
+  return applySeatRecordingNormalization(
+    seats.map((s) => ({
+      ...s,
+      label: `Seat ${s.seat}`,
+      winRate: winRate(s.wins, s.games),
+      longestWinStreak: winStreaks.get(s.seat)?.longest ?? 0,
+      longestSitStreak: sitStreaks.get(s.seat)?.longest ?? 0,
+    })),
+    countGamesMissingSeatRecording(games, mode, options),
+    recordingBaselineWinRate(games, mode, mode === "mine" ? "player" : "pod", options)
+  );
 }
 
 /**
