@@ -193,8 +193,6 @@ import {
   gamesForSeatSeries,
   getSeatDateBounds,
   SEAT_COLORS,
-  SEAT_VIEW_LABELS,
-  SEAT_VIEW_MODES,
 } from "./seats.js";
 
 const VIEWS = [
@@ -255,7 +253,6 @@ let totalsColorAgg = "exclusive";
 let trendsFilter = { kind: "all" };
 let selectedSeats = [];
 let totalsSelectedSeats = [];
-let seatViewMode = "mine";
 let seatRange = { start: null, end: null, customized: false };
 let decksTab = "active";
 let decksPageTab = "mine";
@@ -375,7 +372,6 @@ function resetStatsTabState(tab) {
     tableSort["turn-stats"] = { col: "turn", dir: "asc" };
   } else if (tab === "seats") {
     selectedSeats = [];
-    seatViewMode = "mine";
     seatRange = { start: null, end: null, customized: false };
   } else if (tab === "matchups") {
     matchupTab = "players";
@@ -1350,15 +1346,6 @@ function bindEvents() {
       return;
     }
 
-    const seatViewBtn = e.target.closest("[data-seat-view-cycle]");
-    if (seatViewBtn) {
-      const index = SEAT_VIEW_MODES.indexOf(seatViewMode);
-      seatViewMode = SEAT_VIEW_MODES[(index + 1) % SEAT_VIEW_MODES.length];
-      seatRange = { start: null, end: null, customized: false };
-      render();
-      return;
-    }
-
     const addGameBtn = e.target.closest("#add-game-btn");
     if (addGameBtn) {
       e.preventDefault();
@@ -1775,7 +1762,7 @@ function isTrendsYearActive(yearRow) {
 let lastMatchupDeckRows = [];
 
 function getEffectiveSeatRange(games) {
-  const bounds = getSeatDateBounds(games, seatViewMode);
+  const bounds = getSeatDateBounds(games, "mine");
   if (!seatRange.customized) {
     return { start: bounds.min, end: bounds.max, bounds };
   }
@@ -3220,16 +3207,16 @@ function renderStats() {
       }`;
   } else if (statsTab === "seats") {
     const { statsGames } = getStatsScope();
-    const bounds = getSeatDateBounds(statsGames, seatViewMode);
+    const bounds = getSeatDateBounds(statsGames, "mine");
     const range = getEffectiveSeatRange(statsGames);
-    const seatStats = computeSeatStats(statsGames, seatViewMode);
+    const seatStats = computeSeatStats(statsGames, "mine");
     const seatChart = renderMultiWinRateLineChart(
       selectedSeats.map((seat) => ({
         id: seat,
         label: `Seat ${seat}`,
         color: SEAT_COLORS[seat],
         series: computeWinRateSeries(
-          gamesForSeatSeries(statsGames, seat, range.start, range.end, seatViewMode)
+          gamesForSeatSeries(statsGames, seat, range.start, range.end, "mine")
         ),
       })),
       range
@@ -3237,10 +3224,7 @@ function renderStats() {
 
     body = `
       ${renderDateRangeFilters("seats", bounds, range, { bracketFilter: true, deckFilter: true })}
-      <div class="seat-toggle-row">
-        <button type="button" class="seat-toggle seat-view-toggle" data-seat-view-cycle title="Cycle seat perspective">
-          <strong>${SEAT_VIEW_LABELS[seatViewMode]}</strong>
-        </button>
+      <div class="seat-toggle-row seat-toggle-row--four">
         ${seatStats
           .map(
             (seat) => `
@@ -3250,14 +3234,10 @@ function renderStats() {
               <div class="seat-toggle-header"><strong>${seat.label}</strong></div>
               <span>${formatSeatWinRateLine(seat)}</span>
             </button>
-            ${
-              seatViewMode === "mine"
-                ? `<div class="seat-streak-stats">
+            <div class="seat-streak-stats">
               <div class="seat-streak-line">${formatSeatBestWinStreak(seat.longestWinStreak)}</div>
               <div class="seat-streak-line">${formatSeatSitStreak(seat.longestSitStreak)}</div>
-            </div>`
-                : ""
-            }
+            </div>
           </div>`
           )
           .join("")}
