@@ -617,8 +617,12 @@ function renderTurnStatHeading(row) {
 
 function formatSeatWinRateLine(seat) {
   const wr = seat.games ? pctCell(seat.winRate) : "—";
-  const norm = pctCell(seat.recordingNormWr ?? seat.winRate);
-  return `${seat.games}G · ${seat.wins}W · ${wr} · ${norm} norm`;
+  const normValue = seat.recordingNormWr ?? seat.winRate;
+  const norm =
+    normValue != null && !Number.isNaN(normValue)
+      ? `<span class="seat-norm-wr"> · ${pct(normValue)} norm</span>`
+      : "";
+  return `<span class="seat-toggle-stats">${seat.games}G · ${seat.wins}W · ${wr}${norm}</span>`;
 }
 
 /** @param {ReturnType<typeof computeTurnGridStats>} turns */
