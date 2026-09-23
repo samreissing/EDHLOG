@@ -109,12 +109,15 @@ import {
   backfillDeckColorIdentities,
   getCommanderColorIdentity,
   getDeckColors,
+  collectOpponentCommanderNames,
 } from "./commander-colors.js";
 import { bindFormAccidentalNavigationGuard, bindModalBackdropDismiss } from "./modals.js";
 import {
   computeOpponentDeckStats,
   ensureOpponentDecks,
   findOpponentDeck,
+  getOpponentDeckColors,
+  backfillOpponentDeckColorIdentities,
   linkGameOpponentsToDecks,
   opponentDeckCommander,
   opponentDeckTitle,
@@ -697,11 +700,12 @@ async function refreshCommanderColorCache() {
       ...collectAllPodCommanderNames(data.games),
       ...collectPartnerCommanderNames(data.games),
       ...collectOwnedDeckCommanderNames(data.decks),
+      ...collectOpponentCommanderNames(data.games),
     ]),
   ]);
-  const changed = backfillDeckColorIdentities(data.decks);
-  if (changed) saveData(data);
-  if (deckModalOpen) return;
+  const ownedChanged = backfillDeckColorIdentities(data.decks);
+  const opponentChanged = backfillOpponentDeckColorIdentities(ensureOpponentDecks(data));
+  if (ownedChanged || opponentChanged) saveData(data);
   render();
 }
 
@@ -2660,7 +2664,32 @@ function render() {
     const nameInput = document.querySelector('#deck-form input[name="name"]');
     nameInput?.focus();
     if (editingDeckName) nameInput?.select();
+    void refreshDeckModalColorsIfNeeded();
   }
+}
+
+async function refreshDeckModalColorsIfNeeded() {
+  if (currentView !== "decks" || !deckModalOpen) return;
+
+  const opponentDeck = findEditingOpponentDeck();
+  const ownedDeck = editingDeckName ? findEditingDeck() : null;
+  const commander = opponentDeck
+    ? opponentDeckCommander(opponentDeck)
+    : ownedDeck
+      ? deckCommander(ownedDeck)
+      : "";
+  if (!commander) return;
+
+  const storedColors = opponentDeck?.colors ?? ownedDeck?.colors;
+  if (storedColors?.length) return;
+
+  if (getCommanderColorIdentity(commander).length) {
+    render();
+    return;
+  }
+
+  await warmCommanderColorCache([commander]);
+  render();
 }
 
 function statCard(label, value, isWr = false) {
@@ -3952,7 +3981,11 @@ function renderDeckModal(editingDeck, editingOpponentDeck) {
   const tribes = editingDeck?.tribes || editingOpponentDeck?.tribes;
   const showTribeField = deckHasTribalArchetype(archetypes);
   const bracket = editingDeck?.bracket ?? editingOpponentDeck?.bracket ?? 4;
-  const colors = editingDeck?.colors || editingOpponentDeck?.colors || [];
+  const colors = editingDeck
+    ? getDeckColors(editingDeck)
+    : editingOpponentDeck
+      ? getOpponentDeckColors(editingOpponentDeck)
+      : [];
   const retired = editingDeck?.retired;
   const commanderValue = editingDeck
     ? deckLabel(editingDeck)
@@ -4079,7 +4112,7 @@ function renderDecks() {
                 playerScope: d.player,
                 opponentDeckId: d.id,
               })}</td>
-              <td class="deck-colors">${colorBadge(d.colors?.length ? d.colors : getCommanderColorIdentity(opponentDeckCommander(d)))}</td>
+              <td class="deck-colors">${colorBadge(getOpponentDeckColors(d))}</td>
               <td class="deck-tight">${formatDeckBracket(d.bracket)}</td>
               <td class="deck-tight">${d.games}</td>
               <td class="deck-tight">${d.wins}</td>

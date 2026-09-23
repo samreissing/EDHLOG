@@ -50,6 +50,26 @@ export function opponentDeckLabel(deck) {
   return opponentDeckCommander(deck);
 }
 
+/** @param {OpponentDeck | null | undefined} deck */
+export function getOpponentDeckColors(deck) {
+  if (!deck) return [];
+  if (deck.colors?.length) return deck.colors;
+  return getCommanderColorIdentity(opponentDeckCommander(deck));
+}
+
+/** @param {OpponentDeck[]} decks */
+export function backfillOpponentDeckColorIdentities(decks) {
+  let changed = false;
+  for (const deck of decks) {
+    if (deck.colors?.length) continue;
+    const colors = getCommanderColorIdentity(opponentDeckCommander(deck));
+    if (!colors.length) continue;
+    deck.colors = [...colors];
+    changed = true;
+  }
+  return changed;
+}
+
 /** @param {OpponentDeck} deck @param {string} loggedCommander */
 export function opponentDeckCommanderMatches(deck, loggedCommander) {
   const logged = String(loggedCommander || "").trim();
