@@ -1991,10 +1991,14 @@ function matchupTextIncludes(value, query) {
 
 function opponentDeckRowMatchesCommanderSearch(deck, query) {
   if (!query) return true;
-  if (matchupTextIncludes(opponentDeckTitle(deck), query)) return true;
-  if (matchupTextIncludes(deck.name, query)) return true;
   if (matchupTextIncludes(opponentDeckCommander(deck), query)) return true;
   return (deck.commanderAliases || []).some((alias) => matchupTextIncludes(alias, query));
+}
+
+function opponentDeckRowMatchesDeckSearch(deck, query) {
+  if (!query) return true;
+  if (matchupTextIncludes(deck.name, query)) return true;
+  return matchupTextIncludes(opponentDeckTitle(deck), query);
 }
 
 function myDeckRowMatchesDeckSearch(deck, query) {
@@ -4029,7 +4033,8 @@ function renderDecks() {
     list = list.filter(
       (d) =>
         matchupTextIncludes(d.player, opponentPlayerQuery) &&
-        opponentDeckRowMatchesCommanderSearch(d, opponentCommanderQuery)
+        opponentDeckRowMatchesCommanderSearch(d, opponentCommanderQuery) &&
+        opponentDeckRowMatchesDeckSearch(d, deckSearchQuery)
     );
   } else {
     list = list.filter((d) => myDeckRowMatchesDeckSearch(d, deckSearchQuery));
@@ -4055,7 +4060,8 @@ function renderDecks() {
         ${
           isOpponentsPage
             ? `<input type="search" id="decks-opponent-player-search" class="input matchup-search" placeholder="Search opponents" value="${escapeHtml(decksOpponentPlayerSearch)}" />
-            <input type="search" id="decks-opponent-commander-search" class="input matchup-search" placeholder="Search commanders" value="${escapeHtml(decksOpponentCommanderSearch)}" />`
+            <input type="search" id="decks-opponent-commander-search" class="input matchup-search" placeholder="Search commanders" value="${escapeHtml(decksOpponentCommanderSearch)}" />
+            <input type="search" id="decks-deck-search" class="input matchup-search" placeholder="Search decks" value="${escapeHtml(decksDeckSearch)}" />`
             : `<input type="search" id="decks-deck-search" class="input matchup-search" placeholder="Search decks" value="${escapeHtml(decksDeckSearch)}" />`
         }
       </div>`;
