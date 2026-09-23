@@ -2702,7 +2702,7 @@ function renderPodium(podium, labelForDeck = deckLabel) {
       <div class="podium-slot podium-${index + 1}">
         <span class="podium-rank">${labels[index]}</span>
         <strong class="podium-name">${renderDeckReportLink(deckCommander(deck), data.decks, { label: labelForDeck(deck), playerScope: MY_PLAYER_NAME, deckSlotId: deckId(deck) })}</strong>
-        <span class="podium-meta">${deck.wins}W · ${deck.games}G · ${pct(deck.normalizedWr)} norm</span>
+        <span class="podium-meta">${deck.wins}W · ${deck.games}G · ${pct(deck.winRate)} · ${pct(deck.normalizedWr)} norm</span>
       </div>`
     )
     .join("")}</div>`;
