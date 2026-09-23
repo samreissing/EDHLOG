@@ -257,6 +257,7 @@ let seatRange = { start: null, end: null, customized: false };
 let decksTab = "active";
 let decksPageTab = "mine";
 let decksOpponentPlayerSearch = "";
+let decksOpponentCommanderSearch = "";
 let decksDeckSearch = "";
 let editingOpponentDeckId = null;
 let gameModalOpen = false;
@@ -416,6 +417,7 @@ function resetDecksViewState() {
   decksPageTab = "mine";
   deckBracketFilter = "";
   decksOpponentPlayerSearch = "";
+  decksOpponentCommanderSearch = "";
   decksDeckSearch = "";
   closeDeckModal();
   tableSort["decks-main"] = { col: "name", dir: "asc" };
@@ -921,6 +923,9 @@ function bindEvents() {
       render();
     } else if (e.target.id === "decks-opponent-player-search") {
       decksOpponentPlayerSearch = e.target.value;
+      render();
+    } else if (e.target.id === "decks-opponent-commander-search") {
+      decksOpponentCommanderSearch = e.target.value;
       render();
     } else if (e.target.id === "decks-deck-search") {
       decksDeckSearch = e.target.value;
@@ -1986,15 +1991,10 @@ function matchupTextIncludes(value, query) {
 
 function opponentDeckRowMatchesCommanderSearch(deck, query) {
   if (!query) return true;
-  if (matchupTextIncludes(opponentDeckCommander(deck), query)) return true;
-  return (deck.commanderAliases || []).some((alias) => matchupTextIncludes(alias, query));
-}
-
-function opponentDeckRowMatchesDeckSearch(deck, query) {
-  if (!query) return true;
   if (matchupTextIncludes(opponentDeckTitle(deck), query)) return true;
   if (matchupTextIncludes(deck.name, query)) return true;
-  return opponentDeckRowMatchesCommanderSearch(deck, query);
+  if (matchupTextIncludes(opponentDeckCommander(deck), query)) return true;
+  return (deck.commanderAliases || []).some((alias) => matchupTextIncludes(alias, query));
 }
 
 function myDeckRowMatchesDeckSearch(deck, query) {
@@ -4022,13 +4022,14 @@ function renderDecks() {
   if (deckBracketFilter) list = list.filter((d) => String(d.bracket) === deckBracketFilter);
 
   const opponentPlayerQuery = decksOpponentPlayerSearch.trim().toLowerCase();
+  const opponentCommanderQuery = decksOpponentCommanderSearch.trim().toLowerCase();
   const deckSearchQuery = decksDeckSearch.trim().toLowerCase();
 
   if (isOpponentsPage) {
     list = list.filter(
       (d) =>
         matchupTextIncludes(d.player, opponentPlayerQuery) &&
-        opponentDeckRowMatchesDeckSearch(d, deckSearchQuery)
+        opponentDeckRowMatchesCommanderSearch(d, opponentCommanderQuery)
     );
   } else {
     list = list.filter((d) => myDeckRowMatchesDeckSearch(d, deckSearchQuery));
@@ -4053,10 +4054,10 @@ function renderDecks() {
       <div class="decks-tab-searches matchup-search-group">
         ${
           isOpponentsPage
-            ? `<input type="search" id="decks-opponent-player-search" class="input matchup-search" placeholder="Search opponents" value="${escapeHtml(decksOpponentPlayerSearch)}" />`
-            : ""
+            ? `<input type="search" id="decks-opponent-player-search" class="input matchup-search" placeholder="Search opponents" value="${escapeHtml(decksOpponentPlayerSearch)}" />
+            <input type="search" id="decks-opponent-commander-search" class="input matchup-search" placeholder="Search commanders" value="${escapeHtml(decksOpponentCommanderSearch)}" />`
+            : `<input type="search" id="decks-deck-search" class="input matchup-search" placeholder="Search decks" value="${escapeHtml(decksDeckSearch)}" />`
         }
-        <input type="search" id="decks-deck-search" class="input matchup-search" placeholder="Search decks" value="${escapeHtml(decksDeckSearch)}" />
       </div>`;
 
   const tableBody = isOpponentsPage
