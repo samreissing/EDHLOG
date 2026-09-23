@@ -590,12 +590,24 @@ function computeStatsFromChartAppearances(appearances) {
 
   const avg = (nums) => (nums.length ? nums.reduce((sum, n) => sum + n, 0) / nums.length : null);
 
+  let longestWinStreak = 0;
+  let runningWin = 0;
+  for (const game of appearances) {
+    if (game.result === "Win") {
+      runningWin += 1;
+      longestWinStreak = Math.max(longestWinStreak, runningWin);
+    } else {
+      runningWin = 0;
+    }
+  }
+
   return {
     games: gamesCount,
     wins,
     losses: gamesCount - wins,
     sharedLosses: 0,
     lastPlayed: gamesCount ? appearances[gamesCount - 1].date : null,
+    longestWinStreak,
     winRate: winRate(wins, gamesCount),
     normalizedWr: normalizedWinRate(wins, gamesCount),
     avgTurnWin: avg(winTurns),
@@ -1524,7 +1536,8 @@ function renderEntityOverviewStats(stats) {
     ${statBlock("Win rate", stats.games ? stats.winRate : 0, !!stats.games)}
     ${statBlock("Norm WR", stats.games ? stats.normalizedWr : 0, !!stats.games)}
     ${turnStatBlocks(stats)}
-    ${statBlock("Last played", stats.lastPlayed ? formatDate(stats.lastPlayed) : "—")}`;
+    ${statBlock("Last played", stats.lastPlayed ? formatDate(stats.lastPlayed) : "—")}
+    ${statBlock("Best win streak", stats.longestWinStreak > 0 ? stats.longestWinStreak : "—")}`;
 }
 
 /** @param {ReturnType<typeof buildEntityReport>['seatRankings']} rankings */
