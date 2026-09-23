@@ -440,6 +440,27 @@ main {
   z-index: 1;
 }
 
+.folder-tabs-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.folder-tabs-row .decks-tab-searches {
+  margin-left: auto;
+  margin-bottom: 0.35rem;
+  flex: 1 1 280px;
+  justify-content: flex-end;
+  max-width: 100%;
+}
+
+.folder-tabs-row .decks-tab-searches .matchup-search {
+  min-width: min(180px, 100%);
+  flex: 0 1 200px;
+}
+
 .folder-tab {
   background: var(--surface-2);
   border: 1px solid var(--border);

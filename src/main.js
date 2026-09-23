@@ -256,6 +256,9 @@ let seatViewMode = "mine";
 let seatRange = { start: null, end: null, customized: false };
 let decksTab = "active";
 let decksPageTab = "mine";
+let decksOpponentPlayerSearch = "";
+let decksOpponentCommanderSearch = "";
+let decksDeckSearch = "";
 let editingOpponentDeckId = null;
 let gameModalOpen = false;
 let deckModalOpen = false;
@@ -413,6 +416,9 @@ function resetDecksViewState() {
   decksTab = "active";
   decksPageTab = "mine";
   deckBracketFilter = "";
+  decksOpponentPlayerSearch = "";
+  decksOpponentCommanderSearch = "";
+  decksDeckSearch = "";
   closeDeckModal();
   tableSort["decks-main"] = { col: "name", dir: "asc" };
   tableSort["opponent-decks-main"] = { col: "lastPlayed", dir: "desc" };
@@ -914,6 +920,15 @@ function bindEvents() {
       render();
     } else if (e.target.id === "totals-search") {
       totalsSearch = e.target.value;
+      render();
+    } else if (e.target.id === "decks-opponent-player-search") {
+      decksOpponentPlayerSearch = e.target.value;
+      render();
+    } else if (e.target.id === "decks-opponent-commander-search") {
+      decksOpponentCommanderSearch = e.target.value;
+      render();
+    } else if (e.target.id === "decks-deck-search") {
+      decksDeckSearch = e.target.value;
       render();
     } else if (e.target.id === "seats-range-start" || e.target.id === "seats-range-end") {
       seatRange.customized = true;
@@ -1972,6 +1987,26 @@ function matchupTextIncludes(value, query) {
     .trim()
     .toLowerCase()
     .includes(query);
+}
+
+function opponentDeckRowMatchesCommanderSearch(deck, query) {
+  if (!query) return true;
+  if (matchupTextIncludes(opponentDeckCommander(deck), query)) return true;
+  return (deck.commanderAliases || []).some((alias) => matchupTextIncludes(alias, query));
+}
+
+function opponentDeckRowMatchesDeckSearch(deck, query) {
+  if (!query) return true;
+  if (matchupTextIncludes(opponentDeckTitle(deck), query)) return true;
+  if (matchupTextIncludes(deck.name, query)) return true;
+  return opponentDeckRowMatchesCommanderSearch(deck, query);
+}
+
+function myDeckRowMatchesDeckSearch(deck, query) {
+  if (!query) return true;
+  if (matchupTextIncludes(deckTitle(deck), query)) return true;
+  if (matchupTextIncludes(deckLabel(deck), query)) return true;
+  return matchupTextIncludes(deckCommander(deck), query);
 }
 
 function renderMatchupSearchInputs({
@@ -3991,6 +4026,21 @@ function renderDecks() {
   }
   if (deckBracketFilter) list = list.filter((d) => String(d.bracket) === deckBracketFilter);
 
+  const opponentPlayerQuery = decksOpponentPlayerSearch.trim().toLowerCase();
+  const opponentCommanderQuery = decksOpponentCommanderSearch.trim().toLowerCase();
+  const deckSearchQuery = decksDeckSearch.trim().toLowerCase();
+
+  if (isOpponentsPage) {
+    list = list.filter(
+      (d) =>
+        matchupTextIncludes(d.player, opponentPlayerQuery) &&
+        opponentDeckRowMatchesCommanderSearch(d, opponentCommanderQuery) &&
+        opponentDeckRowMatchesDeckSearch(d, deckSearchQuery)
+    );
+  } else {
+    list = list.filter((d) => myDeckRowMatchesDeckSearch(d, deckSearchQuery));
+  }
+
   list = sortDeckList(list, sortState.col, sortState.dir);
 
   const showLastPlayed = deckDateSortMode(sortState) === "recent";
@@ -4005,6 +4055,21 @@ function renderDecks() {
     (tab) =>
       `<button type="button" role="tab" aria-selected="${decksPageTab === tab.id}" class="folder-tab ${decksPageTab === tab.id ? "active" : ""}" data-decks-page-tab="${tab.id}">${tab.label}</button>`
   ).join("");
+
+  const decksTabSearches = `
+      <div class="decks-tab-searches matchup-search-group">
+        ${
+          isOpponentsPage
+            ? `<input type="search" id="decks-opponent-player-search" class="input matchup-search" placeholder="Search opponents" value="${escapeHtml(decksOpponentPlayerSearch)}" />`
+            : ""
+        }
+        ${
+          isOpponentsPage
+            ? `<input type="search" id="decks-opponent-commander-search" class="input matchup-search" placeholder="Search commanders" value="${escapeHtml(decksOpponentCommanderSearch)}" />`
+            : ""
+        }
+        <input type="search" id="decks-deck-search" class="input matchup-search" placeholder="Search decks" value="${escapeHtml(decksDeckSearch)}" />
+      </div>`;
 
   const tableBody = isOpponentsPage
     ? list.length
@@ -4074,7 +4139,10 @@ function renderDecks() {
 
   return `
     <div class="decks-page">
-      <div class="folder-tabs" role="tablist">${pageTabs}</div>
+      <div class="folder-tabs-row">
+        <div class="folder-tabs" role="tablist">${pageTabs}</div>
+        ${decksTabSearches}
+      </div>
       <section class="section decks-page-panel">
         <div class="section-header">
           <div class="filters inline stats-range-toolbar">
