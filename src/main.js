@@ -615,6 +615,12 @@ function renderTurnStatHeading(row) {
   return `<div class="turn-stat-label"><span class="turn-stat-title">Turn ${row.turn}</span><span class="turn-stat-reached">– ${pct(row.reachedPct, 2)} of games</span></div>`;
 }
 
+function formatSeatWinRateLine(seat) {
+  const wr = seat.games ? pctCell(seat.winRate) : "—";
+  const norm = pctCell(seat.recordingNormWr ?? seat.winRate);
+  return `${seat.games}G · ${seat.wins}W · ${wr} · ${norm} norm`;
+}
+
 /** @param {ReturnType<typeof computeTurnGridStats>} turns */
 function renderTurnStatsGrid(turns) {
   return `<div class="turn-stats-grid">${turns
@@ -647,6 +653,9 @@ function renderTurnDistributionGrid(turns) {
             <div class="turn-stat-gwl turn-stat-gw">
               <div class="turn-stat-gwl-item"><span class="turn-stat-metric-label">G</span><strong>${row.games}</strong></div>
               <div class="turn-stat-gwl-item"><span class="turn-stat-metric-label">WR</span><strong>${row.games ? pctCell(row.winRate) : "—"}</strong></div>
+            </div>
+            <div class="turn-stat-wr">
+              <div><span class="turn-stat-metric-label">Norm</span><strong>${row.winRate != null ? pctCell(row.normalizedWr) : "—"}</strong></div>
             </div>
           </div>`
     )
@@ -3235,7 +3244,7 @@ function renderStats() {
             <button type="button" class="seat-toggle ${selectedSeats.includes(seat.seat) ? "active" : ""}"
               data-seat-toggle="${seat.seat}" style="--seat-color:${SEAT_COLORS[seat.seat]}">
               <div class="seat-toggle-header"><strong>${seat.label}</strong></div>
-              <span>${seat.games}G · ${seat.wins}W · ${seat.games ? pctCell(seat.winRate) : "—"}</span>
+              <span>${formatSeatWinRateLine(seat)}</span>
             </button>
             ${
               seatViewMode === "mine"
@@ -3788,7 +3797,7 @@ function renderTotals() {
           <button type="button" class="seat-toggle ${totalsSelectedSeats.includes(seat.seat) ? "active" : ""}"
             data-totals-seat-toggle="${seat.seat}" style="--seat-color:${SEAT_COLORS[seat.seat]}">
             <div class="seat-toggle-header"><strong>${seat.label}</strong></div>
-            <span>${seat.games}G · ${seat.wins}W · ${seat.games ? pctCell(seat.winRate) : "—"}</span>
+            <span>${formatSeatWinRateLine(seat)}</span>
           </button>`
           )
           .join("")}
@@ -3804,6 +3813,7 @@ function renderTotals() {
         {
           turn: (row) => row.turn,
           winRate: (row) => row.winRate ?? -1,
+          normalizedWr: (row) => row.normalizedWr ?? -1,
         },
         WINS_SORT_TIE_BREAKERS
       );
@@ -3821,6 +3831,7 @@ function renderTotals() {
         <thead><tr>
           ${sortHeader("turn-stats", "turn", "Turn", tableSort["turn-stats"])}
           ${sortHeader("turn-stats", "winRate", "WR", tableSort["turn-stats"])}
+          ${sortHeader("turn-stats", "normalizedWr", "Norm WR", tableSort["turn-stats"])}
         </tr></thead>
       </table>
       ${

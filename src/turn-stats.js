@@ -1,8 +1,14 @@
-import { winRate, normalizedWinRate } from "./stats.js";
+import { winRate } from "./stats.js";
 import { parseGameSeats } from "./matchups.js";
 import { MY_PLAYER_NAME } from "./opponent-search.js";
+import {
+  applyTurnDistributionRecordingNormalization,
+  applyTurnGridRecordingNormalization,
+  countGamesMissingTurnRecording,
+  turnRecordingBaselineWinRate,
+} from "./recording-normalize.js";
 
-/** @typedef {{ turn: number, games: number, gamesReached: number, reachedPct: number, wins: number, losses: number, winRate: number | null, normalizedWr: number | null }} TurnGridRow */
+/** @typedef {{ turn: number, games: number, gamesReached: number, reachedPct: number, wins: number, losses: number, winRate: number | null, normalizedWr: number | null, recordingNormWr: number | null }} TurnGridRow */
 
 function normalizeKey(value) {
   return String(value || "")
@@ -53,7 +59,6 @@ export function computeTurnDistributionStats(games, options = {}) {
     endedByTurn.set(endTurn, (endedByTurn.get(endTurn) || 0) + 1);
   }
 
-  /** @type {TurnGridRow[]} */
   const rows = [];
   for (let turn = 1; turn <= maxTurn; turn += 1) {
     let gamesReached = 0;
@@ -69,11 +74,16 @@ export function computeTurnDistributionStats(games, options = {}) {
       wins: 0,
       losses: 0,
       winRate: totalGames ? winRate(ended, totalGames) : null,
-      normalizedWr: totalGames ? normalizedWinRate(ended, totalGames) : null,
+      normalizedWr: null,
+      recordingNormWr: null,
     });
   }
 
-  return rows;
+  const missingGames = countGamesMissingTurnRecording(games);
+  return applyTurnDistributionRecordingNormalization(rows, missingGames, totalGames).map((row) => ({
+    ...row,
+    normalizedWr: row.recordingNormWr,
+  }));
 }
 
 /**
@@ -132,9 +142,15 @@ export function computeTurnGridStats(games, options = {}) {
       wins,
       losses,
       winRate: ended ? winRate(wins, ended) : null,
-      normalizedWr: ended ? normalizedWinRate(wins, ended) : null,
+      normalizedWr: null,
+      recordingNormWr: null,
     });
   }
 
-  return rows;
+  const missingGames = countGamesMissingTurnRecording(games);
+  const baseline = turnRecordingBaselineWinRate(games, allPlayers ? "pod" : "player");
+  return applyTurnGridRecordingNormalization(rows, missingGames, baseline).map((row) => ({
+    ...row,
+    normalizedWr: row.recordingNormWr,
+  }));
 }
