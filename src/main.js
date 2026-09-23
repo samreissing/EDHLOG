@@ -3235,8 +3235,8 @@ function renderStats() {
               <span>${formatSeatWinRateLine(seat)}</span>
             </button>
             <div class="seat-streak-stats">
-              <div class="seat-streak-line">${formatSeatBestWinStreak(seat.longestWinStreak)}</div>
-              <div class="seat-streak-line">${formatSeatSitStreak(seat.longestSitStreak)}</div>
+              <span class="seat-streak-line">${formatSeatSitStreak(seat.longestSitStreak)}</span>
+              <span class="seat-streak-line">${formatSeatBestWinStreak(seat.longestWinStreak)}</span>
             </div>
           </div>`
           )

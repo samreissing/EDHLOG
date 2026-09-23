@@ -1455,18 +1455,21 @@ button.year-chip.active,
 }
 
 .seat-streak-stats {
-  padding-left: 1rem;
+  padding-left: 0;
   display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.65rem;
+  margin-top: 0.15rem;
 }
 
 .seat-streak-line {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: var(--muted);
   font-style: italic;
   text-align: left;
   line-height: 1.35;
+  white-space: nowrap;
 }
 
 .seat-toggle {
