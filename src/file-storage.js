@@ -161,11 +161,16 @@ export async function readConnectedDataFile() {
     const file = await activeHandle.getFile();
     const text = await file.text();
     const parsed = JSON.parse(text);
-    if (!isValidAppData(parsed)) throw new Error("Invalid EDHLOG data file");
+    if (!isValidAppData(parsed)) throw new Error("Invalid EDHLOG data file (needs decks and games arrays)");
+    if (!Array.isArray(parsed.opponentDecks)) parsed.opponentDecks = [];
     lastFileError = null;
     return parsed;
   } catch (err) {
-    lastFileError = String(err?.message || err);
+    if (err instanceof SyntaxError) {
+      lastFileError = "Invalid JSON — check that the file is a complete EDHLOG export";
+    } else {
+      lastFileError = String(err?.message || err);
+    }
     return null;
   }
 }

@@ -791,19 +791,49 @@ function updateStorageStatus() {
 async function connectDataFile(mode) {
   try {
     const handle = await chooseDataFile(mode);
-    const current = loadData();
-    if (current) {
-      await writeConnectedDataFile(current);
-    } else if (mode === "open") {
+
+    if (mode === "open") {
       const imported = await readConnectedDataFile();
-      if (imported) {
-        saveData(imported);
-        data = imported;
+      if (!imported) {
+        await disconnectDataFile();
+        const msg = getDataFileStatus().lastError || "Could not read that file";
+        updateStorageStatus();
+        toast(`Link failed — ${msg}`, true);
+        return;
       }
+      if (!saveData(imported)) {
+        await disconnectDataFile();
+        updateStorageStatus();
+        toast("Link failed — browser storage is full or blocked", true);
+        return;
+      }
+      data = imported;
+      updateStorageStatus();
+      render();
+      toast(`Linked to ${handle.name} (${imported.games.length} games)`);
+      return;
     }
+
+    const payload = loadData() || data;
+    if (!payload) {
+      toast("Nothing to save yet — log a game or import JSON first", true);
+      await disconnectDataFile();
+      updateStorageStatus();
+      return;
+    }
+    if (!saveData(payload)) {
+      toast("Could not save to browser storage", true);
+      return;
+    }
+    data = payload;
+    const wrote = await writeConnectedDataFile(payload);
     updateStorageStatus();
     render();
-    toast(`Now auto-saving to ${handle.name}`);
+    if (!wrote) {
+      toast(getDataFileStatus().lastError || "Could not write the new data file", true);
+      return;
+    }
+    toast(`Created and linked ${handle.name}`);
   } catch (err) {
     if (err?.name === "AbortError") return;
     toast(String(err?.message || err), true);
