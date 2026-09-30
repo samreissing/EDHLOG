@@ -39,6 +39,10 @@ function isStaleFileHandleError(err) {
   return msg.includes("internal error") || msg.includes("not found") || msg.includes("no longer available");
 }
 
+function setLastFileError(err) {
+  lastFileError = humanizeFileError(fileErrorMessage(err));
+}
+
 /** Clears a broken IndexedDB handle without surfacing a sticky API error. */
 async function releaseStaleHandle() {
   try {
@@ -56,7 +60,8 @@ async function releaseStaleHandle() {
 /** @param {string | null | undefined} message */
 export function humanizeFileError(message) {
   if (!message) return message;
-  if (/^internal error\.?$/i.test(String(message).trim())) return FILE_RELINK_MESSAGE;
+  const s = String(message).trim();
+  if (/internal error/i.test(s)) return FILE_RELINK_MESSAGE;
   return message;
 }
 
@@ -138,7 +143,7 @@ async function requestFilePermission(handle, mode) {
     if (await hasFilePermission(handle, mode)) return true;
     return (await handle.requestPermission({ mode })) === "granted";
   } catch (err) {
-    lastFileError = String(err?.message || err);
+    setLastFileError(err);
     return false;
   }
 }
@@ -161,24 +166,33 @@ function isValidAppData(value) {
   );
 }
 
-/** @param {FileSystemFileHandle} handle @param {boolean} [persist] */
-async function activateHandle(handle, persist = true) {
-  activeHandle = handle;
-  activeFileName = handle.name;
-  lastFileError = null;
-  if (persist) await idbSet(HANDLE_KEY, handle);
+/** @param {string} text */
+function parseAppDataText(text) {
+  const parsed = JSON.parse(text);
+  if (!isValidAppData(parsed)) throw new Error("Invalid EDHLOG data file (needs decks and games arrays)");
+  if (!Array.isArray(parsed.opponentDecks)) parsed.opponentDecks = [];
+  return /** @type {import('./store.js').AppData} */ (parsed);
+}
+
+/** Read JSON from a handle (call in the same user gesture as the file picker when possible). */
+export async function readAppDataFromHandle(handle) {
+  const file = await handle.getFile();
+  const text = await file.text();
+  return parseAppDataText(text);
 }
 
 /** @param {FileSystemFileHandle} handle */
-async function verifyHandleReadable(handle) {
-  try {
-    await handle.getFile();
-    return true;
-  } catch (err) {
-    if (isStaleFileHandleError(err)) await releaseStaleHandle();
-    else lastFileError = humanizeFileError(fileErrorMessage(err));
-    return false;
-  }
+async function activateHandle(handle) {
+  activeHandle = handle;
+  activeFileName = handle.name;
+  lastFileError = null;
+  await idbSet(HANDLE_KEY, handle);
+}
+
+/** Save the current handle to IndexedDB after data is loaded into the browser. */
+export async function persistDataFileHandle() {
+  if (!activeHandle) return;
+  await idbSet(HANDLE_KEY, activeHandle);
 }
 
 export async function restoreDataFileConnection() {
@@ -188,15 +202,24 @@ export async function restoreDataFileConnection() {
     const handle = await idbGet(HANDLE_KEY);
     if (!handle) return null;
 
-    await activateHandle(handle);
-    if (!(await verifyHandleReadable(handle))) return null;
+    activeHandle = handle;
+    activeFileName = handle.name;
+    lastFileError = null;
 
-    permissionNeeded = !(await canReadFile(handle));
-    if (permissionNeeded) lastFileError = null;
+    try {
+      await handle.getFile();
+    } catch (err) {
+      if (isStaleFileHandleError(err)) await releaseStaleHandle();
+      else setLastFileError(err);
+      return null;
+    }
+
+    permissionNeeded = !(await canWriteFile(handle));
+    if (!(await canReadFile(handle))) permissionNeeded = true;
     return { handle, permissionNeeded };
   } catch (err) {
     if (isStaleFileHandleError(err)) await releaseStaleHandle();
-    else lastFileError = humanizeFileError(fileErrorMessage(err));
+    else setLastFileError(err);
     return null;
   }
 }
@@ -206,18 +229,8 @@ export async function readConnectedDataFile() {
   if (!activeHandle) return null;
 
   try {
-    if (!(await canReadFile(activeHandle))) {
-      permissionNeeded = true;
-      lastFileError = null;
-      return null;
-    }
-
-    permissionNeeded = false;
-    const file = await activeHandle.getFile();
-    const text = await file.text();
-    const parsed = JSON.parse(text);
-    if (!isValidAppData(parsed)) throw new Error("Invalid EDHLOG data file (needs decks and games arrays)");
-    if (!Array.isArray(parsed.opponentDecks)) parsed.opponentDecks = [];
+    const parsed = await readAppDataFromHandle(activeHandle);
+    permissionNeeded = !(await canWriteFile(activeHandle));
     lastFileError = null;
     return parsed;
   } catch (err) {
@@ -225,7 +238,8 @@ export async function readConnectedDataFile() {
       await releaseStaleHandle();
       return null;
     }
-    lastFileError = humanizeFileError(fileErrorMessage(err));
+    permissionNeeded = true;
+    setLastFileError(err);
     return null;
   }
 }
@@ -249,11 +263,8 @@ export async function writeConnectedDataFile(data) {
     lastFileError = null;
     return true;
   } catch (err) {
-    if (isStaleFileHandleError(err)) {
-      await releaseStaleHandle();
-      return false;
-    }
-    lastFileError = humanizeFileError(fileErrorMessage(err));
+    permissionNeeded = true;
+    setLastFileError(err);
     return false;
   }
 }
@@ -282,20 +293,17 @@ export async function chooseDataFile(mode) {
         })
       : (await window.showOpenFilePicker({ types: FILE_TYPES, multiple: false }))[0];
 
-  await activateHandle(handle);
-  permissionNeeded = false;
+  if (mode === "create") {
+    await activateHandle(handle);
+    permissionNeeded = false;
+    lastFileError = null;
+    return handle;
+  }
+
+  activeHandle = handle;
+  activeFileName = handle.name;
   lastFileError = null;
-
-  const hasWrite = await requestFilePermission(handle, "readwrite");
-  if (!hasWrite) {
-    const hasRead = await requestFilePermission(handle, "read");
-    permissionNeeded = !hasRead;
-  }
-
-  if (!(await verifyHandleReadable(handle))) {
-    throw new Error(FILE_RELINK_MESSAGE);
-  }
-
+  permissionNeeded = true;
   return handle;
 }
 
