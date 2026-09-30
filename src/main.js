@@ -20,6 +20,8 @@ import {
   isDataFileConnected,
   isDataFileStorageSupported,
   readConnectedDataFile,
+  readAppDataFromHandle,
+  persistDataFileHandle,
   reconnectDataFile,
   requestPersistentBrowserStorage,
   writeConnectedDataFile,
@@ -758,10 +760,12 @@ function updateStorageStatus() {
   if (fileStatus.connected && fileStatus.fileName) {
     if (disconnectBtn) disconnectBtn.hidden = false;
     if (fileStatus.permissionNeeded) {
-      statusEl.textContent = `Data file: ${fileStatus.fileName} (needs permission)`;
+      statusEl.textContent = `Data file: ${fileStatus.fileName} (click Reconnect file to auto-save)`;
       if (reconnectBtn) reconnectBtn.hidden = false;
       if (warningEl) {
-        warningEl.textContent = "Click Reconnect file to resume auto-saving.";
+        warningEl.textContent =
+          fileStatus.lastError ||
+          "Your games are saved in this browser. Reconnect file when prompted so edits update your JSON file.";
         warningEl.hidden = false;
       }
     } else if (fileStatus.lastError) {
@@ -794,12 +798,13 @@ async function connectDataFile(mode) {
     const handle = await chooseDataFile(mode);
 
     if (mode === "open") {
-      const imported = await readConnectedDataFile();
-      if (!imported) {
+      let imported;
+      try {
+        imported = await readAppDataFromHandle(handle);
+      } catch (err) {
         await disconnectDataFile();
-        const msg = getDataFileStatus().lastError || "Could not read that file";
         updateStorageStatus();
-        toast(`Link failed — ${msg}`, true);
+        toast(`Link failed — ${humanizeFileError(String(err?.message || err))}`, true);
         return;
       }
       if (!saveData(imported)) {
@@ -808,13 +813,19 @@ async function connectDataFile(mode) {
         toast("Link failed — browser storage is full or blocked", true);
         return;
       }
+      try {
+        await persistDataFileHandle();
+      } catch {
+        /* linked in memory; IDB handle optional */
+      }
       data = imported;
+      await writeConnectedDataFile(imported);
       updateStorageStatus();
       render();
       const linkStatus = getDataFileStatus();
-      if (linkStatus.lastError) {
+      if (linkStatus.permissionNeeded || linkStatus.lastError) {
         toast(
-          `Loaded ${imported.games.length} games in your browser — ${humanizeFileError(linkStatus.lastError)}`,
+          `Loaded ${imported.games.length} games — click Reconnect file to allow auto-save to ${handle.name}`,
           true,
         );
       } else {
@@ -839,13 +850,13 @@ async function connectDataFile(mode) {
     updateStorageStatus();
     render();
     if (!wrote) {
-      toast(getDataFileStatus().lastError || "Could not write the new data file", true);
+      toast(humanizeFileError(getDataFileStatus().lastError) || "Could not write the new data file", true);
       return;
     }
     toast(`Created and linked ${handle.name}`);
   } catch (err) {
     if (err?.name === "AbortError") return;
-    toast(String(err?.message || err), true);
+    toast(humanizeFileError(String(err?.message || err)), true);
   }
 }
 
