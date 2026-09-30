@@ -20,6 +20,46 @@ let permissionNeeded = false;
 /** @type {number | null} */
 let lastFileSavedAt = null;
 
+const FILE_RELINK_MESSAGE =
+  "Could not access your data file. Click Open data file and choose it again.";
+
+/** @param {unknown} err */
+function fileErrorMessage(err) {
+  if (err instanceof SyntaxError) {
+    return "Invalid JSON — check that the file is a complete EDHLOG export";
+  }
+  return String(err?.message || err);
+}
+
+/** @param {unknown} err */
+function isStaleFileHandleError(err) {
+  const name = String(err?.name || "");
+  if (name === "NotFoundError" || name === "InvalidStateError") return true;
+  const msg = fileErrorMessage(err).toLowerCase();
+  return msg.includes("internal error") || msg.includes("not found") || msg.includes("no longer available");
+}
+
+/** Clears a broken IndexedDB handle without surfacing a sticky API error. */
+async function releaseStaleHandle() {
+  try {
+    await idbDelete(HANDLE_KEY);
+  } catch {
+    /* ignore */
+  }
+  activeHandle = null;
+  activeFileName = null;
+  permissionNeeded = false;
+  lastFileSavedAt = null;
+  lastFileError = null;
+}
+
+/** @param {string | null | undefined} message */
+export function humanizeFileError(message) {
+  if (!message) return message;
+  if (/^internal error\.?$/i.test(String(message).trim())) return FILE_RELINK_MESSAGE;
+  return message;
+}
+
 export function isDataFileStorageSupported() {
   return typeof window !== "undefined" && "showOpenFilePicker" in window && "showSaveFilePicker" in window;
 }
@@ -121,12 +161,24 @@ function isValidAppData(value) {
   );
 }
 
-/** @param {FileSystemFileHandle} handle */
-async function activateHandle(handle) {
+/** @param {FileSystemFileHandle} handle @param {boolean} [persist] */
+async function activateHandle(handle, persist = true) {
   activeHandle = handle;
   activeFileName = handle.name;
   lastFileError = null;
-  await idbSet(HANDLE_KEY, handle);
+  if (persist) await idbSet(HANDLE_KEY, handle);
+}
+
+/** @param {FileSystemFileHandle} handle */
+async function verifyHandleReadable(handle) {
+  try {
+    await handle.getFile();
+    return true;
+  } catch (err) {
+    if (isStaleFileHandleError(err)) await releaseStaleHandle();
+    else lastFileError = humanizeFileError(fileErrorMessage(err));
+    return false;
+  }
 }
 
 export async function restoreDataFileConnection() {
@@ -137,11 +189,14 @@ export async function restoreDataFileConnection() {
     if (!handle) return null;
 
     await activateHandle(handle);
+    if (!(await verifyHandleReadable(handle))) return null;
+
     permissionNeeded = !(await canReadFile(handle));
     if (permissionNeeded) lastFileError = null;
     return { handle, permissionNeeded };
   } catch (err) {
-    lastFileError = String(err?.message || err);
+    if (isStaleFileHandleError(err)) await releaseStaleHandle();
+    else lastFileError = humanizeFileError(fileErrorMessage(err));
     return null;
   }
 }
@@ -166,11 +221,11 @@ export async function readConnectedDataFile() {
     lastFileError = null;
     return parsed;
   } catch (err) {
-    if (err instanceof SyntaxError) {
-      lastFileError = "Invalid JSON — check that the file is a complete EDHLOG export";
-    } else {
-      lastFileError = String(err?.message || err);
+    if (isStaleFileHandleError(err)) {
+      await releaseStaleHandle();
+      return null;
     }
+    lastFileError = humanizeFileError(fileErrorMessage(err));
     return null;
   }
 }
@@ -194,7 +249,11 @@ export async function writeConnectedDataFile(data) {
     lastFileError = null;
     return true;
   } catch (err) {
-    lastFileError = String(err?.message || err);
+    if (isStaleFileHandleError(err)) {
+      await releaseStaleHandle();
+      return false;
+    }
+    lastFileError = humanizeFileError(fileErrorMessage(err));
     return false;
   }
 }
@@ -226,6 +285,17 @@ export async function chooseDataFile(mode) {
   await activateHandle(handle);
   permissionNeeded = false;
   lastFileError = null;
+
+  const hasWrite = await requestFilePermission(handle, "readwrite");
+  if (!hasWrite) {
+    const hasRead = await requestFilePermission(handle, "read");
+    permissionNeeded = !hasRead;
+  }
+
+  if (!(await verifyHandleReadable(handle))) {
+    throw new Error(FILE_RELINK_MESSAGE);
+  }
+
   return handle;
 }
 

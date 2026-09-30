@@ -16,6 +16,7 @@ import {
   chooseDataFile,
   disconnectDataFile,
   getDataFileStatus,
+  humanizeFileError,
   isDataFileConnected,
   isDataFileStorageSupported,
   readConnectedDataFile,
@@ -767,7 +768,7 @@ function updateStorageStatus() {
       statusEl.textContent = `Data file: ${fileStatus.fileName}`;
       if (reconnectBtn) reconnectBtn.hidden = false;
       if (warningEl) {
-        warningEl.textContent = fileStatus.lastError;
+        warningEl.textContent = humanizeFileError(fileStatus.lastError) || fileStatus.lastError;
         warningEl.hidden = false;
       }
     } else {
@@ -810,7 +811,15 @@ async function connectDataFile(mode) {
       data = imported;
       updateStorageStatus();
       render();
-      toast(`Linked to ${handle.name} (${imported.games.length} games)`);
+      const linkStatus = getDataFileStatus();
+      if (linkStatus.lastError) {
+        toast(
+          `Loaded ${imported.games.length} games in your browser — ${humanizeFileError(linkStatus.lastError)}`,
+          true,
+        );
+      } else {
+        toast(`Linked to ${handle.name} (${imported.games.length} games)`);
+      }
       return;
     }
 
