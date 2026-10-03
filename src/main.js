@@ -1541,6 +1541,27 @@ function bindEvents() {
     }
   });
 
+  document.getElementById("main").addEventListener("mousedown", (e) => {
+    if (e.target.name !== "winnerPodSlot") return;
+    const input = e.target;
+    if (input.checked) input.dataset.wasChecked = "1";
+    else delete input.dataset.wasChecked;
+  });
+
+  document.getElementById("main").addEventListener(
+    "click",
+    (e) => {
+      if (e.target.name !== "winnerPodSlot") return;
+      const input = e.target;
+      if (input.dataset.wasChecked !== "1") return;
+      input.checked = false;
+      delete input.dataset.wasChecked;
+      syncResultFromWinnerToggle();
+      e.preventDefault();
+    },
+    true,
+  );
+
   document.getElementById("main").addEventListener("change", (e) => {
     const { id, value, checked } = e.target;
 
@@ -4799,7 +4820,12 @@ function buildGameRecordFromPayload(payload, gameId, existing = null) {
     if (payload.myPlayer) record.myPlayer = payload.myPlayer;
   }
   if (payload.opponents !== undefined) record.opponents = payload.opponents;
-  if (payload.winnerPodSlot) record.winnerPodSlot = payload.winnerPodSlot;
+  if (payload.result === "Loss" && payload.winnerPodSlot) {
+    record.winnerPodSlot = payload.winnerPodSlot;
+  } else {
+    delete record.winnerPodSlot;
+    delete record.winnerSeat;
+  }
   if (payload.turn) record.turn = payload.turn;
   if (payload.time) record.time = payload.time;
   if (payload.bracket) record.bracket = payload.bracket;
@@ -4860,7 +4886,7 @@ function fillLogForm({ deck, result }) {
   refreshGameDeckSelect(form);
   syncBracketFromDeck();
   if (resultInput) resultInput.checked = true;
-  if (result === "Win") clearWinnerPodSlotToggles(form);
+  if (result === "Win" || result === "Loss") clearWinnerPodSlotToggles(form);
   form.querySelector('[name="date"]')?.focus();
   syncPodFormSeats();
 }
