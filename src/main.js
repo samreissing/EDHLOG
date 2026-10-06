@@ -759,12 +759,13 @@ function updateStorageStatus() {
   }
 
   const fileName = fileStatus.fileName;
+  const showLinked = fileStatus.connected || fileStatus.linkConfigured;
 
-  if (fileStatus.connected && fileName) {
-    if (disconnectBtn) disconnectBtn.hidden = false;
+  if (showLinked && fileName) {
+    if (disconnectBtn) disconnectBtn.hidden = !fileStatus.connected;
     if (fileStatus.lastError) {
       statusEl.textContent = `Data file: ${fileName}`;
-      if (reconnectBtn) reconnectBtn.hidden = false;
+      if (reconnectBtn) reconnectBtn.hidden = !fileStatus.connected;
       if (warningEl) {
         warningEl.textContent = humanizeFileError(fileStatus.lastError) || fileStatus.lastError;
         warningEl.hidden = false;
@@ -774,14 +775,6 @@ function updateStorageStatus() {
       if (reconnectBtn) reconnectBtn.hidden = true;
       if (warningEl) warningEl.hidden = true;
     }
-    return;
-  }
-
-  if (fileStatus.linkConfigured && fileName) {
-    if (disconnectBtn) disconnectBtn.hidden = true;
-    if (reconnectBtn) reconnectBtn.hidden = true;
-    statusEl.textContent = `Browser storage (${fileName} — use Open data file to sync)`;
-    if (warningEl) warningEl.hidden = true;
     return;
   }
 
@@ -828,7 +821,7 @@ async function connectDataFile(mode) {
         toast(`Link failed — ${humanizeFileError(String(err?.message || err))}`, true);
         return;
       }
-      if (!saveData(imported)) {
+      if (!saveData(imported, { syncFile: true })) {
         await disconnectDataFile();
         updateStorageStatus();
         toast("Link failed — browser storage is full or blocked", true);
@@ -859,7 +852,7 @@ async function connectDataFile(mode) {
       updateStorageStatus();
       return;
     }
-    if (!saveData(payload)) {
+    if (!saveData(payload, { syncFile: true })) {
       toast("Could not save to browser storage", true);
       return;
     }
@@ -887,6 +880,7 @@ async function boot() {
   sessionStorage.removeItem("edhlog-stale-reload");
   void requestPersistentBrowserStorage();
   data = await initData();
+  if (!isDataFileConnected()) await restoreDataFileConnection();
   await refreshFilePermissionState();
   const sync = getLastSeedSync();
   ensureRecoverButton();

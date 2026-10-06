@@ -357,8 +357,6 @@ export async function initData() {
   if (fileData && data === fileData && localData && data !== localData) {
     cache = data;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } else if (localData && data === localData && fileData && appDataScore(localData) > appDataScore(fileData)) {
-    void writeConnectedDataFile(localData);
   }
 
   const seedHash = seed.meta?.seedHash;

@@ -58,17 +58,27 @@ function setLastFileError(err) {
   lastFileError = humanizeFileError(fileErrorMessage(err));
 }
 
-/** Clears a broken IndexedDB handle without surfacing a sticky API error. */
-async function releaseStaleHandle() {
+function clearActiveHandle() {
+  activeHandle = null;
+  activeFileName = null;
+  lastFileSavedAt = null;
+  lastFileError = null;
+}
+
+/** Drop persisted link (user disconnect or file gone). */
+async function dropPersistedFileLink() {
   try {
     await idbDelete(HANDLE_KEY);
   } catch {
     /* ignore */
   }
-  activeHandle = null;
-  activeFileName = null;
-  lastFileSavedAt = null;
-  lastFileError = null;
+  await clearLinkMeta();
+  clearActiveHandle();
+}
+
+/** File missing in session — keep IDB handle so refresh can restore. */
+async function releaseStaleHandle() {
+  clearActiveHandle();
 }
 
 /** @param {string} fileName */
@@ -143,12 +153,10 @@ export function isDataFileConnected() {
   return !!activeHandle;
 }
 
-/** Linked file handle is restored — auto-save runs on the next save click (browser may prompt Allow once). */
 export function isDataFileAutoSaveReady() {
   return !!activeHandle;
 }
 
-/** @deprecated Kept for callers; no longer probes permission on load. */
 export async function refreshFilePermissionState() {
   await loadLinkMeta();
   return getDataFileStatus();
@@ -216,6 +224,15 @@ async function idbDelete(key) {
   });
 }
 
+/** @param {FileSystemFileHandle} handle */
+async function persistHandleToIdb(handle) {
+  await idbSet(HANDLE_KEY, handle);
+  const stored = await idbGet(HANDLE_KEY);
+  if (!stored) {
+    throw new Error("Browser storage did not save the file link — check that cookies/site data are allowed for this site.");
+  }
+}
+
 /** @param {FileSystemFileHandle} handle @param {"read" | "readwrite"} mode */
 async function hasFilePermission(handle, mode) {
   try {
@@ -272,21 +289,16 @@ export async function readAppDataFromHandle(handle, options = {}) {
 /** @param {FileSystemFileHandle} handle */
 async function activateHandle(handle) {
   activeHandle = handle;
-  activeFileName = handle.name;
+  activeFileName = handle.name || rememberedFileName;
   lastFileError = null;
-  await saveLinkMeta(handle.name);
-  try {
-    await idbSet(HANDLE_KEY, handle);
-  } catch {
-    /* handle stays in memory for this session */
-  }
+  await saveLinkMeta(handle.name || activeFileName || "edhlog-data.json");
+  await persistHandleToIdb(handle);
 }
 
-/** Save the current handle to IndexedDB after data is loaded into the browser. */
 export async function persistDataFileHandle() {
   if (!activeHandle) return;
   await saveLinkMeta(activeHandle.name);
-  await idbSet(HANDLE_KEY, activeHandle);
+  await persistHandleToIdb(activeHandle);
 }
 
 export async function restoreDataFileConnection() {
@@ -299,9 +311,9 @@ export async function restoreDataFileConnection() {
     if (!handle) return null;
 
     activeHandle = handle;
-    activeFileName = handle.name;
+    activeFileName = handle.name || rememberedFileName;
     lastFileError = null;
-    await saveLinkMeta(handle.name);
+    if (handle.name) await saveLinkMeta(handle.name);
     return { handle, permissionNeeded: false };
   } catch (err) {
     if (isStaleFileHandleError(err)) await releaseStaleHandle();
@@ -324,8 +336,11 @@ export async function readConnectedDataFile(options = {}) {
   try {
     return await readAppDataFromHandle(activeHandle, { requestPermission });
   } catch (err) {
-    if (isStaleFileHandleError(err)) await releaseStaleHandle();
-    else if (!isBenignFileAccessError(err)) setLastFileError(err);
+    if (isStaleFileHandleError(err)) {
+      await dropPersistedFileLink();
+    } else if (!isBenignFileAccessError(err)) {
+      setLastFileError(err);
+    }
     return null;
   }
 }
@@ -333,7 +348,6 @@ export async function readConnectedDataFile(options = {}) {
 /**
  * @param {import('./store.js').AppData} data
  * @param {{ requestPermission?: boolean }} [options]
- * Pass requestPermission: true from a click handler (save game) so the browser can prompt Allow after refresh.
  */
 export async function writeConnectedDataFile(data, options = {}) {
   const { requestPermission = false } = options;
@@ -353,14 +367,19 @@ export async function writeConnectedDataFile(data, options = {}) {
     lastFileError = null;
     return true;
   } catch (err) {
-    if (isStaleFileHandleError(err)) await releaseStaleHandle();
-    else if (!isBenignFileAccessError(err)) setLastFileError(err);
+    if (isStaleFileHandleError(err) && requestPermission) {
+      await dropPersistedFileLink();
+    } else if (!isBenignFileAccessError(err)) {
+      setLastFileError(err);
+    }
     return false;
   }
 }
 
-/** Call only from a click handler — requestPermission requires user activation. */
 export async function reconnectDataFile() {
+  if (!activeHandle) {
+    await restoreDataFileConnection();
+  }
   if (!activeHandle) return false;
   const ok = await requestFilePermission(activeHandle, "readwrite");
   if (ok) lastFileError = null;
@@ -387,23 +406,13 @@ export async function chooseDataFile(mode) {
           })
         )[0];
 
-  if (mode === "create") {
-    await activateHandle(handle);
-    lastFileError = null;
-    return handle;
-  }
-
   await activateHandle(handle);
+  lastFileError = null;
   return handle;
 }
 
 export async function disconnectDataFile() {
-  await idbDelete(HANDLE_KEY);
-  await clearLinkMeta();
-  activeHandle = null;
-  activeFileName = null;
-  lastFileError = null;
-  lastFileSavedAt = null;
+  await dropPersistedFileLink();
 }
 
 export async function requestPersistentBrowserStorage() {
