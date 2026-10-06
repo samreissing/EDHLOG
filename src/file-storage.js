@@ -17,8 +17,6 @@ let activeHandle = null;
 let activeFileName = null;
 /** @type {string | null} */
 let lastFileError = null;
-/** @type {boolean} */
-let permissionNeeded = false;
 /** @type {number | null} */
 let lastFileSavedAt = null;
 /** @type {string | null} */
@@ -41,13 +39,6 @@ function isStaleFileHandleError(err) {
   return name === "NotFoundError" || name === "InvalidStateError";
 }
 
-/** @param {unknown} err */
-function isStaleFileHandleErrorStrict(err) {
-  if (isStaleFileHandleError(err)) return true;
-  const msg = fileErrorMessage(err).toLowerCase();
-  return msg.includes("no longer available");
-}
-
 function setLastFileError(err) {
   lastFileError = humanizeFileError(fileErrorMessage(err));
 }
@@ -61,10 +52,8 @@ async function releaseStaleHandle() {
   }
   activeHandle = null;
   activeFileName = null;
-  permissionNeeded = false;
   lastFileSavedAt = null;
   lastFileError = null;
-  /* Keep rememberedFileName so the UI still knows which file the user linked. */
 }
 
 /** @param {string} fileName */
@@ -121,14 +110,6 @@ async function clearLinkMeta() {
   }
 }
 
-/** @param {unknown} err */
-function isPermissionFileError(err) {
-  const name = String(err?.name || "");
-  if (name === "NotAllowedError" || name === "SecurityError") return true;
-  const msg = fileErrorMessage(err).toLowerCase();
-  return msg.includes("permission") || msg.includes("not allowed");
-}
-
 /** @param {string | null | undefined} message */
 export function humanizeFileError(message) {
   if (!message) return message;
@@ -145,33 +126,17 @@ export function isDataFileConnected() {
   return !!activeHandle;
 }
 
-/** File handle restored and browser granted read/write (auto-save will work). */
+/** Linked file handle is restored — auto-save runs on the next save click (browser may prompt Allow once). */
 export function isDataFileAutoSaveReady() {
-  return !!activeHandle && !permissionNeeded;
+  return !!activeHandle;
 }
 
-async function syncPermissionFlagsFromHandle(handle) {
-  if (!handle) {
-    permissionNeeded = !!rememberedFileName;
-    return;
-  }
-  const canWrite = await hasFilePermission(handle, "readwrite");
-  const canRead = (await hasFilePermission(handle, "read")) || canWrite;
-  permissionNeeded = !canWrite;
-  if (!canRead) permissionNeeded = true;
-}
-
+/** @deprecated Kept for callers; no longer probes permission on load. */
 export async function refreshFilePermissionState() {
   await loadLinkMeta();
-  if (!activeHandle) {
-    permissionNeeded = !!rememberedFileName;
-    return getDataFileStatus();
-  }
-  await syncPermissionFlagsFromHandle(activeHandle);
   return getDataFileStatus();
 }
 
-/** True when the user has linked a file before (handle and/or saved link memory). */
 export function isDataFileLinkConfigured() {
   return !!activeHandle || !!rememberedFileName;
 }
@@ -184,7 +149,7 @@ export function getDataFileStatus() {
     linkConfigured: !!activeHandle || !!rememberedFileName,
     fileName: displayName,
     rememberedFileName,
-    permissionNeeded,
+    permissionNeeded: false,
     lastSavedAt: lastFileSavedAt,
     lastError: lastFileError,
   };
@@ -254,14 +219,6 @@ async function requestFilePermission(handle, mode) {
   }
 }
 
-async function canReadFile(handle) {
-  return (await hasFilePermission(handle, "readwrite")) || (await hasFilePermission(handle, "read"));
-}
-
-async function canWriteFile(handle) {
-  return hasFilePermission(handle, "readwrite");
-}
-
 /** @param {unknown} value */
 function isValidAppData(value) {
   return (
@@ -310,31 +267,16 @@ export async function restoreDataFileConnection() {
 
   try {
     const handle = await idbGet(HANDLE_KEY);
-    if (!handle) {
-      if (rememberedFileName) {
-        permissionNeeded = true;
-        return { handle: null, permissionNeeded: true, rememberedOnly: true };
-      }
-      return null;
-    }
+    if (!handle) return null;
 
     activeHandle = handle;
     activeFileName = handle.name;
     lastFileError = null;
     await saveLinkMeta(handle.name);
-
-    await syncPermissionFlagsFromHandle(handle);
-    return { handle, permissionNeeded };
+    return { handle, permissionNeeded: false };
   } catch (err) {
-    if (isStaleFileHandleErrorStrict(err)) {
-      await releaseStaleHandle();
-      if (rememberedFileName) {
-        permissionNeeded = true;
-        return { handle: null, permissionNeeded: true, rememberedOnly: true };
-      }
-    } else {
-      setLastFileError(err);
-    }
+    if (isStaleFileHandleError(err)) await releaseStaleHandle();
+    else setLastFileError(err);
     return null;
   }
 }
@@ -344,42 +286,30 @@ export async function readConnectedDataFile() {
   if (!activeHandle) return null;
 
   try {
-    const parsed = await readAppDataFromHandle(activeHandle);
-    permissionNeeded = !(await canWriteFile(activeHandle));
-    lastFileError = null;
-    return parsed;
+    return await readAppDataFromHandle(activeHandle);
   } catch (err) {
-    if (isStaleFileHandleError(err)) {
-      await releaseStaleHandle();
-      return null;
-    }
-    if (isPermissionFileError(err)) {
-      permissionNeeded = true;
-      lastFileError = null;
-      return null;
-    }
-    if (isStaleFileHandleErrorStrict(err)) {
-      await releaseStaleHandle();
-      return null;
-    }
-    permissionNeeded = true;
-    setLastFileError(err);
+    if (isStaleFileHandleError(err)) await releaseStaleHandle();
+    else setLastFileError(err);
     return null;
   }
 }
 
-/** @param {import('./store.js').AppData} data */
-export async function writeConnectedDataFile(data) {
+/**
+ * @param {import('./store.js').AppData} data
+ * @param {{ requestPermission?: boolean }} [options]
+ * Pass requestPermission: true from a click handler (save game) so the browser can prompt Allow after refresh.
+ */
+export async function writeConnectedDataFile(data, options = {}) {
+  const { requestPermission = false } = options;
   if (!activeHandle) return false;
 
   try {
-    if (!(await canWriteFile(activeHandle))) {
-      permissionNeeded = true;
-      lastFileError = null;
-      return false;
+    let allowed = await hasFilePermission(activeHandle, "readwrite");
+    if (!allowed && requestPermission) {
+      allowed = await requestFilePermission(activeHandle, "readwrite");
     }
+    if (!allowed) return false;
 
-    permissionNeeded = false;
     const writable = await activeHandle.createWritable();
     await writable.write(JSON.stringify(data, null, 2));
     await writable.close();
@@ -387,12 +317,8 @@ export async function writeConnectedDataFile(data) {
     lastFileError = null;
     return true;
   } catch (err) {
-    if (isStaleFileHandleError(err)) {
-      await releaseStaleHandle();
-      return false;
-    }
-    permissionNeeded = true;
-    setLastFileError(err);
+    if (isStaleFileHandleError(err)) await releaseStaleHandle();
+    else setLastFileError(err);
     return false;
   }
 }
@@ -400,9 +326,7 @@ export async function writeConnectedDataFile(data) {
 /** Call only from a click handler — requestPermission requires user activation. */
 export async function reconnectDataFile() {
   if (!activeHandle) return false;
-
   const ok = await requestFilePermission(activeHandle, "readwrite");
-  permissionNeeded = !ok;
   if (ok) lastFileError = null;
   return ok;
 }
@@ -423,7 +347,6 @@ export async function chooseDataFile(mode) {
 
   if (mode === "create") {
     await activateHandle(handle);
-    permissionNeeded = false;
     lastFileError = null;
     return handle;
   }
@@ -432,7 +355,6 @@ export async function chooseDataFile(mode) {
   activeFileName = handle.name;
   lastFileError = null;
   await saveLinkMeta(handle.name);
-  await syncPermissionFlagsFromHandle(handle);
   return handle;
 }
 
@@ -441,7 +363,6 @@ export async function disconnectDataFile() {
   await clearLinkMeta();
   activeHandle = null;
   activeFileName = null;
-  permissionNeeded = false;
   lastFileError = null;
   lastFileSavedAt = null;
 }
