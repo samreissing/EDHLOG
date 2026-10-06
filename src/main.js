@@ -23,6 +23,8 @@ import {
   readAppDataFromHandle,
   persistDataFileHandle,
   reconnectDataFile,
+  refreshFilePermissionState,
+  isDataFileAutoSaveReady,
   requestPersistentBrowserStorage,
   writeConnectedDataFile,
 } from "./file-storage.js";
@@ -789,7 +791,7 @@ function updateStorageStatus() {
     statusEl.textContent = `Linked file: ${fileStatus.fileName} (reconnect after refresh)`;
     if (warningEl) {
       warningEl.textContent =
-        "EDHLOG remembers this file. Click Reconnect file or Open data file and pick it again.";
+        "Pick Reconnect file (or Open data file) once after refresh so new games update your JSON.";
       warningEl.hidden = false;
     }
     return;
@@ -805,33 +807,57 @@ function updateStorageStatus() {
   }
 }
 
-/** Reconnect file access when the browser revoked it after refresh; warn if never linked. */
-async function prepareDataFileForGameLog() {
-  if (!isDataFileStorageSupported()) return;
+function fileSyncWarningMessage() {
+  if (!isDataFileStorageSupported() || isDataFileAutoSaveReady()) return null;
+  const st = getDataFileStatus();
+  if (!st.connected && !st.rememberedFileName) {
+    return (
+      "No JSON data file is linked.\n\nThis game will only be saved in your browser, not in your edhlog-data.json file.\n\nSave this game anyway?"
+    );
+  }
+  const label = st.fileName ? ` (${st.fileName})` : "";
+  return (
+    `Your JSON file${label} is not connected — this usually happens after refreshing the page.\n\nThis game will NOT be written to that file until you click Reconnect file in the footer.\n\nSave this game anyway?`
+  );
+}
 
-  const fileStatus = getDataFileStatus();
+/** On Save Game: try reconnect, then confirm if the JSON file still won't get this game. */
+async function ensureFileSyncForGameSave() {
+  if (!isDataFileStorageSupported()) return true;
 
-  if (fileStatus.connected && fileStatus.permissionNeeded) {
+  await refreshFilePermissionState();
+
+  if (isDataFileAutoSaveReady()) {
+    updateStorageStatus();
+    return true;
+  }
+
+  const st = getDataFileStatus();
+  if (st.connected && st.permissionNeeded) {
     const ok = await reconnectDataFile();
     if (ok) {
-      const payload = loadData();
-      if (payload) await writeConnectedDataFile(payload);
-      updateStorageStatus();
-      toast("Data file reconnected — auto-saving resumed");
-    } else {
-      toast(`Allow file access when prompted to sync to ${fileStatus.fileName || "your data file"}`, true);
+      await refreshFilePermissionState();
+      if (isDataFileAutoSaveReady()) {
+        updateStorageStatus();
+        return true;
+      }
     }
-    return;
   }
 
-  if (!fileStatus.linkConfigured) {
-    toast("No data file linked — this game saves to browser storage only. Use Open data file in the footer.", true);
-    return;
-  }
+  const msg = fileSyncWarningMessage();
+  if (!msg) return true;
+  toast(msg.split("\n\n")[0], true);
+  updateStorageStatus();
+  return window.confirm(msg);
+}
 
-  if (!fileStatus.connected && fileStatus.fileName) {
-    toast(`Still linked to ${fileStatus.fileName} — click Reconnect file in the footer after a refresh.`, true);
-  }
+async function prepareDataFileForGameLog() {
+  if (!isDataFileStorageSupported()) return;
+  await refreshFilePermissionState();
+  updateStorageStatus();
+  if (isDataFileAutoSaveReady()) return;
+  const msg = fileSyncWarningMessage();
+  if (msg) toast(msg.split("\n\n")[0], true);
 }
 
 async function connectDataFile(mode) {
@@ -860,6 +886,7 @@ async function connectDataFile(mode) {
         /* linked in memory; IDB handle optional */
       }
       data = imported;
+      await reconnectDataFile();
       await writeConnectedDataFile(imported);
       updateStorageStatus();
       render();
@@ -905,6 +932,7 @@ async function boot() {
   sessionStorage.removeItem("edhlog-stale-reload");
   void requestPersistentBrowserStorage();
   data = await initData();
+  await refreshFilePermissionState();
   const sync = getLastSeedSync();
   ensureRecoverButton();
   updateStorageStatus();
@@ -1456,7 +1484,7 @@ function bindEvents() {
       form.querySelectorAll('[name="result"]').forEach((el) => {
         el.disabled = false;
       });
-      saveGameFromForm(new FormData(form));
+      void saveGameFromForm(new FormData(form));
       return;
     }
 
@@ -1649,7 +1677,7 @@ function bindEvents() {
       e.target.querySelectorAll('[name="result"]').forEach((el) => {
         el.disabled = false;
       });
-      saveGameFromForm(new FormData(e.target));
+      void saveGameFromForm(new FormData(e.target));
     } else if (e.target.id === "deck-form") {
       e.preventDefault();
       saveDeckFromForm(e.target);
@@ -4883,10 +4911,12 @@ function buildGameRecordFromPayload(payload, gameId, existing = null) {
   return record;
 }
 
-function saveGameFromForm(fd) {
+async function saveGameFromForm(fd) {
   if (gameSaveInFlight) return;
   const payload = parseGameForm(fd);
   if (!payload.deck) return toast("Pick a deck", true);
+
+  if (!(await ensureFileSyncForGameSave())) return;
 
   const gameId = String(fd.get("gameId") || editingGameId || "").trim();
   gameSaveInFlight = true;
@@ -4916,9 +4946,13 @@ function saveGameFromForm(fd) {
     return;
   }
 
+  if (isDataFileStorageSupported() && !isDataFileAutoSaveReady()) {
+    toast("Game saved in browser only — your JSON file was not updated.", true);
+  }
+
   editingGameId = null;
   gameModalOpen = false;
-  if (!isDataFileConnected()) {
+  if (!isDataFileAutoSaveReady()) {
     downloadDataBackup(data);
   }
   toast(gameId ? "Game saved" : `${payload.result} logged`);
