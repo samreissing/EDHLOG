@@ -21,7 +21,6 @@ import {
   isDataFileStorageSupported,
   readConnectedDataFile,
   readAppDataFromHandle,
-  persistDataFileHandle,
   reconnectDataFile,
   refreshFilePermissionState,
   requestPersistentBrowserStorage,
@@ -758,31 +757,22 @@ function updateStorageStatus() {
     return;
   }
 
-  if (fileStatus.connected && fileStatus.fileName) {
-    if (disconnectBtn) disconnectBtn.hidden = false;
+  const fileName = fileStatus.fileName;
+  const linked = fileStatus.connected || fileStatus.linkConfigured;
+
+  if (linked && fileName) {
+    if (disconnectBtn) disconnectBtn.hidden = !fileStatus.connected;
     if (fileStatus.lastError) {
-      statusEl.textContent = `Data file: ${fileStatus.fileName}`;
-      if (reconnectBtn) reconnectBtn.hidden = false;
+      statusEl.textContent = `Data file: ${fileName}`;
+      if (reconnectBtn) reconnectBtn.hidden = !fileStatus.connected;
       if (warningEl) {
         warningEl.textContent = humanizeFileError(fileStatus.lastError) || fileStatus.lastError;
         warningEl.hidden = false;
       }
     } else {
-      statusEl.textContent = `Auto-saving to ${fileStatus.fileName}`;
+      statusEl.textContent = `Auto-saving to ${fileName}`;
       if (reconnectBtn) reconnectBtn.hidden = true;
       if (warningEl) warningEl.hidden = true;
-    }
-    return;
-  }
-
-  if (fileStatus.linkConfigured && fileStatus.fileName) {
-    if (disconnectBtn) disconnectBtn.hidden = true;
-    if (reconnectBtn) reconnectBtn.hidden = true;
-    statusEl.textContent = `Remembered file: ${fileStatus.fileName}`;
-    if (warningEl) {
-      warningEl.textContent =
-        "Click Open data file and choose that JSON again (same path as before). Saves still go to browser storage until then.";
-      warningEl.hidden = false;
     }
     return;
   }
@@ -799,12 +789,7 @@ function updateStorageStatus() {
 
 function fileSyncWarningMessage() {
   if (!isDataFileStorageSupported() || isDataFileConnected()) return null;
-  const st = getDataFileStatus();
-  if (st.rememberedFileName) {
-    return (
-      `Your data file (${st.rememberedFileName}) is not active in this tab.\n\nThis game will save in the browser only until you use Open data file again.\n\nSave this game anyway?`
-    );
-  }
+  if (getDataFileStatus().linkConfigured) return null;
   return (
     "No JSON data file is linked.\n\nThis game will only be saved in your browser, not in your edhlog-data.json file.\n\nSave this game anyway?"
   );
@@ -838,11 +823,6 @@ async function connectDataFile(mode) {
         updateStorageStatus();
         toast("Link failed — browser storage is full or blocked", true);
         return;
-      }
-      try {
-        await persistDataFileHandle();
-      } catch {
-        /* linked in memory; IDB handle optional */
       }
       data = imported;
       await writeConnectedDataFile(imported, { requestPermission: true });

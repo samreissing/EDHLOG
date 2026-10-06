@@ -50,6 +50,7 @@ async function releaseStaleHandle() {
   } catch {
     /* ignore */
   }
+  await clearLinkMeta();
   activeHandle = null;
   activeFileName = null;
   lastFileSavedAt = null;
@@ -351,10 +352,7 @@ export async function chooseDataFile(mode) {
     return handle;
   }
 
-  activeHandle = handle;
-  activeFileName = handle.name;
-  lastFileError = null;
-  await saveLinkMeta(handle.name);
+  await activateHandle(handle);
   return handle;
 }
 
