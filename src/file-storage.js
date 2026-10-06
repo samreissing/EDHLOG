@@ -38,9 +38,14 @@ function fileErrorMessage(err) {
 /** @param {unknown} err */
 function isStaleFileHandleError(err) {
   const name = String(err?.name || "");
-  if (name === "NotFoundError" || name === "InvalidStateError") return true;
+  return name === "NotFoundError" || name === "InvalidStateError";
+}
+
+/** @param {unknown} err */
+function isStaleFileHandleErrorStrict(err) {
+  if (isStaleFileHandleError(err)) return true;
   const msg = fileErrorMessage(err).toLowerCase();
-  return msg.includes("internal error") || msg.includes("not found") || msg.includes("no longer available");
+  return msg.includes("no longer available");
 }
 
 function setLastFileError(err) {
@@ -145,21 +150,24 @@ export function isDataFileAutoSaveReady() {
   return !!activeHandle && !permissionNeeded;
 }
 
+async function syncPermissionFlagsFromHandle(handle) {
+  if (!handle) {
+    permissionNeeded = !!rememberedFileName;
+    return;
+  }
+  const canWrite = await hasFilePermission(handle, "readwrite");
+  const canRead = (await hasFilePermission(handle, "read")) || canWrite;
+  permissionNeeded = !canWrite;
+  if (!canRead) permissionNeeded = true;
+}
+
 export async function refreshFilePermissionState() {
   await loadLinkMeta();
   if (!activeHandle) {
     permissionNeeded = !!rememberedFileName;
     return getDataFileStatus();
   }
-  try {
-    await activeHandle.getFile();
-  } catch (err) {
-    if (isStaleFileHandleError(err)) await releaseStaleHandle();
-    else permissionNeeded = true;
-    return getDataFileStatus();
-  }
-  permissionNeeded = !(await canWriteFile(activeHandle));
-  if (!(await canReadFile(activeHandle))) permissionNeeded = true;
+  await syncPermissionFlagsFromHandle(activeHandle);
   return getDataFileStatus();
 }
 
@@ -315,28 +323,10 @@ export async function restoreDataFileConnection() {
     lastFileError = null;
     await saveLinkMeta(handle.name);
 
-    try {
-      await handle.getFile();
-    } catch (err) {
-      if (isStaleFileHandleError(err)) {
-        await releaseStaleHandle();
-        if (rememberedFileName) {
-          permissionNeeded = true;
-          return { handle: null, permissionNeeded: true, rememberedOnly: true };
-        }
-        return null;
-      }
-      permissionNeeded = true;
-      if (isPermissionFileError(err)) lastFileError = null;
-      else setLastFileError(err);
-      return { handle, permissionNeeded: true };
-    }
-
-    permissionNeeded = !(await canWriteFile(handle));
-    if (!(await canReadFile(handle))) permissionNeeded = true;
+    await syncPermissionFlagsFromHandle(handle);
     return { handle, permissionNeeded };
   } catch (err) {
-    if (isStaleFileHandleError(err)) {
+    if (isStaleFileHandleErrorStrict(err)) {
       await releaseStaleHandle();
       if (rememberedFileName) {
         permissionNeeded = true;
@@ -368,6 +358,10 @@ export async function readConnectedDataFile() {
       lastFileError = null;
       return null;
     }
+    if (isStaleFileHandleErrorStrict(err)) {
+      await releaseStaleHandle();
+      return null;
+    }
     permissionNeeded = true;
     setLastFileError(err);
     return null;
@@ -393,6 +387,10 @@ export async function writeConnectedDataFile(data) {
     lastFileError = null;
     return true;
   } catch (err) {
+    if (isStaleFileHandleError(err)) {
+      await releaseStaleHandle();
+      return false;
+    }
     permissionNeeded = true;
     setLastFileError(err);
     return false;
@@ -433,8 +431,8 @@ export async function chooseDataFile(mode) {
   activeHandle = handle;
   activeFileName = handle.name;
   lastFileError = null;
-  permissionNeeded = true;
   await saveLinkMeta(handle.name);
+  await syncPermissionFlagsFromHandle(handle);
   return handle;
 }
 
