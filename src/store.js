@@ -346,7 +346,7 @@ export async function initData() {
   await restoreDataFileConnection();
   const seed = await loadSeed();
   const localData = loadData();
-  const fileData = await readConnectedDataFile();
+  const fileData = await readConnectedDataFile({ ifPermitted: true });
   let data = preferAppDataSource(localData, fileData);
 
   if (!data) {

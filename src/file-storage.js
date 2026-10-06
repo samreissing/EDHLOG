@@ -25,6 +25,17 @@ let rememberedFileName = null;
 const FILE_RELINK_MESSAGE =
   "Could not access your data file. Click Open data file and choose it again.";
 
+const FILE_ALLOW_MESSAGE =
+  "Browser needs permission to use your data file. Click Save Game or Reconnect file and choose Allow (same file — you should not need to pick it again).";
+
+/** @param {unknown} err */
+function isBenignFileAccessError(err) {
+  const name = String(err?.name || "");
+  if (name === "NotAllowedError" || name === "SecurityError") return true;
+  const msg = fileErrorMessage(err).toLowerCase();
+  return msg.includes("internal error") || msg.includes("permission") || msg.includes("not allowed");
+}
+
 /** @param {unknown} err */
 function fileErrorMessage(err) {
   if (err instanceof SyntaxError) {
@@ -40,6 +51,10 @@ function isStaleFileHandleError(err) {
 }
 
 function setLastFileError(err) {
+  if (isBenignFileAccessError(err)) {
+    lastFileError = null;
+    return;
+  }
   lastFileError = humanizeFileError(fileErrorMessage(err));
 }
 
@@ -50,7 +65,6 @@ async function releaseStaleHandle() {
   } catch {
     /* ignore */
   }
-  await clearLinkMeta();
   activeHandle = null;
   activeFileName = null;
   lastFileSavedAt = null;
@@ -115,7 +129,9 @@ async function clearLinkMeta() {
 export function humanizeFileError(message) {
   if (!message) return message;
   const s = String(message).trim();
-  if (/internal error/i.test(s)) return FILE_RELINK_MESSAGE;
+  if (/internal error/i.test(s)) {
+    return activeHandle ? FILE_ALLOW_MESSAGE : FILE_RELINK_MESSAGE;
+  }
   return message;
 }
 
@@ -239,7 +255,15 @@ function parseAppDataText(text) {
 }
 
 /** Read JSON from a handle (call in the same user gesture as the file picker when possible). */
-export async function readAppDataFromHandle(handle) {
+export async function readAppDataFromHandle(handle, options = {}) {
+  const { requestPermission = false } = options;
+  if (requestPermission) {
+    let ok = await hasFilePermission(handle, "readwrite");
+    if (!ok) ok = await hasFilePermission(handle, "read");
+    if (!ok) ok = await requestFilePermission(handle, "readwrite");
+    if (!ok) ok = await requestFilePermission(handle, "read");
+    if (!ok) throw new DOMException("File read permission was not granted", "NotAllowedError");
+  }
   const file = await handle.getFile();
   const text = await file.text();
   return parseAppDataText(text);
@@ -251,7 +275,11 @@ async function activateHandle(handle) {
   activeFileName = handle.name;
   lastFileError = null;
   await saveLinkMeta(handle.name);
-  await idbSet(HANDLE_KEY, handle);
+  try {
+    await idbSet(HANDLE_KEY, handle);
+  } catch {
+    /* handle stays in memory for this session */
+  }
 }
 
 /** Save the current handle to IndexedDB after data is loaded into the browser. */
@@ -283,14 +311,21 @@ export async function restoreDataFileConnection() {
 }
 
 /** @returns {Promise<import('./store.js').AppData | null>} */
-export async function readConnectedDataFile() {
+export async function readConnectedDataFile(options = {}) {
+  const { ifPermitted = false, requestPermission = false } = options;
   if (!activeHandle) return null;
 
+  if (ifPermitted) {
+    const canRead =
+      (await hasFilePermission(activeHandle, "readwrite")) || (await hasFilePermission(activeHandle, "read"));
+    if (!canRead) return null;
+  }
+
   try {
-    return await readAppDataFromHandle(activeHandle);
+    return await readAppDataFromHandle(activeHandle, { requestPermission });
   } catch (err) {
     if (isStaleFileHandleError(err)) await releaseStaleHandle();
-    else setLastFileError(err);
+    else if (!isBenignFileAccessError(err)) setLastFileError(err);
     return null;
   }
 }
@@ -319,7 +354,7 @@ export async function writeConnectedDataFile(data, options = {}) {
     return true;
   } catch (err) {
     if (isStaleFileHandleError(err)) await releaseStaleHandle();
-    else setLastFileError(err);
+    else if (!isBenignFileAccessError(err)) setLastFileError(err);
     return false;
   }
 }
@@ -344,7 +379,13 @@ export async function chooseDataFile(mode) {
           suggestedName: "edhlog-data.json",
           types: FILE_TYPES,
         })
-      : (await window.showOpenFilePicker({ types: FILE_TYPES, multiple: false }))[0];
+      : (
+          await window.showOpenFilePicker({
+            types: FILE_TYPES,
+            multiple: false,
+            mode: "readwrite",
+          })
+        )[0];
 
   if (mode === "create") {
     await activateHandle(handle);

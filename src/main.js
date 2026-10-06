@@ -811,7 +811,7 @@ async function connectDataFile(mode) {
     if (mode === "open") {
       let imported;
       try {
-        imported = await readAppDataFromHandle(handle);
+        imported = await readAppDataFromHandle(handle, { requestPermission: true });
       } catch (err) {
         await disconnectDataFile();
         updateStorageStatus();
@@ -829,11 +829,13 @@ async function connectDataFile(mode) {
       updateStorageStatus();
       render();
       const linkStatus = getDataFileStatus();
-      if (linkStatus.lastError) {
+      if (linkStatus.lastError && !/choose Allow/i.test(linkStatus.lastError)) {
         toast(
           `Loaded ${imported.games.length} games — ${humanizeFileError(linkStatus.lastError)}`,
           true,
         );
+      } else if (linkStatus.lastError) {
+        toast(`Linked to ${handle.name} (${imported.games.length} games) — allow file access when you save`);
       } else {
         toast(`Linked to ${handle.name} (${imported.games.length} games)`);
       }
@@ -856,7 +858,12 @@ async function connectDataFile(mode) {
     updateStorageStatus();
     render();
     if (!wrote) {
-      toast(humanizeFileError(getDataFileStatus().lastError) || "Could not write the new data file", true);
+      const st = getDataFileStatus();
+      if (st.lastError) {
+        toast(humanizeFileError(st.lastError) || "Could not write the new data file", true);
+        return;
+      }
+      toast(`Linked to ${handle.name} — allow file access when you save`);
       return;
     }
     toast(`Created and linked ${handle.name}`);
