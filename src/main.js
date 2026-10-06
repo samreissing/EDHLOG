@@ -762,12 +762,12 @@ function updateStorageStatus() {
   if (fileStatus.connected && fileStatus.fileName) {
     if (disconnectBtn) disconnectBtn.hidden = false;
     if (fileStatus.permissionNeeded) {
-      statusEl.textContent = `Linked to ${fileStatus.fileName} — click Reconnect file after refresh`;
+      statusEl.textContent = `Linked to ${fileStatus.fileName}`;
       if (reconnectBtn) reconnectBtn.hidden = false;
       if (warningEl) {
         warningEl.textContent =
           fileStatus.lastError ||
-          "Your games stay in this browser. One Reconnect click restores auto-save to your JSON file.";
+          "Chrome may ask you to allow file access once after refresh — click Reconnect file or save a game.";
         warningEl.hidden = false;
       }
     } else if (fileStatus.lastError) {
@@ -788,10 +788,9 @@ function updateStorageStatus() {
   if (fileStatus.linkConfigured && fileStatus.fileName) {
     if (disconnectBtn) disconnectBtn.hidden = false;
     if (reconnectBtn) reconnectBtn.hidden = false;
-    statusEl.textContent = `Linked file: ${fileStatus.fileName} (reconnect after refresh)`;
+    statusEl.textContent = `Linked file: ${fileStatus.fileName}`;
     if (warningEl) {
-      warningEl.textContent =
-        "Pick Reconnect file (or Open data file) once after refresh so new games update your JSON.";
+      warningEl.textContent = "Open that file again with Open data file — your link was kept in the browser.";
       warningEl.hidden = false;
     }
     return;
@@ -817,7 +816,7 @@ function fileSyncWarningMessage() {
   }
   const label = st.fileName ? ` (${st.fileName})` : "";
   return (
-    `Your JSON file${label} is not connected — this usually happens after refreshing the page.\n\nThis game will NOT be written to that file until you click Reconnect file in the footer.\n\nSave this game anyway?`
+    `Your JSON file${label} needs file access this browser session (normal after refresh).\n\nClick Reconnect file in the footer, or choose Allow when saving — otherwise this game won't update that file.\n\nSave this game anyway?`
   );
 }
 
