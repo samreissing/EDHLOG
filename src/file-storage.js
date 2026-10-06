@@ -140,6 +140,29 @@ export function isDataFileConnected() {
   return !!activeHandle;
 }
 
+/** File handle restored and browser granted read/write (auto-save will work). */
+export function isDataFileAutoSaveReady() {
+  return !!activeHandle && !permissionNeeded;
+}
+
+export async function refreshFilePermissionState() {
+  await loadLinkMeta();
+  if (!activeHandle) {
+    permissionNeeded = !!rememberedFileName;
+    return getDataFileStatus();
+  }
+  try {
+    await activeHandle.getFile();
+  } catch (err) {
+    if (isStaleFileHandleError(err)) await releaseStaleHandle();
+    else permissionNeeded = true;
+    return getDataFileStatus();
+  }
+  permissionNeeded = !(await canWriteFile(activeHandle));
+  if (!(await canReadFile(activeHandle))) permissionNeeded = true;
+  return getDataFileStatus();
+}
+
 /** True when the user has linked a file before (handle and/or saved link memory). */
 export function isDataFileLinkConfigured() {
   return !!activeHandle || !!rememberedFileName;
