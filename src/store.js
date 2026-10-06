@@ -381,12 +381,13 @@ export async function initData() {
   return data;
 }
 
-/** @param {AppData} data */
-export function saveData(data) {
+/** @param {AppData} data @param {{ syncFile?: boolean }} [options] */
+export function saveData(data, options = {}) {
+  const { syncFile = true } = options;
   try {
     cache = data;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    void writeConnectedDataFile(data);
+    if (syncFile) void writeConnectedDataFile(data);
     return true;
   } catch (err) {
     console.error("EDHLOG save failed", err);
