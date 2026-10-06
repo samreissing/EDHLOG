@@ -760,12 +760,12 @@ function updateStorageStatus() {
   if (fileStatus.connected && fileStatus.fileName) {
     if (disconnectBtn) disconnectBtn.hidden = false;
     if (fileStatus.permissionNeeded) {
-      statusEl.textContent = `Data file: ${fileStatus.fileName} (click Reconnect file to auto-save)`;
+      statusEl.textContent = `Linked to ${fileStatus.fileName} — click Reconnect file after refresh`;
       if (reconnectBtn) reconnectBtn.hidden = false;
       if (warningEl) {
         warningEl.textContent =
           fileStatus.lastError ||
-          "Your games are saved in this browser. Reconnect file when prompted so edits update your JSON file.";
+          "Your games stay in this browser. One Reconnect click restores auto-save to your JSON file.";
         warningEl.hidden = false;
       }
     } else if (fileStatus.lastError) {
@@ -783,6 +783,18 @@ function updateStorageStatus() {
     return;
   }
 
+  if (fileStatus.linkConfigured && fileStatus.fileName) {
+    if (disconnectBtn) disconnectBtn.hidden = false;
+    if (reconnectBtn) reconnectBtn.hidden = false;
+    statusEl.textContent = `Linked file: ${fileStatus.fileName} (reconnect after refresh)`;
+    if (warningEl) {
+      warningEl.textContent =
+        "EDHLOG remembers this file. Click Reconnect file or Open data file and pick it again.";
+      warningEl.hidden = false;
+    }
+    return;
+  }
+
   if (disconnectBtn) disconnectBtn.hidden = true;
   if (reconnectBtn) reconnectBtn.hidden = true;
   statusEl.textContent =
@@ -790,6 +802,35 @@ function updateStorageStatus() {
   if (warningEl) {
     warningEl.textContent = "Recommended: pick a file on your D: drive once, then every save updates that file automatically.";
     warningEl.hidden = false;
+  }
+}
+
+/** Reconnect file access when the browser revoked it after refresh; warn if never linked. */
+async function prepareDataFileForGameLog() {
+  if (!isDataFileStorageSupported()) return;
+
+  const fileStatus = getDataFileStatus();
+
+  if (fileStatus.connected && fileStatus.permissionNeeded) {
+    const ok = await reconnectDataFile();
+    if (ok) {
+      const payload = loadData();
+      if (payload) await writeConnectedDataFile(payload);
+      updateStorageStatus();
+      toast("Data file reconnected — auto-saving resumed");
+    } else {
+      toast(`Allow file access when prompted to sync to ${fileStatus.fileName || "your data file"}`, true);
+    }
+    return;
+  }
+
+  if (!fileStatus.linkConfigured) {
+    toast("No data file linked — this game saves to browser storage only. Use Open data file in the footer.", true);
+    return;
+  }
+
+  if (!fileStatus.connected && fileStatus.fileName) {
+    toast(`Still linked to ${fileStatus.fileName} — click Reconnect file in the footer after a refresh.`, true);
   }
 }
 
@@ -1399,10 +1440,12 @@ function bindEvents() {
     const addGameBtn = e.target.closest("#add-game-btn");
     if (addGameBtn) {
       e.preventDefault();
-      editingGameId = null;
-      viewingGameId = null;
-      gameModalOpen = true;
-      render();
+      void prepareDataFileForGameLog().then(() => {
+        editingGameId = null;
+        viewingGameId = null;
+        gameModalOpen = true;
+        render();
+      });
       return;
     }
 
@@ -1519,19 +1562,23 @@ function bindEvents() {
 
     const editBtn = e.target.closest(".edit-game");
     if (editBtn) {
-      editingGameId = editBtn.dataset.id;
-      viewingGameId = null;
-      gameModalOpen = true;
-      render();
+      void prepareDataFileForGameLog().then(() => {
+        editingGameId = editBtn.dataset.id;
+        viewingGameId = null;
+        gameModalOpen = true;
+        render();
+      });
       return;
     }
 
     const quickWin = e.target.closest(".quick-win");
     const quickLoss = e.target.closest(".quick-loss");
     if (quickWin || quickLoss) {
-      fillLogForm({
-        deck: (quickWin || quickLoss).dataset.deck,
-        result: quickWin ? "Win" : "Loss",
+      void prepareDataFileForGameLog().then(() => {
+        fillLogForm({
+          deck: (quickWin || quickLoss).dataset.deck,
+          result: quickWin ? "Win" : "Loss",
+        });
       });
       return;
     }
@@ -1617,6 +1664,10 @@ function bindEvents() {
     void connectDataFile("open");
   });
   document.getElementById("data-file-reconnect-btn")?.addEventListener("click", async () => {
+    if (!isDataFileConnected()) {
+      void connectDataFile("open");
+      return;
+    }
     const ok = await reconnectDataFile();
     if (!ok) {
       toast("Click Allow when the browser asks to access your data file.", true);
