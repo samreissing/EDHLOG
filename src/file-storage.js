@@ -1,6 +1,8 @@
 const IDB_NAME = "edhlog-file-storage-v1";
 const IDB_STORE = "meta";
 const HANDLE_KEY = "data-file-handle";
+const LINK_META_KEY = "data-file-link-meta";
+const LINK_META_LS_KEY = "edhlog-linked-file-v1";
 
 const FILE_TYPES = [
   {
@@ -19,6 +21,8 @@ let lastFileError = null;
 let permissionNeeded = false;
 /** @type {number | null} */
 let lastFileSavedAt = null;
+/** @type {string | null} */
+let rememberedFileName = null;
 
 const FILE_RELINK_MESSAGE =
   "Could not access your data file. Click Open data file and choose it again.";
@@ -55,6 +59,69 @@ async function releaseStaleHandle() {
   permissionNeeded = false;
   lastFileSavedAt = null;
   lastFileError = null;
+  /* Keep rememberedFileName so the UI still knows which file the user linked. */
+}
+
+/** @param {string} fileName */
+async function saveLinkMeta(fileName) {
+  const name = String(fileName || "").trim();
+  if (!name) return;
+  rememberedFileName = name;
+  try {
+    localStorage.setItem(LINK_META_LS_KEY, name);
+  } catch {
+    /* ignore */
+  }
+  try {
+    await idbSet(LINK_META_KEY, { fileName: name, linkedAt: Date.now() });
+  } catch {
+    /* ignore */
+  }
+}
+
+async function loadLinkMeta() {
+  if (rememberedFileName) return rememberedFileName;
+  try {
+    const fromIdb = await idbGet(LINK_META_KEY);
+    if (fromIdb && typeof fromIdb === "object" && fromIdb.fileName) {
+      rememberedFileName = String(fromIdb.fileName);
+      return rememberedFileName;
+    }
+  } catch {
+    /* ignore */
+  }
+  try {
+    const fromLs = localStorage.getItem(LINK_META_LS_KEY);
+    if (fromLs) {
+      rememberedFileName = fromLs;
+      return rememberedFileName;
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+async function clearLinkMeta() {
+  rememberedFileName = null;
+  try {
+    localStorage.removeItem(LINK_META_LS_KEY);
+  } catch {
+    /* ignore */
+  }
+  try {
+    await idbDelete(LINK_META_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** @param {unknown} err */
+function isPermissionFileError(err) {
+  const name = String(err?.name || "");
+  if (name === "NotAllowedError" || name === "SecurityError") return true;
+  const msg = fileErrorMessage(err).toLowerCase();
+  return msg.includes("permission") || msg.includes("not allowed");
 }
 
 /** @param {string | null | undefined} message */
@@ -73,11 +140,19 @@ export function isDataFileConnected() {
   return !!activeHandle;
 }
 
+/** True when the user has linked a file before (handle and/or saved link memory). */
+export function isDataFileLinkConfigured() {
+  return !!activeHandle || !!rememberedFileName;
+}
+
 export function getDataFileStatus() {
+  const displayName = activeFileName || rememberedFileName;
   return {
     supported: isDataFileStorageSupported(),
     connected: !!activeHandle,
-    fileName: activeFileName,
+    linkConfigured: !!activeHandle || !!rememberedFileName,
+    fileName: displayName,
+    rememberedFileName,
     permissionNeeded,
     lastSavedAt: lastFileSavedAt,
     lastError: lastFileError,
@@ -186,40 +261,67 @@ async function activateHandle(handle) {
   activeHandle = handle;
   activeFileName = handle.name;
   lastFileError = null;
+  await saveLinkMeta(handle.name);
   await idbSet(HANDLE_KEY, handle);
 }
 
 /** Save the current handle to IndexedDB after data is loaded into the browser. */
 export async function persistDataFileHandle() {
   if (!activeHandle) return;
+  await saveLinkMeta(activeHandle.name);
   await idbSet(HANDLE_KEY, activeHandle);
 }
 
 export async function restoreDataFileConnection() {
   if (!isDataFileStorageSupported()) return null;
 
+  await loadLinkMeta();
+
   try {
     const handle = await idbGet(HANDLE_KEY);
-    if (!handle) return null;
+    if (!handle) {
+      if (rememberedFileName) {
+        permissionNeeded = true;
+        return { handle: null, permissionNeeded: true, rememberedOnly: true };
+      }
+      return null;
+    }
 
     activeHandle = handle;
     activeFileName = handle.name;
     lastFileError = null;
+    await saveLinkMeta(handle.name);
 
     try {
       await handle.getFile();
     } catch (err) {
-      if (isStaleFileHandleError(err)) await releaseStaleHandle();
+      if (isStaleFileHandleError(err)) {
+        await releaseStaleHandle();
+        if (rememberedFileName) {
+          permissionNeeded = true;
+          return { handle: null, permissionNeeded: true, rememberedOnly: true };
+        }
+        return null;
+      }
+      permissionNeeded = true;
+      if (isPermissionFileError(err)) lastFileError = null;
       else setLastFileError(err);
-      return null;
+      return { handle, permissionNeeded: true };
     }
 
     permissionNeeded = !(await canWriteFile(handle));
     if (!(await canReadFile(handle))) permissionNeeded = true;
     return { handle, permissionNeeded };
   } catch (err) {
-    if (isStaleFileHandleError(err)) await releaseStaleHandle();
-    else setLastFileError(err);
+    if (isStaleFileHandleError(err)) {
+      await releaseStaleHandle();
+      if (rememberedFileName) {
+        permissionNeeded = true;
+        return { handle: null, permissionNeeded: true, rememberedOnly: true };
+      }
+    } else {
+      setLastFileError(err);
+    }
     return null;
   }
 }
@@ -236,6 +338,11 @@ export async function readConnectedDataFile() {
   } catch (err) {
     if (isStaleFileHandleError(err)) {
       await releaseStaleHandle();
+      return null;
+    }
+    if (isPermissionFileError(err)) {
+      permissionNeeded = true;
+      lastFileError = null;
       return null;
     }
     permissionNeeded = true;
@@ -304,11 +411,13 @@ export async function chooseDataFile(mode) {
   activeFileName = handle.name;
   lastFileError = null;
   permissionNeeded = true;
+  await saveLinkMeta(handle.name);
   return handle;
 }
 
 export async function disconnectDataFile() {
   await idbDelete(HANDLE_KEY);
+  await clearLinkMeta();
   activeHandle = null;
   activeFileName = null;
   permissionNeeded = false;
