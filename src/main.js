@@ -23,6 +23,7 @@ import {
   readAppDataFromHandle,
   reconnectDataFile,
   refreshFilePermissionState,
+  restoreDataFileConnection,
   requestPersistentBrowserStorage,
   writeConnectedDataFile,
 } from "./file-storage.js";
@@ -758,13 +759,12 @@ function updateStorageStatus() {
   }
 
   const fileName = fileStatus.fileName;
-  const linked = fileStatus.connected || fileStatus.linkConfigured;
 
-  if (linked && fileName) {
-    if (disconnectBtn) disconnectBtn.hidden = !fileStatus.connected;
+  if (fileStatus.connected && fileName) {
+    if (disconnectBtn) disconnectBtn.hidden = false;
     if (fileStatus.lastError) {
       statusEl.textContent = `Data file: ${fileName}`;
-      if (reconnectBtn) reconnectBtn.hidden = !fileStatus.connected;
+      if (reconnectBtn) reconnectBtn.hidden = false;
       if (warningEl) {
         warningEl.textContent = humanizeFileError(fileStatus.lastError) || fileStatus.lastError;
         warningEl.hidden = false;
@@ -774,6 +774,14 @@ function updateStorageStatus() {
       if (reconnectBtn) reconnectBtn.hidden = true;
       if (warningEl) warningEl.hidden = true;
     }
+    return;
+  }
+
+  if (fileStatus.linkConfigured && fileName) {
+    if (disconnectBtn) disconnectBtn.hidden = true;
+    if (reconnectBtn) reconnectBtn.hidden = true;
+    statusEl.textContent = `Browser storage (${fileName} — use Open data file to sync)`;
+    if (warningEl) warningEl.hidden = true;
     return;
   }
 
@@ -797,7 +805,9 @@ function fileSyncWarningMessage() {
 
 /** Confirm only when there is no linked file handle (browser-only save). */
 async function ensureFileSyncForGameSave() {
-  if (!isDataFileStorageSupported() || isDataFileConnected()) return true;
+  if (!isDataFileStorageSupported()) return true;
+  if (!isDataFileConnected()) await restoreDataFileConnection();
+  if (isDataFileConnected()) return true;
   const msg = fileSyncWarningMessage();
   if (!msg) return true;
   toast(msg.split("\n\n")[0], true);
@@ -4886,17 +4896,22 @@ async function saveGameFromForm(fd) {
   }
 
   let fileSynced = false;
-  if (isDataFileStorageSupported() && isDataFileConnected()) {
-    fileSynced = await writeConnectedDataFile(data, { requestPermission: true });
-    updateStorageStatus();
+  if (isDataFileStorageSupported()) {
+    if (!isDataFileConnected()) await restoreDataFileConnection();
+    if (isDataFileConnected()) {
+      fileSynced = await writeConnectedDataFile(data, { requestPermission: true });
+      updateStorageStatus();
+    }
   }
 
   editingGameId = null;
   gameModalOpen = false;
-  if (isDataFileStorageSupported() && !isDataFileConnected()) {
+  const fileStatus = getDataFileStatus();
+  const neverLinkedFile = isDataFileStorageSupported() && !fileStatus.linkConfigured && !isDataFileConnected();
+  if (neverLinkedFile) {
     downloadDataBackup(data);
   } else if (isDataFileConnected() && !fileSynced) {
-    toast("Game saved in browser — allow file access when prompted to update your JSON file.", true);
+    toast("Game saved in browser — click Allow when the browser asks to update your JSON file.", true);
   }
   toast(gameId ? "Game saved" : `${payload.result} logged`);
   render();
