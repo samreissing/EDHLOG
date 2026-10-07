@@ -4817,6 +4817,19 @@ function parseGameForm(fd) {
   return game;
 }
 
+/** @param {ReturnType<typeof parseGameForm>} payload */
+function validatePodWinnerBeforeSave(payload) {
+  const hasOpponentDetails = (payload.opponents || []).some(
+    (o) => String(o.name || "").trim() || String(o.player || "").trim(),
+  );
+  if (!hasOpponentDetails) return true;
+  if (payload.result === "Loss" && !payload.winnerPodSlot) {
+    toast("Mark who won the game (Mark as winner on a pod player) before saving", true);
+    return false;
+  }
+  return true;
+}
+
 function applyGameCommanderSnapshot(payload, existingGame = null) {
   const deck = findDeck(data.decks, payload.deck);
   if (existingGame?.deck === payload.deck && existingGame.myCommander) {
@@ -4858,6 +4871,7 @@ async function saveGameFromForm(fd) {
   if (gameSaveInFlight) return;
   const payload = parseGameForm(fd);
   if (!payload.deck) return toast("Pick a deck", true);
+  if (!validatePodWinnerBeforeSave(payload)) return;
 
   if (!(await ensureFileSyncForGameSave())) return;
 
