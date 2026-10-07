@@ -1,7 +1,7 @@
 import { winRate, normalizedWinRate } from "./stats.js";
 import { deckId, deckKey, findDeck, deckMapByKey } from "./deck-identity.js";
 import { parseGameSeats } from "./matchups.js";
-import { MY_PLAYER_NAME } from "./opponent-search.js";
+import { getPlayerName } from "./settings.js";
 import {
   findOpponentDeck,
   findOpponentDeckByPair,
@@ -117,7 +117,7 @@ function normalizeKey(value) {
 
 /** @param {import('./matchups.js').GameSeat} seat */
 function isMyPlayer(seat) {
-  return normalizeKey(seat.player) === normalizeKey(MY_PLAYER_NAME);
+  return normalizeKey(seat.player) === normalizeKey(getPlayerName());
 }
 
 /** @param {import('./store.js').Deck | import('./opponent-decks.js').OpponentDeck} deck @param {'archetype' | 'tribe'} tagKind */

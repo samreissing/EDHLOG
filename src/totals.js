@@ -1,5 +1,5 @@
 import { parseGameSeats, computePodAllMatchups } from "./matchups.js";
-import { MY_PLAYER_NAME } from "./opponent-search.js";
+import { getPlayerName } from "./settings.js";
 import { getCommanderInfo, getCommanderMatchupIdentities } from "./commander-names.js";
 import { resolveCommanderColors } from "./commander-colors.js";
 import { deckKey, deckCommander, findDeck, deckMapByKey } from "./deck-identity.js";
@@ -28,7 +28,7 @@ function normalizeKey(value) {
 
 /** @param {import('./matchups.js').GameSeat} seat */
 function isMyPlayer(seat) {
-  return normalizeKey(seat.player) === normalizeKey(MY_PLAYER_NAME);
+  return normalizeKey(seat.player) === normalizeKey(getPlayerName());
 }
 
 /** @param {import('./store.js').Deck[]} decks @param {string} commander */

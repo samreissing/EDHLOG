@@ -1,4 +1,4 @@
-import { MY_PLAYER_NAME } from "./opponent-search.js";
+import { getPlayerName } from "./settings.js";
 import { winRate } from "./stats.js";
 import { getCommanderMatchupIdentities } from "./commander-names.js";
 import { resolveCommanderColors } from "./commander-colors.js";
@@ -127,7 +127,7 @@ function normalizeKey(value) {
 }
 
 function isMySeat(seat) {
-  return normalizeKey(seat.player) === normalizeKey(MY_PLAYER_NAME);
+  return normalizeKey(seat.player) === normalizeKey(getPlayerName());
 }
 
 /** @param {import('./store.js').Game} game */
@@ -141,7 +141,7 @@ export function parseGameSeats(game, decks = null) {
   const seats = [];
 
   if (game.mySeat || game.deck) {
-    const player = game.myPlayer?.trim() || MY_PLAYER_NAME;
+    const player = game.myPlayer?.trim() || getPlayerName();
     const deckSlotId = game.deck;
     const commander = decks
       ? resolveMyCommander(game, decks)
