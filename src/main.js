@@ -990,6 +990,7 @@ function bindEvents() {
       settingsThemeDraft = {
         themeAccent: themeSettings.themeAccent,
         themeBackground: themeSettings.themeBackground,
+        themeMode: themeSettings.themeMode,
       };
     }
     if (currentView === "stats") {
@@ -1077,16 +1078,24 @@ function bindEvents() {
         settingsThemeDraft = {
           themeAccent: themeSettings.themeAccent,
           themeBackground: themeSettings.themeBackground,
+          themeMode: themeSettings.themeMode,
         };
       }
       if (role === "reset") {
         settingsThemeDraft.themeAccent = "default";
         settingsThemeDraft.themeBackground = "default";
+      } else if (role === "mode") {
+        const mode = themeBtn.getAttribute("data-theme-mode");
+        if (mode === "light" || mode === "dark") settingsThemeDraft.themeMode = mode;
       } else if (role === "accent" || role === "background") {
         const color = themeBtn.getAttribute("data-theme-color");
         if (color) settingsThemeDraft[role === "accent" ? "themeAccent" : "themeBackground"] = color;
       }
-      applyThemeColors(settingsThemeDraft.themeAccent, settingsThemeDraft.themeBackground);
+      applyThemeColors(
+        settingsThemeDraft.themeAccent,
+        settingsThemeDraft.themeBackground,
+        settingsThemeDraft.themeMode
+      );
       render();
       return;
     }
@@ -1672,11 +1681,13 @@ function bindEvents() {
         playerName: String(fd.get("playerName") || ""),
         themeAccent: draft.themeAccent,
         themeBackground: draft.themeBackground,
+        themeMode: draft.themeMode,
       });
       commitSettingsThemePreview();
       settingsThemeDraft = {
         themeAccent: saved.themeAccent,
         themeBackground: saved.themeBackground,
+        themeMode: saved.themeMode,
       };
       toast("Settings saved");
       render();
@@ -4454,7 +4465,9 @@ function renderSettings() {
   const draft = settingsThemeDraft ?? {
     themeAccent: settings.themeAccent,
     themeBackground: settings.themeBackground,
+    themeMode: settings.themeMode,
   };
+  const mode = draft.themeMode === "light" ? "light" : "dark";
 
   return `
     <section class="section settings-page">
@@ -4468,6 +4481,29 @@ function renderSettings() {
         </label>
         <fieldset class="settings-theme-fieldset">
           <legend>Theme</legend>
+          <div class="theme-row">
+            <span class="theme-row-label">Appearance</span>
+            <div class="theme-mode-toggle" role="group" aria-label="Light or dark mode">
+              <button
+                type="button"
+                class="theme-mode-btn ${mode === "dark" ? "selected" : ""}"
+                data-theme-role="mode"
+                data-theme-mode="dark"
+                aria-pressed="${mode === "dark" ? "true" : "false"}"
+              >
+                Dark
+              </button>
+              <button
+                type="button"
+                class="theme-mode-btn ${mode === "light" ? "selected" : ""}"
+                data-theme-role="mode"
+                data-theme-mode="light"
+                aria-pressed="${mode === "light" ? "true" : "false"}"
+              >
+                Light
+              </button>
+            </div>
+          </div>
           <div class="theme-row">
             <span class="theme-row-label">Main color</span>
             <div class="theme-color-grid" role="group" aria-label="Main color">

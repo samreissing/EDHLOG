@@ -1,8 +1,9 @@
 const SETTINGS_KEY = "edhlog-settings-v1";
 export const DEFAULT_PLAYER_NAME = "Brass";
 export const DEFAULT_COLOR = "default";
+export const DEFAULT_THEME_MODE = "dark";
 
-/** @typedef {{ playerName: string, themeAccent: string, themeBackground: string }} AppSettings */
+/** @typedef {{ playerName: string, themeAccent: string, themeBackground: string, themeMode: 'dark' | 'light' }} AppSettings */
 
 export const COLOR_OPTIONS = [
   { id: "default", label: "Default" },
@@ -27,8 +28,10 @@ const ACCENT_VARS = {
   colorless: { accent: "#c8c8c8", accentDim: "#909090" },
 };
 
-/** @type {Record<string, { bg: string, surface: string, surface2: string, border: string, text: string, muted: string, green: string, red: string, glowA: string, glowB: string }>} */
-const BG_VARS = {
+/** @typedef {{ bg: string, surface: string, surface2: string, border: string, text: string, muted: string, green: string, red: string, glowA: string, glowB: string }} BgPalette */
+
+/** @type {Record<string, BgPalette>} */
+const BG_VARS_BASE_DARK = {
   default: {
     bg: "#0d0f14",
     surface: "#151820",
@@ -115,14 +118,203 @@ const BG_VARS = {
   },
 };
 
+/** @type {Record<string, BgPalette>} */
+const BG_VARS_LIGHT = {
+  default: {
+    bg: "#e8ecf2",
+    surface: "#f4f6f9",
+    surface2: "#dde2ea",
+    border: "#b8c0ce",
+    text: "#12161e",
+    muted: "#5c6678",
+    green: "#2a9e5c",
+    red: "#c94040",
+    glowA: "rgba(91, 159, 212, 0.2)",
+    glowB: "rgba(61, 186, 122, 0.1)",
+  },
+  white: {
+    bg: "#f2ebe0",
+    surface: "#faf6ef",
+    surface2: "#e6ddd0",
+    border: "#c9baa8",
+    text: "#1e1a14",
+    muted: "#6b5f50",
+    green: "#3d8f5c",
+    red: "#c45a48",
+    glowA: "rgba(232, 212, 139, 0.35)",
+    glowB: "rgba(196, 168, 74, 0.15)",
+  },
+  blue: {
+    bg: "#dce8f8",
+    surface: "#ecf4fc",
+    surface2: "#cdddf0",
+    border: "#94b0d4",
+    text: "#0a1424",
+    muted: "#4a6080",
+    green: "#2a8f70",
+    red: "#d04040",
+    glowA: "rgba(94, 179, 255, 0.28)",
+    glowB: "rgba(45, 127, 212, 0.14)",
+  },
+  black: {
+    bg: "#e6e2ee",
+    surface: "#f2eff6",
+    surface2: "#d8d2e4",
+    border: "#a89ab8",
+    text: "#141018",
+    muted: "#5c5468",
+    green: "#4a7a42",
+    red: "#a84868",
+    glowA: "rgba(183, 148, 232, 0.22)",
+    glowB: "rgba(122, 158, 110, 0.12)",
+  },
+  red: {
+    bg: "#f5e6e4",
+    surface: "#faf0ee",
+    surface2: "#e8d0cc",
+    border: "#c89890",
+    text: "#1a100e",
+    muted: "#6b5048",
+    green: "#3a8a62",
+    red: "#d85040",
+    glowA: "rgba(240, 112, 96, 0.25)",
+    glowB: "rgba(201, 64, 48, 0.12)",
+  },
+  green: {
+    bg: "#e0ebe4",
+    surface: "#eef5f0",
+    surface2: "#cdded4",
+    border: "#98b8a4",
+    text: "#0e1812",
+    muted: "#4a6054",
+    green: "#2a9e62",
+    red: "#c05050",
+    glowA: "rgba(78, 207, 138, 0.22)",
+    glowB: "rgba(42, 158, 92, 0.12)",
+  },
+  colorless: {
+    bg: "#e8e8e8",
+    surface: "#f4f4f4",
+    surface2: "#d8d8d8",
+    border: "#a8a8a8",
+    text: "#141414",
+    muted: "#585858",
+    green: "#5a8a5a",
+    red: "#a85858",
+    glowA: "rgba(120, 120, 120, 0.15)",
+    glowB: "rgba(90, 90, 90, 0.08)",
+  },
+};
+
+const DARK_BG_SATURATION = 1.08;
+
+function parseHex(hex) {
+  const h = hex.replace("#", "");
+  return {
+    r: parseInt(h.slice(0, 2), 16),
+    g: parseInt(h.slice(2, 4), 16),
+    b: parseInt(h.slice(4, 6), 16),
+  };
+}
+
+function rgbToHex(r, g, b) {
+  const clamp = (n) => Math.max(0, Math.min(255, Math.round(n)));
+  return `#${[clamp(r), clamp(g), clamp(b)]
+    .map((n) => n.toString(16).padStart(2, "0"))
+    .join("")}`;
+}
+
+function rgbToHsl(r, g, b) {
+  r /= 255;
+  g /= 255;
+  b /= 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0;
+  let s = 0;
+  const l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r:
+        h = (g - b) / d + (g < b ? 6 : 0);
+        break;
+      case g:
+        h = (b - r) / d + 2;
+        break;
+      default:
+        h = (r - g) / d + 4;
+        break;
+    }
+    h /= 6;
+  }
+  return { h, s, l };
+}
+
+function hslToRgb(h, s, l) {
+  if (s === 0) {
+    const v = l * 255;
+    return { r: v, g: v, b: v };
+  }
+  const hue2rgb = (p, q, t) => {
+    let tt = t;
+    if (tt < 0) tt += 1;
+    if (tt > 1) tt -= 1;
+    if (tt < 1 / 6) return p + (q - p) * 6 * tt;
+    if (tt < 1 / 2) return q;
+    if (tt < 2 / 3) return p + (q - p) * (2 / 3 - tt) * 6;
+    return p;
+  };
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+  return {
+    r: hue2rgb(p, q, h + 1 / 3) * 255,
+    g: hue2rgb(p, q, h) * 255,
+    b: hue2rgb(p, q, h - 1 / 3) * 255,
+  };
+}
+
+function saturateHex(hex, factor) {
+  const { r, g, b } = parseHex(hex);
+  const { h, s, l } = rgbToHsl(r, g, b);
+  const next = hslToRgb(h, Math.min(1, s * factor), l);
+  return rgbToHex(next.r, next.g, next.b);
+}
+
+/** @param {BgPalette} palette */
+function saturateBgPalette(palette) {
+  return {
+    ...palette,
+    bg: saturateHex(palette.bg, DARK_BG_SATURATION),
+    surface: saturateHex(palette.surface, DARK_BG_SATURATION),
+    surface2: saturateHex(palette.surface2, DARK_BG_SATURATION),
+    border: saturateHex(palette.border, DARK_BG_SATURATION),
+  };
+}
+
+/** @type {Record<string, BgPalette>} */
+const BG_VARS_DARK = Object.fromEntries(
+  Object.entries(BG_VARS_BASE_DARK).map(([id, palette]) => [id, saturateBgPalette(palette)])
+);
+
 /** @type {AppSettings | null} */
 let cache = null;
 
-/** Saved colors while previewing on the settings page (revert on leave without save). */
+/** Saved theme while previewing on the settings page (revert on leave without save). */
 let savedThemeSnapshot = null;
 
 function normalizeColorId(id) {
   return COLOR_OPTIONS.some((c) => c.id === id) ? id : DEFAULT_COLOR;
+}
+
+function normalizeThemeMode(mode) {
+  return mode === "light" ? "light" : "dark";
+}
+
+function resolveBgPalette(bgId, mode) {
+  const id = normalizeColorId(bgId);
+  return normalizeThemeMode(mode) === "light" ? BG_VARS_LIGHT[id] : BG_VARS_DARK[id];
 }
 
 /** @returns {AppSettings} */
@@ -143,6 +335,7 @@ export function getSettings() {
         playerName: String(parsed.playerName || "").trim() || DEFAULT_PLAYER_NAME,
         themeAccent: normalizeColorId(themeAccent),
         themeBackground: normalizeColorId(themeBackground),
+        themeMode: normalizeThemeMode(parsed.themeMode),
       };
       return cache;
     }
@@ -153,17 +346,19 @@ export function getSettings() {
     playerName: DEFAULT_PLAYER_NAME,
     themeAccent: DEFAULT_COLOR,
     themeBackground: DEFAULT_COLOR,
+    themeMode: DEFAULT_THEME_MODE,
   };
   return cache;
 }
 
-/** @param {string} accentId @param {string} bgId */
-export function applyThemeColors(accentId, bgId) {
+/** @param {string} accentId @param {string} bgId @param {'dark'|'light'} [mode] */
+export function applyThemeColors(accentId, bgId, mode) {
   const accent = normalizeColorId(accentId);
   const bg = normalizeColorId(bgId);
+  const themeMode = normalizeThemeMode(mode ?? getSettings().themeMode);
   const root = document.documentElement;
   const a = ACCENT_VARS[accent];
-  const b = BG_VARS[bg];
+  const b = resolveBgPalette(bg, themeMode);
 
   root.style.setProperty("--accent", a.accent);
   root.style.setProperty("--accent-dim", a.accentDim);
@@ -177,6 +372,8 @@ export function applyThemeColors(accentId, bgId) {
   root.style.setProperty("--red", b.red);
   root.style.setProperty("--theme-glow-a", b.glowA);
   root.style.setProperty("--theme-glow-b", b.glowB);
+
+  root.setAttribute("data-theme-mode", themeMode);
 
   if (accent === DEFAULT_COLOR && bg === DEFAULT_COLOR) {
     root.removeAttribute("data-theme-accent");
@@ -195,13 +392,14 @@ export function saveSettings(patch) {
   next.playerName = String(next.playerName || "").trim() || DEFAULT_PLAYER_NAME;
   next.themeAccent = normalizeColorId(next.themeAccent);
   next.themeBackground = normalizeColorId(next.themeBackground);
+  next.themeMode = normalizeThemeMode(next.themeMode);
   cache = next;
   try {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
   } catch {
     /* ignore */
   }
-  applyThemeColors(next.themeAccent, next.themeBackground);
+  applyThemeColors(next.themeAccent, next.themeBackground, next.themeMode);
   savedThemeSnapshot = null;
   return next;
 }
@@ -212,12 +410,20 @@ export function getPlayerName() {
 
 export function beginSettingsThemePreview() {
   const s = getSettings();
-  savedThemeSnapshot = { themeAccent: s.themeAccent, themeBackground: s.themeBackground };
+  savedThemeSnapshot = {
+    themeAccent: s.themeAccent,
+    themeBackground: s.themeBackground,
+    themeMode: s.themeMode,
+  };
 }
 
 export function cancelSettingsThemePreview() {
   if (!savedThemeSnapshot) return;
-  applyThemeColors(savedThemeSnapshot.themeAccent, savedThemeSnapshot.themeBackground);
+  applyThemeColors(
+    savedThemeSnapshot.themeAccent,
+    savedThemeSnapshot.themeBackground,
+    savedThemeSnapshot.themeMode
+  );
   savedThemeSnapshot = null;
 }
 
@@ -228,10 +434,11 @@ export function commitSettingsThemePreview() {
 /** @deprecated */
 export function applyTheme(themeId) {
   const id = normalizeColorId(themeId);
-  applyThemeColors(id, id);
+  const s = getSettings();
+  applyThemeColors(id, id, s.themeMode);
 }
 
 export function initSettings() {
   const s = getSettings();
-  applyThemeColors(s.themeAccent, s.themeBackground);
+  applyThemeColors(s.themeAccent, s.themeBackground, s.themeMode);
 }
