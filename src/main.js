@@ -92,7 +92,17 @@ import {
   renderGameLogPodCard,
 } from "./entity-report.js";
 import { loadImagesIntoRoot } from "./scryfall.js";
-import { getPlayerName, initSettings, saveSettings, THEME_OPTIONS, getSettings, applyTheme } from "./settings.js";
+import {
+  getPlayerName,
+  initSettings,
+  saveSettings,
+  COLOR_OPTIONS,
+  getSettings,
+  applyThemeColors,
+  beginSettingsThemePreview,
+  cancelSettingsThemePreview,
+  commitSettingsThemePreview,
+} from "./settings.js";
 import { bindPodAutocomplete } from "./opponent-search.js";
 import {
   bindDeckTagAutocompletes,
@@ -226,6 +236,8 @@ const DECKS_PAGE_TABS = [
 
 let data = null;
 let currentView = "stats";
+/** Draft theme while on Settings (reverts on leave without save). */
+let settingsThemeDraft = null;
 let statsTab = "overview";
 let statsBracketFilter = "";
 /** @type {"filter"|"table"|null} */
@@ -968,6 +980,18 @@ function bindEvents() {
     if (prevView === "games" && currentView !== "games") {
       resetGamesViewState();
     }
+    if (prevView === "settings" && currentView !== "settings") {
+      cancelSettingsThemePreview();
+      settingsThemeDraft = null;
+    }
+    if (currentView === "settings") {
+      beginSettingsThemePreview();
+      const themeSettings = getSettings();
+      settingsThemeDraft = {
+        themeAccent: themeSettings.themeAccent,
+        themeBackground: themeSettings.themeBackground,
+      };
+    }
     if (currentView === "stats") {
       statsTab = "overview";
       resetAllStatsTabStates();
@@ -1045,6 +1069,28 @@ function bindEvents() {
   });
 
   document.getElementById("main").addEventListener("click", (e) => {
+    const themeBtn = e.target.closest("[data-theme-role]");
+    if (themeBtn && currentView === "settings") {
+      const role = themeBtn.getAttribute("data-theme-role");
+      if (!settingsThemeDraft) {
+        const themeSettings = getSettings();
+        settingsThemeDraft = {
+          themeAccent: themeSettings.themeAccent,
+          themeBackground: themeSettings.themeBackground,
+        };
+      }
+      if (role === "reset") {
+        settingsThemeDraft.themeAccent = "default";
+        settingsThemeDraft.themeBackground = "default";
+      } else if (role === "accent" || role === "background") {
+        const color = themeBtn.getAttribute("data-theme-color");
+        if (color) settingsThemeDraft[role === "accent" ? "themeAccent" : "themeBackground"] = color;
+      }
+      applyThemeColors(settingsThemeDraft.themeAccent, settingsThemeDraft.themeBackground);
+      render();
+      return;
+    }
+
     if (e.target.closest("#game-log-view-list")) {
       if (gamesViewMode !== "list") {
         gamesViewMode = "list";
@@ -1617,21 +1663,21 @@ function bindEvents() {
     }
   });
 
-  document.getElementById("main").addEventListener("change", (e) => {
-    const target = e.target;
-    if (target instanceof HTMLInputElement && target.name === "theme" && currentView === "settings") {
-      applyTheme(target.value);
-    }
-  });
-
   document.getElementById("main").addEventListener("submit", (e) => {
     if (e.target.id === "settings-form") {
       e.preventDefault();
       const fd = new FormData(e.target);
-      saveSettings({
+      const draft = settingsThemeDraft ?? getSettings();
+      const saved = saveSettings({
         playerName: String(fd.get("playerName") || ""),
-        theme: String(fd.get("theme") || "default"),
+        themeAccent: draft.themeAccent,
+        themeBackground: draft.themeBackground,
       });
+      commitSettingsThemePreview();
+      settingsThemeDraft = {
+        themeAccent: saved.themeAccent,
+        themeBackground: saved.themeBackground,
+      };
       toast("Settings saved");
       render();
       return;
@@ -4386,22 +4432,34 @@ function renderGameLogBody(games, sort) {
   return renderGameLogTable(games, sort);
 }
 
+function renderThemeColorButtons(role, selectedId) {
+  return COLOR_OPTIONS.map(
+    (c) => `
+        <button
+          type="button"
+          class="theme-color-btn ${selectedId === c.id ? "selected" : ""}"
+          data-theme-role="${role}"
+          data-theme-color="${escapeHtml(c.id)}"
+          aria-pressed="${selectedId === c.id ? "true" : "false"}"
+          title="${escapeHtml(c.label)}"
+        >
+          <span class="theme-swatch theme-swatch--${escapeHtml(c.id)}" aria-hidden="true"></span>
+          <span class="theme-color-btn-label">${escapeHtml(c.label)}</span>
+        </button>`
+  ).join("");
+}
+
 function renderSettings() {
   const settings = getSettings();
-  const themeCards = THEME_OPTIONS.map(
-    (t) => `
-        <label class="theme-card ${settings.theme === t.id ? "active" : ""}">
-          <input type="radio" name="theme" value="${escapeHtml(t.id)}" ${settings.theme === t.id ? "checked" : ""} />
-          <span class="theme-card-swatch theme-swatch--${escapeHtml(t.id)}" aria-hidden="true"></span>
-          <span class="theme-card-label">${escapeHtml(t.label)}</span>
-        </label>`
-  ).join("");
+  const draft = settingsThemeDraft ?? {
+    themeAccent: settings.themeAccent,
+    themeBackground: settings.themeBackground,
+  };
 
   return `
     <section class="section settings-page">
       <div class="section-header">
         <h2>Settings</h2>
-        <p class="section-desc">Your name is used for pod labels, stats, and matchups. Color themes change the look of the site.</p>
       </div>
       <form id="settings-form" class="settings-form">
         <label class="settings-field">
@@ -4409,8 +4467,22 @@ function renderSettings() {
           <input type="text" name="playerName" value="${escapeHtml(settings.playerName)}" maxlength="80" autocomplete="name" required />
         </label>
         <fieldset class="settings-theme-fieldset">
-          <legend>Color theme</legend>
-          <div class="theme-grid" role="radiogroup" aria-label="Color theme">${themeCards}</div>
+          <legend>Theme</legend>
+          <div class="theme-row">
+            <span class="theme-row-label">Main color</span>
+            <div class="theme-color-grid" role="group" aria-label="Main color">
+              ${renderThemeColorButtons("accent", draft.themeAccent)}
+            </div>
+          </div>
+          <div class="theme-row">
+            <span class="theme-row-label">Background</span>
+            <div class="theme-color-grid" role="group" aria-label="Background color">
+              ${renderThemeColorButtons("background", draft.themeBackground)}
+            </div>
+          </div>
+          <button type="button" class="btn btn-secondary theme-default-reset" data-theme-role="reset">
+            Default theme
+          </button>
         </fieldset>
         <div class="form-actions">
           <button type="submit" class="btn btn-primary">Save settings</button>

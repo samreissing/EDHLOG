@@ -9,6 +9,8 @@
   --accent-dim: #3d7ab0;
   --green: #3dba7a;
   --red: #e05c5c;
+  --theme-glow-a: rgba(91, 159, 212, 0.07);
+  --theme-glow-b: rgba(61, 186, 122, 0.04);
   --radius: 10px;
   --font: "Outfit", system-ui, sans-serif;
   --mono: "JetBrains Mono", monospace;
@@ -33,8 +35,8 @@ body {
 
 body {
   background-image:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(91, 159, 212, 0.07), transparent),
-    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(61, 186, 122, 0.04), transparent);
+    radial-gradient(ellipse 80% 50% at 50% -20%, var(--theme-glow-a), transparent),
+    radial-gradient(ellipse 60% 40% at 100% 100%, var(--theme-glow-b), transparent);
 }
 
 #app {
@@ -3505,13 +3507,6 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 }
 
 /* —— Settings —— */
-.settings-page .section-desc {
-  margin: 0.25rem 0 0;
-  color: var(--muted);
-  font-size: 0.9rem;
-  max-width: 42rem;
-}
-
 .settings-form {
   display: flex;
   flex-direction: column;
@@ -3553,50 +3548,64 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   color: var(--muted);
 }
 
-.theme-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
-  gap: 0.65rem;
-  margin-top: 0.5rem;
+.theme-row {
+  margin-top: 0.65rem;
 }
 
-.theme-card {
+.theme-row-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 0.4rem;
+}
+
+.theme-color-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.theme-color-btn {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.65rem 0.5rem;
+  gap: 0.25rem;
+  width: 3.25rem;
+  padding: 0.35rem 0.25rem;
   border: 2px solid var(--border);
   border-radius: var(--radius);
   cursor: pointer;
   background: var(--surface);
-  transition: border-color 0.15s, box-shadow 0.15s;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.65rem;
+  transition: border-color 0.12s, box-shadow 0.12s;
 }
 
-.theme-card input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
+.theme-color-btn:hover {
+  border-color: var(--muted);
 }
 
-.theme-card.active,
-.theme-card:has(input:checked) {
+.theme-color-btn.selected {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent-dim);
+  color: var(--text);
 }
 
-.theme-card-swatch {
-  width: 100%;
-  height: 2.25rem;
-  border-radius: 6px;
+.theme-swatch {
+  width: 2.25rem;
+  height: 1.35rem;
+  border-radius: 5px;
   border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
-.theme-card-label {
-  font-size: 0.75rem;
-  text-align: center;
-  color: var(--muted);
-  line-height: 1.2;
+.theme-color-btn-label {
+  line-height: 1;
+}
+
+.theme-default-reset {
+  margin-top: 0.75rem;
 }
 
 .theme-swatch--default {
@@ -3619,121 +3628,5 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 }
 .theme-swatch--colorless {
   background: linear-gradient(135deg, #1a1a1a 40%, #c0c0c0 100%);
-}
-
-/* —— Color themes (Magic) —— */
-html[data-theme="white"] {
-  color-scheme: dark;
-  --bg: #1c1b18;
-  --surface: #26241f;
-  --surface-2: #302d26;
-  --border: #4a4538;
-  --text: #f5f0e4;
-  --muted: #b8ad98;
-  --accent: #e8d48b;
-  --accent-dim: #c4a84a;
-  --green: #6abf8a;
-  --red: #d97a6a;
-}
-
-html[data-theme="white"] body {
-  background-image:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(232, 212, 139, 0.12), transparent),
-    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(196, 168, 74, 0.06), transparent);
-}
-
-html[data-theme="blue"] {
-  --bg: #070d18;
-  --surface: #0c1528;
-  --surface-2: #12203a;
-  --border: #1e3a5f;
-  --text: #e6f0ff;
-  --muted: #8ba8cc;
-  --accent: #5eb3ff;
-  --accent-dim: #2d7fd4;
-  --green: #4ec9a0;
-  --red: #ff7b7b;
-}
-
-html[data-theme="blue"] body {
-  background-image:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(94, 179, 255, 0.14), transparent),
-    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(45, 127, 212, 0.08), transparent);
-}
-
-html[data-theme="black"] {
-  --bg: #0a080e;
-  --surface: #12101a;
-  --surface-2: #1a1624;
-  --border: #2e2838;
-  --text: #e8e4f0;
-  --muted: #9a92a8;
-  --accent: #b794e8;
-  --accent-dim: #8b5fc9;
-  --green: #7a9e6e;
-  --red: #c96b8a;
-}
-
-html[data-theme="black"] body {
-  background-image:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(183, 148, 232, 0.1), transparent),
-    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(122, 158, 110, 0.05), transparent);
-}
-
-html[data-theme="red"] {
-  --bg: #140a0a;
-  --surface: #1e1010;
-  --surface-2: #2a1616;
-  --border: #4a2828;
-  --text: #fce8e6;
-  --muted: #c49a94;
-  --accent: #f07060;
-  --accent-dim: #c94030;
-  --green: #5cb88a;
-  --red: #ff9080;
-}
-
-html[data-theme="red"] body {
-  background-image:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(240, 112, 96, 0.12), transparent),
-    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(201, 64, 48, 0.07), transparent);
-}
-
-html[data-theme="green"] {
-  --bg: #0a120e;
-  --surface: #101a14;
-  --surface-2: #16241c;
-  --border: #2a4434;
-  --text: #e8f4ec;
-  --muted: #94b8a4;
-  --accent: #4ecf8a;
-  --accent-dim: #2a9e5c;
-  --green: #5ee0a0;
-  --red: #e07070;
-}
-
-html[data-theme="green"] body {
-  background-image:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(78, 207, 138, 0.12), transparent),
-    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(42, 158, 92, 0.07), transparent);
-}
-
-html[data-theme="colorless"] {
-  --bg: #121212;
-  --surface: #1a1a1a;
-  --surface-2: #242424;
-  --border: #3a3a3a;
-  --text: #ececec;
-  --muted: #a0a0a0;
-  --accent: #c8c8c8;
-  --accent-dim: #909090;
-  --green: #8ab88a;
-  --red: #c88888;
-}
-
-html[data-theme="colorless"] body {
-  background-image:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(200, 200, 200, 0.08), transparent),
-    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(144, 144, 144, 0.05), transparent);
 }
 
