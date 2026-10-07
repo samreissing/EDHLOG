@@ -48,6 +48,19 @@ npm run build
 
 Deploy the `dist/` folder, or use the GitHub Actions workflow above.
 
+## Desktop app (Windows .exe)
+
+EDHLOG can be built as a native desktop app with [Tauri](https://v2.tauri.app/). **Merging the repo does not create an installer** — you build it once on your PC.
+
+See **[docs/DESKTOP.md](docs/DESKTOP.md)** for setup (Rust, MSVC, WebView2) and:
+
+```bash
+npm ci
+npm run desktop:build
+```
+
+Installers land in `src-tauri/target/release/bundle/`. Use `npm run desktop:dev` for a dev window with hot reload.
+
 ## Data
 
 - `public/data/seed.json` — imported from your Google Sheet (904 games, 27 decks)
