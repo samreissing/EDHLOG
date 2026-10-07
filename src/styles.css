@@ -33,6 +33,11 @@ body {
   color-scheme: dark;
 }
 
+html[data-theme-mode="light"],
+html[data-theme-mode="light"] body {
+  color-scheme: light;
+}
+
 body {
   background-image:
     radial-gradient(ellipse 80% 50% at 50% -20%, var(--theme-glow-a), transparent),
@@ -3608,8 +3613,49 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   margin-top: 0.75rem;
 }
 
+.theme-mode-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.theme-mode-btn {
+  padding: 0.45rem 1rem;
+  border: none;
+  background: var(--surface);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.theme-mode-btn + .theme-mode-btn {
+  border-left: 1px solid var(--border);
+}
+
+.theme-mode-btn:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.theme-mode-btn.selected {
+  background: var(--accent-dim);
+  color: #fff;
+}
+
+html[data-theme-mode="light"] .theme-mode-btn.selected {
+  color: #fff;
+}
+
 .theme-swatch--default {
   background: linear-gradient(135deg, #0d0f14 40%, #5b9fd4 100%);
+}
+
+html[data-theme-mode="light"] .theme-swatch--default {
+  background: linear-gradient(135deg, #e8ecf2 40%, #5b9fd4 100%);
 }
 .theme-swatch--white {
   background: linear-gradient(135deg, #2a2820 40%, #f3e9c8 100%);
