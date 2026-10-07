@@ -1,6 +1,6 @@
 import { winRate } from "./stats.js";
 import { parseGameSeats } from "./matchups.js";
-import { MY_PLAYER_NAME } from "./opponent-search.js";
+import { getPlayerName } from "./settings.js";
 import {
   applyTurnDistributionRecordingNormalization,
   applyTurnGridRecordingNormalization,
@@ -18,7 +18,7 @@ function normalizeKey(value) {
 
 /** @param {import('./matchups.js').GameSeat} seat */
 function isMyPlayer(seat) {
-  return normalizeKey(seat.player) === normalizeKey(MY_PLAYER_NAME);
+  return normalizeKey(seat.player) === normalizeKey(getPlayerName());
 }
 
 /** @param {import('./matchups.js').GameSeat} seat @param {import('./matchups.js').GameSeat[]} seats */

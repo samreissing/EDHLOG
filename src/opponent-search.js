@@ -1,9 +1,6 @@
 import { compareGamesChronologically, gameSortKey } from "./dates.js";
 import { deckCommander } from "./deck-identity.js";
-
-/** @typedef {{ name: string, count: number, lastDate: string }} NameEntry */
-
-export const MY_PLAYER_NAME = "Brass";
+import { getPlayerName } from "./settings.js";
 
 function escapeHtml(str) {
   return String(str)
@@ -125,7 +122,7 @@ export function collectPlayerCommanderLinks(games) {
 
   for (const game of games) {
     if (game.deck) {
-      link(MY_PLAYER_NAME, game.myCommander || game.deck, gameSortKey(game));
+      link(getPlayerName(), game.myCommander || game.deck, gameSortKey(game));
     }
     for (const opp of game.opponents || []) {
       link(opp.player, opp.name, gameSortKey(game));
@@ -143,7 +140,7 @@ export function collectPlayerHistory(games) {
 
   for (const game of games) {
     if (game.deck) {
-      trackName(map, MY_PLAYER_NAME, gameSortKey(game));
+      trackName(map, getPlayerName(), gameSortKey(game));
     }
     for (const opp of game.opponents || []) {
       if (opp.player && opp.name) {
@@ -155,7 +152,7 @@ export function collectPlayerHistory(games) {
   return [...map.values()].filter(
     (entry) =>
       links.has(entry.name.toLowerCase()) &&
-      entry.name.toLowerCase() !== MY_PLAYER_NAME.toLowerCase()
+      entry.name.toLowerCase() !== getPlayerName().toLowerCase()
   );
 }
 
@@ -195,7 +192,7 @@ function collectRecentPlayers(games, limit = 8) {
       const name = String(opp.player || "").trim();
       if (!name || !opp.name) continue;
       const key = name.toLowerCase();
-      if (key === MY_PLAYER_NAME.toLowerCase() || seen.has(key)) continue;
+      if (key === getPlayerName().toLowerCase() || seen.has(key)) continue;
       seen.add(key);
       results.push(name);
       if (results.length >= limit) return results;
@@ -236,7 +233,7 @@ export function searchNameHistory(query, entries, limit = 8) {
 export function searchPlayerHistory(query, games, entries, limit = 8) {
   const q = query.trim();
   const pool = entries.filter(
-    (entry) => entry.name.toLowerCase() !== MY_PLAYER_NAME.toLowerCase()
+    (entry) => entry.name.toLowerCase() !== getPlayerName().toLowerCase()
   );
 
   if (!q) {

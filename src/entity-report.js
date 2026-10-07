@@ -30,7 +30,7 @@ import {
   renderWinRateLineChart,
 } from "./trends-chart.js";
 import { pctCell } from "./wr-color.js";
-import { MY_PLAYER_NAME } from "./opponent-search.js";
+import { getPlayerName } from "./settings.js";
 import {
   findOpponentDeck,
   findOpponentDeckByPair,
@@ -83,7 +83,7 @@ function entityGameSeatIsFocus(seat, game, seats, report, decks, opponentDecks) 
   if (!seat) return false;
 
   if (report.kind === "games-log") {
-    return normalizeEntityKey(seat.player) === normalizeEntityKey(MY_PLAYER_NAME);
+    return normalizeEntityKey(seat.player) === normalizeEntityKey(getPlayerName());
   }
 
   if (report.kind === "player") {
@@ -115,7 +115,7 @@ function entityGameSeatIsFocus(seat, game, seats, report, decks, opponentDecks) 
       }
       return (
         game.deck === report.deckSlotId &&
-        normalizeEntityKey(seat.player) === normalizeEntityKey(MY_PLAYER_NAME)
+        normalizeEntityKey(seat.player) === normalizeEntityKey(getPlayerName())
       );
     }
     if (report.opponentDeckId) {
@@ -754,7 +754,7 @@ function seatMatchesArchetype(
   decks,
   opponentDecks
 ) {
-  const isMe = normalizeEntityKey(seat.player) === normalizeEntityKey(MY_PLAYER_NAME);
+  const isMe = normalizeEntityKey(seat.player) === normalizeEntityKey(getPlayerName());
 
   if (archetypeScope === "opponents" && isMe) return false;
 
@@ -826,7 +826,7 @@ function buildArchetypeDeckList(games, decks, opponentDecks, archetypeKey, arche
         continue;
       }
 
-      const isMe = normalizeEntityKey(seat.player) === normalizeEntityKey(MY_PLAYER_NAME);
+      const isMe = normalizeEntityKey(seat.player) === normalizeEntityKey(getPlayerName());
       if (isMe && !includeMine) continue;
       if (!isMe && !includeOpponents) continue;
 
@@ -973,7 +973,7 @@ export function buildEntityReport(games, decks, request) {
       }
     }
 
-    const isMe = playerKey === normalizeEntityKey(MY_PLAYER_NAME);
+    const isMe = playerKey === normalizeEntityKey(getPlayerName());
     const ownedDecks = isMe
       ? decks.map((deck) => {
           const slotId = deckId(deck);
@@ -1036,7 +1036,7 @@ export function buildEntityReport(games, decks, request) {
       if (playerScope && normalizeEntityKey(seat.player) !== normalizeEntityKey(playerScope)) {
         return false;
       }
-      return normalizeEntityKey(seat.player) === normalizeEntityKey(MY_PLAYER_NAME);
+      return normalizeEntityKey(seat.player) === normalizeEntityKey(getPlayerName());
     };
     const colors = resolveCommanderColors(commanderName, {
       splitPartners,
@@ -1237,16 +1237,16 @@ function renderEntityGamePodCard(game, decks, report, opponentDecks = [], cardOp
     const mySeat = 0;
     const myCommander = resolveMyCommander(game, decks);
     const mySeatEntry = allSeats.find(
-      (seat) => normalizeEntityKey(seat.player) === normalizeEntityKey(MY_PLAYER_NAME)
+      (seat) => normalizeEntityKey(seat.player) === normalizeEntityKey(getPlayerName())
     );
     const opponentSeats = allSeats.filter(
-      (seat) => normalizeEntityKey(seat.player) !== normalizeEntityKey(MY_PLAYER_NAME)
+      (seat) => normalizeEntityKey(seat.player) !== normalizeEntityKey(getPlayerName())
     );
     const myBox = gameHasPodDetail(game)
       ? `
         <div class="entity-game-seat-box ${entityPodRowOutcomeClass(game, 0, mySeat, true)}${entityGameSeatFocusClass(mySeatEntry, game, allSeats, report, decks, opponentDecks)}">
           <span class="entity-game-seat-num">Player w</span>
-          <span class="entity-game-seat-player">${renderPlayerReportLink(MY_PLAYER_NAME)}</span>
+          <span class="entity-game-seat-player">${renderPlayerReportLink(getPlayerName())}</span>
           <span class="entity-game-seat-commander">${escapeHtml(myCommander)}</span>
         </div>`
       : "";
@@ -1369,7 +1369,7 @@ function renderEntityGamesTable(games, decks, report, sort, opponentDecks = []) 
                     label: seat?.commander || deckTitleForKey(game.deck, decks),
                     playerScope: report.kind === "player" ? report.title : seat?.player || null,
                     deckSlotId:
-                      report.kind === "archetype" && seat && normalizeEntityKey(seat.player) === normalizeEntityKey(MY_PLAYER_NAME)
+                      report.kind === "archetype" && seat && normalizeEntityKey(seat.player) === normalizeEntityKey(getPlayerName())
                         ? game.deck || null
                         : report.kind === "player"
                           ? seat?.deckSlotId || game.deck || null

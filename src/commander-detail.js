@@ -4,7 +4,7 @@ import { formatDate, compareGamesChronologically } from "./dates.js";
 import { renderCommanderImageTags } from "./scryfall.js";
 import { parseGameSeats } from "./matchups.js";
 import { commanderMatchesTarget } from "./commander-names.js";
-import { MY_PLAYER_NAME } from "./opponent-search.js";
+import { getPlayerName } from "./settings.js";
 
 function escapeHtml(str) {
   return String(str)
@@ -21,7 +21,7 @@ function normalizeKey(value) {
 }
 
 function isMySeat(seat) {
-  return normalizeKey(seat.player) === normalizeKey(MY_PLAYER_NAME);
+  return normalizeKey(seat.player) === normalizeKey(getPlayerName());
 }
 
 function statBlock(label, value, isWr = false) {

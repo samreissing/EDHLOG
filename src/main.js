@@ -92,7 +92,8 @@ import {
   renderGameLogPodCard,
 } from "./entity-report.js";
 import { loadImagesIntoRoot } from "./scryfall.js";
-import { bindPodAutocomplete, MY_PLAYER_NAME } from "./opponent-search.js";
+import { getPlayerName, initSettings, saveSettings, THEME_OPTIONS, getSettings, applyTheme } from "./settings.js";
+import { bindPodAutocomplete } from "./opponent-search.js";
 import {
   bindDeckTagAutocompletes,
   deckHasTribalArchetype,
@@ -204,6 +205,7 @@ const VIEWS = [
   { id: "totals", label: "Total Stats" },
   { id: "decks", label: "Decks" },
   { id: "games", label: "Games" },
+  { id: "settings", label: "Settings" },
 ];
 
 const STATS_TABS = [
@@ -878,6 +880,7 @@ async function connectDataFile(mode) {
 
 async function boot() {
   sessionStorage.removeItem("edhlog-stale-reload");
+  initSettings();
   void requestPersistentBrowserStorage();
   data = await initData();
   if (!isDataFileConnected()) await restoreDataFileConnection();
@@ -1614,7 +1617,25 @@ function bindEvents() {
     }
   });
 
+  document.getElementById("main").addEventListener("change", (e) => {
+    const target = e.target;
+    if (target instanceof HTMLInputElement && target.name === "theme" && currentView === "settings") {
+      applyTheme(target.value);
+    }
+  });
+
   document.getElementById("main").addEventListener("submit", (e) => {
+    if (e.target.id === "settings-form") {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      saveSettings({
+        playerName: String(fd.get("playerName") || ""),
+        theme: String(fd.get("theme") || "default"),
+      });
+      toast("Settings saved");
+      render();
+      return;
+    }
     if (e.target.id === "add-game-form") {
       e.preventDefault();
       e.target.querySelectorAll('[name="result"]').forEach((el) => {
@@ -2691,6 +2712,7 @@ function render() {
   if (currentView === "stats") main.innerHTML = renderStats();
   else if (currentView === "totals") main.innerHTML = renderTotals();
   else if (currentView === "decks") main.innerHTML = renderDecks();
+  else if (currentView === "settings") main.innerHTML = renderSettings();
   else main.innerHTML = renderGames();
 
   bindPieCharts();
@@ -2827,7 +2849,7 @@ function renderPodium(podium, labelForDeck = deckLabel) {
       (deck, index) => `
       <div class="podium-slot podium-${index + 1}">
         <span class="podium-rank">${labels[index]}</span>
-        <strong class="podium-name">${renderDeckReportLink(deckCommander(deck), data.decks, { label: labelForDeck(deck), playerScope: MY_PLAYER_NAME, deckSlotId: deckId(deck) })}</strong>
+        <strong class="podium-name">${renderDeckReportLink(deckCommander(deck), data.decks, { label: labelForDeck(deck), playerScope: getPlayerName(), deckSlotId: deckId(deck) })}</strong>
         <span class="podium-meta">${deck.wins}W · ${deck.games}G · ${pct(deck.winRate)} · ${pct(deck.normalizedWr)} norm</span>
       </div>`
     )
@@ -4364,6 +4386,39 @@ function renderGameLogBody(games, sort) {
   return renderGameLogTable(games, sort);
 }
 
+function renderSettings() {
+  const settings = getSettings();
+  const themeCards = THEME_OPTIONS.map(
+    (t) => `
+        <label class="theme-card ${settings.theme === t.id ? "active" : ""}">
+          <input type="radio" name="theme" value="${escapeHtml(t.id)}" ${settings.theme === t.id ? "checked" : ""} />
+          <span class="theme-card-swatch theme-swatch--${escapeHtml(t.id)}" aria-hidden="true"></span>
+          <span class="theme-card-label">${escapeHtml(t.label)}</span>
+        </label>`
+  ).join("");
+
+  return `
+    <section class="section settings-page">
+      <div class="section-header">
+        <h2>Settings</h2>
+        <p class="section-desc">Your name is used for pod labels, stats, and matchups. Color themes change the look of the site.</p>
+      </div>
+      <form id="settings-form" class="settings-form">
+        <label class="settings-field">
+          <span class="settings-label">Your player name</span>
+          <input type="text" name="playerName" value="${escapeHtml(settings.playerName)}" maxlength="80" autocomplete="name" required />
+        </label>
+        <fieldset class="settings-theme-fieldset">
+          <legend>Color theme</legend>
+          <div class="theme-grid" role="radiogroup" aria-label="Color theme">${themeCards}</div>
+        </fieldset>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">Save settings</button>
+        </div>
+      </form>
+    </section>`;
+}
+
 function renderGames() {
   let games = filterLogGames([...data.games]);
   games = applySort(games, tableSort["game-log"], {
@@ -4441,7 +4496,7 @@ function opponentName(game, slot) {
 function playerName(game, slot) {
   if (!game) return "";
   if (gameHasMySeat(game)) {
-    if (Number(game.mySeat) === slot) return game.myPlayer || "";
+    if (Number(game.mySeat) === slot) return game.myPlayer || getPlayerName();
     return opponentEntryForPodSlot(game, slot)?.player || "";
   }
   return game.opponents?.[slot - 1]?.player || "";
@@ -4510,7 +4565,7 @@ function fieldValueLink(value, kind = "player", game = null, seat = null) {
 }
 
 function podPlayerName(game, seat) {
-  if (Number(game.mySeat) === seat) return MY_PLAYER_NAME;
+  if (Number(game.mySeat) === seat) return getPlayerName();
   return playerName(game, seat);
 }
 
@@ -4573,8 +4628,8 @@ function renderGameDetail(game) {
     hasPodPlayers && !gameHasMySeat(game)
       ? `
           <div class="pod-seat-row ${podRowOutcomeClass(game, 0, mySeat, true)}">
-            <label class="pod-player">Player w${fieldValueLink(MY_PLAYER_NAME)}</label>
-            <label class="pod-commander">Commander w<span class="field-value">${renderDeckReportLink(myCommander, data.decks, { label: myCommander, playerScope: MY_PLAYER_NAME, deckSlotId: game.deck })}</span></label>
+            <label class="pod-player">Player w${fieldValueLink(getPlayerName())}</label>
+            <label class="pod-commander">Commander w<span class="field-value">${renderDeckReportLink(myCommander, data.decks, { label: myCommander, playerScope: getPlayerName(), deckSlotId: game.deck })}</span></label>
           </div>`
       : "";
   const opponentRows = podSlots
@@ -4652,7 +4707,7 @@ function renderPodSeatRow(seat, formMySeat, editing) {
             <div class="pod-seat-fields">
               <label class="pod-player">
                 <div class="opponent-input-wrap">
-                  <input type="text" class="player-input" name="player-${seat}" value="${escapeHtml(playerName(editing, seat))}" placeholder="Player name" autocomplete="off" />
+                  <input type="text" class="player-input" name="player-${seat}" value="${escapeHtml(playerName(editing, seat) || (seat === formMySeat && formMySeat ? getPlayerName() : ""))}" placeholder="Player name" autocomplete="off" />
                   <ul class="opponent-suggestions" hidden role="listbox"></ul>
                 </div>
               </label>
@@ -4756,7 +4811,7 @@ function gameRow(g) {
   const deckDisplay = deck ? deckTitle(deck) : deckTitleForKey(g.deck, data.decks);
   const deckLink = renderDeckReportLink(deck ? deckCommander(deck) : resolveMyCommander(g, data.decks), data.decks, {
     label: deckDisplay,
-    playerScope: MY_PLAYER_NAME,
+    playerScope: getPlayerName(),
     deckSlotId: g.deck,
   });
   const bracket = gameBracket(g, new Map(data.decks.map((d) => [deckId(d), d])));
