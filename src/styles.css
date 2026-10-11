@@ -9,8 +9,6 @@
   --accent-dim: #3d7ab0;
   --green: #3dba7a;
   --red: #e05c5c;
-  --theme-glow-a: rgba(91, 159, 212, 0.07);
-  --theme-glow-b: rgba(61, 186, 122, 0.04);
   --radius: 10px;
   --font: "Outfit", system-ui, sans-serif;
   --mono: "JetBrains Mono", monospace;
@@ -36,12 +34,6 @@ body {
 html[data-theme-mode="light"],
 html[data-theme-mode="light"] body {
   color-scheme: light;
-}
-
-body {
-  background-image:
-    radial-gradient(ellipse 80% 50% at 50% -20%, var(--theme-glow-a), transparent),
-    radial-gradient(ellipse 60% 40% at 100% 100%, var(--theme-glow-b), transparent);
 }
 
 #app {
@@ -110,7 +102,7 @@ body {
 .nav-btn.active {
   color: var(--accent);
   border-color: var(--accent-dim);
-  background: rgba(91, 159, 212, 0.12);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
 /* Main */
@@ -119,7 +111,7 @@ main {
 }
 
 .section {
-  background: var(--surface);
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 1.25rem 1.5rem;
@@ -3651,26 +3643,26 @@ html[data-theme-mode="light"] .theme-mode-btn.selected {
 }
 
 .theme-swatch--default {
-  background: linear-gradient(135deg, #0d0f14 40%, #5b9fd4 100%);
+  background: linear-gradient(135deg, #161b26 72%, #5b9fd4 100%);
 }
 
 html[data-theme-mode="light"] .theme-swatch--default {
-  background: linear-gradient(135deg, #e8ecf2 40%, #5b9fd4 100%);
+  background: linear-gradient(135deg, #e4e8ef 72%, #5b9fd4 100%);
 }
 .theme-swatch--white {
-  background: linear-gradient(135deg, #2a2820 40%, #f3e9c8 100%);
+  background: linear-gradient(135deg, #2e2a22 72%, #f3e9c8 100%);
 }
 .theme-swatch--blue {
-  background: linear-gradient(135deg, #0a1628 40%, #4a9eff 100%);
+  background: linear-gradient(135deg, #1a3d6b 72%, #4a9eff 100%);
 }
 .theme-swatch--black {
-  background: linear-gradient(135deg, #120f18 40%, #9b7bb8 100%);
+  background: linear-gradient(135deg, #2a2238 72%, #9b7bb8 100%);
 }
 .theme-swatch--red {
-  background: linear-gradient(135deg, #1a0f0f 40%, #e85d4c 100%);
+  background: linear-gradient(135deg, #4a2828 72%, #e85d4c 100%);
 }
 .theme-swatch--green {
-  background: linear-gradient(135deg, #0f1a12 40%, #3dba7a 100%);
+  background: linear-gradient(135deg, #1f3d30 72%, #3dba7a 100%);
 }
 .theme-swatch--colorless {
   background: linear-gradient(135deg, #1a1a1a 40%, #c0c0c0 100%);

@@ -28,185 +28,118 @@ const ACCENT_VARS = {
   colorless: { accent: "#c8c8c8", accentDim: "#909090" },
 };
 
-/** @typedef {{ bg: string, surface: string, surface2: string, border: string, text: string, muted: string, green: string, red: string, glowA: string, glowB: string }} BgPalette */
+/** @typedef {{ bg: string, surface: string, surface2: string, border: string, text: string, muted: string, green: string, red: string }} BgPalette */
 
-/** @type {Record<string, BgPalette>} */
-const BG_VARS_BASE_DARK = {
+/** @typedef {{ bg: string, text: string, muted: string, green: string, red: string }} BgCanvasAnchor */
+
+/** Page canvas color per identity — surfaces are derived from this hue, not a separate grey stack. */
+/** @type {Record<string, BgCanvasAnchor>} */
+const BG_CANVAS_DARK = {
   default: {
-    bg: "#0d0f14",
-    surface: "#151820",
-    surface2: "#1c2130",
-    border: "#2a3144",
+    bg: "#161b26",
     text: "#e8ecf4",
     muted: "#8b95a8",
     green: "#3dba7a",
     red: "#e05c5c",
-    glowA: "rgba(91, 159, 212, 0.07)",
-    glowB: "rgba(61, 186, 122, 0.04)",
   },
   white: {
-    bg: "#1c1b18",
-    surface: "#26241f",
-    surface2: "#302d26",
-    border: "#4a4538",
+    bg: "#2e2a22",
     text: "#f5f0e4",
     muted: "#b8ad98",
     green: "#6abf8a",
     red: "#d97a6a",
-    glowA: "rgba(232, 212, 139, 0.12)",
-    glowB: "rgba(196, 168, 74, 0.06)",
   },
   blue: {
-    bg: "#070d18",
-    surface: "#0c1528",
-    surface2: "#12203a",
-    border: "#1e3a5f",
+    bg: "#1a3d6b",
     text: "#e6f0ff",
-    muted: "#8ba8cc",
+    muted: "#9cb8dc",
     green: "#4ec9a0",
     red: "#ff7b7b",
-    glowA: "rgba(94, 179, 255, 0.14)",
-    glowB: "rgba(45, 127, 212, 0.08)",
   },
   black: {
-    bg: "#0a080e",
-    surface: "#12101a",
-    surface2: "#1a1624",
-    border: "#2e2838",
+    bg: "#2a2238",
     text: "#e8e4f0",
     muted: "#9a92a8",
     green: "#7a9e6e",
     red: "#c96b8a",
-    glowA: "rgba(183, 148, 232, 0.1)",
-    glowB: "rgba(122, 158, 110, 0.05)",
   },
   red: {
-    bg: "#140a0a",
-    surface: "#1e1010",
-    surface2: "#2a1616",
-    border: "#4a2828",
+    bg: "#4a2828",
     text: "#fce8e6",
     muted: "#c49a94",
     green: "#5cb88a",
     red: "#ff9080",
-    glowA: "rgba(240, 112, 96, 0.12)",
-    glowB: "rgba(201, 64, 48, 0.07)",
   },
   green: {
-    bg: "#0a120e",
-    surface: "#101a14",
-    surface2: "#16241c",
-    border: "#2a4434",
+    bg: "#1f3d30",
     text: "#e8f4ec",
     muted: "#94b8a4",
     green: "#5ee0a0",
     red: "#e07070",
-    glowA: "rgba(78, 207, 138, 0.12)",
-    glowB: "rgba(42, 158, 92, 0.07)",
   },
   colorless: {
-    bg: "#121212",
-    surface: "#1a1a1a",
-    surface2: "#242424",
-    border: "#3a3a3a",
+    bg: "#242424",
     text: "#ececec",
     muted: "#a0a0a0",
     green: "#8ab88a",
     red: "#c88888",
-    glowA: "rgba(200, 200, 200, 0.08)",
-    glowB: "rgba(144, 144, 144, 0.05)",
   },
 };
 
-/** @type {Record<string, BgPalette>} */
-const BG_VARS_LIGHT = {
+/** @type {Record<string, BgCanvasAnchor>} */
+const BG_CANVAS_LIGHT = {
   default: {
-    bg: "#e8ecf2",
-    surface: "#f4f6f9",
-    surface2: "#dde2ea",
-    border: "#b8c0ce",
+    bg: "#e4e8ef",
     text: "#12161e",
     muted: "#5c6678",
     green: "#2a9e5c",
     red: "#c94040",
-    glowA: "rgba(91, 159, 212, 0.2)",
-    glowB: "rgba(61, 186, 122, 0.1)",
   },
   white: {
-    bg: "#f2ebe0",
-    surface: "#faf6ef",
-    surface2: "#e6ddd0",
-    border: "#c9baa8",
+    bg: "#ebe4d6",
     text: "#1e1a14",
     muted: "#6b5f50",
     green: "#3d8f5c",
     red: "#c45a48",
-    glowA: "rgba(232, 212, 139, 0.35)",
-    glowB: "rgba(196, 168, 74, 0.15)",
   },
   blue: {
-    bg: "#dce8f8",
-    surface: "#ecf4fc",
-    surface2: "#cdddf0",
-    border: "#94b0d4",
+    bg: "#c8daf0",
     text: "#0a1424",
     muted: "#4a6080",
     green: "#2a8f70",
     red: "#d04040",
-    glowA: "rgba(94, 179, 255, 0.28)",
-    glowB: "rgba(45, 127, 212, 0.14)",
   },
   black: {
-    bg: "#e6e2ee",
-    surface: "#f2eff6",
-    surface2: "#d8d2e4",
-    border: "#a89ab8",
+    bg: "#d8d2e6",
     text: "#141018",
     muted: "#5c5468",
     green: "#4a7a42",
     red: "#a84868",
-    glowA: "rgba(183, 148, 232, 0.22)",
-    glowB: "rgba(122, 158, 110, 0.12)",
   },
   red: {
-    bg: "#f5e6e4",
-    surface: "#faf0ee",
-    surface2: "#e8d0cc",
-    border: "#c89890",
+    bg: "#ecd0cc",
     text: "#1a100e",
     muted: "#6b5048",
     green: "#3a8a62",
     red: "#d85040",
-    glowA: "rgba(240, 112, 96, 0.25)",
-    glowB: "rgba(201, 64, 48, 0.12)",
   },
   green: {
-    bg: "#e0ebe4",
-    surface: "#eef5f0",
-    surface2: "#cdded4",
-    border: "#98b8a4",
+    bg: "#c8ddd0",
     text: "#0e1812",
     muted: "#4a6054",
     green: "#2a9e62",
     red: "#c05050",
-    glowA: "rgba(78, 207, 138, 0.22)",
-    glowB: "rgba(42, 158, 92, 0.12)",
   },
   colorless: {
-    bg: "#e8e8e8",
-    surface: "#f4f4f4",
-    surface2: "#d8d8d8",
-    border: "#a8a8a8",
+    bg: "#dcdcdc",
     text: "#141414",
     muted: "#585858",
     green: "#5a8a5a",
     red: "#a85858",
-    glowA: "rgba(120, 120, 120, 0.15)",
-    glowB: "rgba(90, 90, 90, 0.08)",
   },
 };
 
-const DARK_BG_SATURATION = 1.08;
+const DARK_BG_SATURATION = 1.06;
 
 function parseHex(hex) {
   const h = hex.replace("#", "");
@@ -282,21 +215,32 @@ function saturateHex(hex, factor) {
   return rgbToHex(next.r, next.g, next.b);
 }
 
-/** @param {BgPalette} palette */
-function saturateBgPalette(palette) {
-  return {
-    ...palette,
-    bg: saturateHex(palette.bg, DARK_BG_SATURATION),
-    surface: saturateHex(palette.surface, DARK_BG_SATURATION),
-    surface2: saturateHex(palette.surface2, DARK_BG_SATURATION),
-    border: saturateHex(palette.border, DARK_BG_SATURATION),
-  };
+function adjustLightness(hex, delta) {
+  const { r, g, b } = parseHex(hex);
+  const { h, s, l } = rgbToHsl(r, g, b);
+  const nextL = Math.max(0, Math.min(1, l + delta));
+  const next = hslToRgb(h, s, nextL);
+  return rgbToHex(next.r, next.g, next.b);
 }
 
-/** @type {Record<string, BgPalette>} */
-const BG_VARS_DARK = Object.fromEntries(
-  Object.entries(BG_VARS_BASE_DARK).map(([id, palette]) => [id, saturateBgPalette(palette)])
-);
+/** @param {BgCanvasAnchor} anchor @param {'dark'|'light'} mode */
+function buildBgPalette(anchor, mode) {
+  const isLight = mode === "light";
+  const bg = isLight ? anchor.bg : saturateHex(anchor.bg, DARK_BG_SATURATION);
+  const surfaceLift = isLight ? 0.045 : 0.06;
+  const surface2Lift = isLight ? -0.035 : 0.11;
+  const borderLift = isLight ? -0.12 : 0.17;
+  return {
+    bg,
+    surface: adjustLightness(bg, surfaceLift),
+    surface2: adjustLightness(bg, surface2Lift),
+    border: adjustLightness(bg, borderLift),
+    text: anchor.text,
+    muted: anchor.muted,
+    green: anchor.green,
+    red: anchor.red,
+  };
+}
 
 /** @type {AppSettings | null} */
 let cache = null;
@@ -314,7 +258,9 @@ function normalizeThemeMode(mode) {
 
 function resolveBgPalette(bgId, mode) {
   const id = normalizeColorId(bgId);
-  return normalizeThemeMode(mode) === "light" ? BG_VARS_LIGHT[id] : BG_VARS_DARK[id];
+  const themeMode = normalizeThemeMode(mode);
+  const anchor = themeMode === "light" ? BG_CANVAS_LIGHT[id] : BG_CANVAS_DARK[id];
+  return buildBgPalette(anchor, themeMode);
 }
 
 /** @returns {AppSettings} */
@@ -370,8 +316,6 @@ export function applyThemeColors(accentId, bgId, mode) {
   root.style.setProperty("--muted", b.muted);
   root.style.setProperty("--green", b.green);
   root.style.setProperty("--red", b.red);
-  root.style.setProperty("--theme-glow-a", b.glowA);
-  root.style.setProperty("--theme-glow-b", b.glowB);
 
   root.setAttribute("data-theme-mode", themeMode);
 
